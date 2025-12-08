@@ -1,4 +1,4 @@
--- [[ FSSHUB LIBRARY SOURCE ]] --
+-- [[ FSSHUB LIBRARY SOURCE V2 (With Keybind) ]] --
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -282,6 +282,44 @@ function FSSHUB:Window(title)
         UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
         UpdateVisual(value)
         if not isSettings then FSSHUB.Elements[text] = {Type = "Slider", Function = function(v) UpdateVisual(v); pcall(callback, v) end} end
+    end
+    function Lib:Keybind(text, default, callback, isSettings)
+        local key = default or Enum.KeyCode.RightControl
+        if not isSettings and FSSHUB.ConfigData[text] then key = Enum.KeyCode[FSSHUB.ConfigData[text]] end
+        
+        local KeyFrame = Create("Frame", {Parent = GetContainer(isSettings), BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 36)})
+        Create("UICorner", {Parent = KeyFrame, CornerRadius = UDim.new(0, 6)})
+        Create("TextLabel", {Parent = KeyFrame, Text = text, TextColor3 = FSSHUB.Theme.Text, Font = Enum.Font.GothamMedium, TextSize = 14, Size = UDim2.new(1, -90, 0, 36), Position = UDim2.new(0, 10, 0, 0), TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1})
+        
+        local KeyBtn = Create("TextButton", {Parent = KeyFrame, BackgroundColor3 = Color3.fromRGB(45,45,45), Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), Text = key.Name, TextColor3 = FSSHUB.Theme.TextDim, Font = Enum.Font.GothamBold, TextSize = 12, AutoButtonColor = false})
+        Create("UICorner", {Parent = KeyBtn, CornerRadius = UDim.new(0, 4)})
+        
+        local listening = false
+        KeyBtn.MouseButton1Click:Connect(function()
+            if listening then return end
+            listening = true
+            KeyBtn.Text = "..."
+            KeyBtn.TextColor3 = FSSHUB.Theme.Accent
+            
+            local inputConn
+            inputConn = UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    key = input.KeyCode
+                    KeyBtn.Text = key.Name
+                    KeyBtn.TextColor3 = FSSHUB.Theme.TextDim
+                    
+                    if not isSettings then FSSHUB.ConfigData[text] = key.Name end
+                    pcall(callback, key)
+                    
+                    listening = false
+                    inputConn:Disconnect()
+                end
+            end)
+        end)
+        
+        -- Init callback
+        pcall(callback, key)
+        if not isSettings then FSSHUB.Elements[text] = {Type = "Keybind", Function = function(v) key = Enum.KeyCode[v]; KeyBtn.Text = key.Name; pcall(callback, key) end} end
     end
     function Lib:Box(text, callback)
         local BoxFrame = Create("Frame", {Parent = SettingsContainer, BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 50)})
