@@ -1,7 +1,8 @@
 -- [[ FSSHUB: SURVIVE WAVE Z SCRIPT ]] --
 
 -- LOAD LIBRARY
-local Library = loadstring(game:HttpGet("[LINK_RAW_GITHUB_KAMU]"))()
+-- Pastikan ganti link di bawah ini ke link raw FSSHUB_Lib.lua kamu yang asli
+local Library = loadstring(game:HttpGet("raw.githubusercontent.com/fingerscrows/FSSHUB-Official/refs/heads/main/main/lib/FSSHUB_Lib.lua"))()
 local Win = Library:Window("FSSHUB | Survive Wave Z")
 
 -- SERVICES & VARS
@@ -9,6 +10,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService") -- Service baru untuk Input
 local Camera = Workspace.CurrentCamera
 local dist, height = 10, 1
 
@@ -167,3 +169,30 @@ end)
 -- SETUP SETTINGS & CONFIG
 Win:CreateConfigSystem("https://discord.gg/28cfy5E3ag")
 Win:CheckAutoload()
+
+-- [[ FITUR TAMBAHAN: TOGGLE HIDE UI (RIGHT CTRL) ]] --
+local ToggleKey = Enum.KeyCode.RightControl
+local LibName = "FSSHUB_Final" -- Harus sama dengan nama ScreenGui di Lib
+local UIVisible = true
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == ToggleKey then
+        UIVisible = not UIVisible
+        
+        -- Cari UI di CoreGui atau PlayerGui (Tergantung Executor)
+        local TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName) or game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild(LibName)
+        
+        if TargetUI then
+            TargetUI.Enabled = UIVisible
+        end
+    end
+end)
+
+-- Notifikasi info Keybind
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "FSSHUB Loaded";
+    Text = "Press [Right Ctrl] to Hide/Show Menu";
+    Duration = 5;
+})
