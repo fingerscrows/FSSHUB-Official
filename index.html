@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Gateway</title>
+    <style>
+        body { background-color: #000; color: #fff; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+        
+        /* CONTAINER UTAMA */
+        #secure-container { display: none; text-align: center; border: 1px solid #00ff00; padding: 30px; border-radius: 10px; background: #0a0a0a; width: 350px; box-shadow: 0 0 15px rgba(0, 255, 0, 0.2); }
+        
+        /* CONTAINER ERROR */
+        #error-container { display: none; text-align: center; max-width: 400px; padding: 20px; border: 1px solid red; border-radius: 10px; background: #100000; }
+
+        h2 { margin-top: 0; color: #00ff00; }
+        h1 { color: red; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+        
+        input { background: #111; border: 1px solid #333; color: #00ff00; padding: 12px; width: 90%; text-align: center; font-size: 16px; margin: 15px 0; border-radius: 5px; }
+        button { background: #00ff00; color: #000; border: none; padding: 12px; font-weight: bold; cursor: pointer; width: 100%; border-radius: 5px; }
+        button:hover { background: #fff; }
+        
+        .timer { font-size: 11px; color: #666; margin-top: 10px; }
+        .reason { color: #ff5555; font-size: 12px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="error-container">
+        <h1>ACCESS DENIED</h1>
+        <p class="reason" id="error-msg">Checking security...</p>
+        <button onclick="window.location.href='https://work.ink/29DK/fsshub-get-key-script'">GET NEW LINK</button>
+    </div>
+
+    <div id="secure-container">
+        <h2>ACCESS GRANTED</h2>
+        <div id="status" style="font-size:12px; color:#888;">Validating...</div>
+        
+        <input type="text" id="keyField" readonly value="Generating..." onclick="copyKey()">
+        <button onclick="copyKey()">COPY KEY</button>
+        
+        <div class="timer" id="countdown">Loading...</div>
+    </div>
+
+    <script>
+        // --- KONFIGURASI UTAMA ---
+        const SECRET_SALT = "RAHASIA_FINAL_KAMU_123"; 
+        const UPDATE_INTERVAL = 6; // 12 Jam
+        const REQUIRED_VERSION = "1"; // Ubah ini jika link berubah (?ver=1)
+        // -------------------------
+
+        // 1. SISTEM KEAMANAN BERLAPIS
+        function runSecurityCheck() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userVer = urlParams.get('ver');
+            const sessionLock = sessionStorage.getItem("fss_session_lock");
+
+            // A. Cek Versi (Wajib ?ver=1)
+            if (userVer !== REQUIRED_VERSION) {
+                killSession("Invalid or Expired Link Version.");
+                return;
+            }
+
+            // B. Cek Refresh/Back (Anti-Replay)
+            if (sessionLock) {
+                killSession("Session Expired. Do not refresh or go back.");
+                return;
+            }
+
+            // C. Cek Referrer (Opsional - Anti Direct Access)
+            // Hapus blok kode C ini jika user banyak komplain error
+            /*
+            if (document.referrer === "") {
+                killSession("Direct Access not allowed.");
+                return;
+            }
+            */
+
+            // JIKA LOLOS SEMUA CEK:
+            initSuccess();
+        }
+
+        function killSession(reason) {
+            document.getElementById("secure-container").style.display = "none";
+            document.getElementById("error-container").style.display = "block";
+            document.getElementById("error-msg").innerText = reason;
+            document.title = "Access Denied";
+        }
+
+        function initSuccess() {
+            // 1. Kunci Session (Agar tidak bisa refresh)
+            sessionStorage.setItem("fss_session_lock", "true");
+            
+            // 2. Manipulasi URL (Sembunyikan ?ver=1, ganti jadi token acak)
+            const fakeToken = Math.floor(Math.random() * 99999999999);
+            window.history.replaceState(null, "", "?token=" + fakeToken + "&secure=true");
+            
+            // 3. Tampilkan UI
+            document.getElementById("secure-container").style.display = "block";
+            document.getElementById("status").innerText = "Session Token: " + fakeToken;
+
+            // 4. Jalankan Timer & Key Gen
+            startKeySystem();
+            
+            // 5. Matikan Tombol Back
+            window.history.pushState(null, "", window.location.href);
+            window.onpopstate = function () {
+                window.history.pushState(null, "", window.location.href);
+                alert("Security Alert: Going back is disabled.");
+            };
+        }
+
+        // 2. GENERATOR KUNCI & TIMER (Sama seperti V3)
+        function djb2Hash(str) {
+            let hash = 5381;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) + hash) + str.charCodeAt(i); 
+            }
+            return (hash >>> 0).toString(16).toUpperCase(); 
+        }
+
+        function startKeySystem() {
+            function update() {
+                const now = new Date();
+                const utcNow = now.getTime();
+                const totalHours = Math.floor(utcNow / (1000 * 60 * 60));
+                const currentBlock = Math.floor(totalHours / UPDATE_INTERVAL);
+                
+                // Generate Key
+                const rawString = currentBlock + "-" + SECRET_SALT;
+                const finalHash = djb2Hash(rawString);
+                document.getElementById("keyField").value = "KEY-" + finalHash;
+
+                // Generate Countdown
+                const nextBlockMs = (currentBlock + 1) * UPDATE_INTERVAL * 3600000;
+                const diff = nextBlockMs - utcNow;
+                
+                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                document.getElementById("countdown").innerText = 
+                    `Key Resets in: ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+            }
+            setInterval(update, 1000);
+            update();
+        }
+
+        function copyKey() {
+            const k = document.getElementById("keyField");
+            k.select();
+            document.execCommand("copy");
+            alert("Key Copied!");
+        }
+
+        // Jalankan Security saat load
+        runSecurityCheck();
+    </script>
+</body>
+</html>
