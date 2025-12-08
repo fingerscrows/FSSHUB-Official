@@ -1,8 +1,8 @@
 -- [[ FSSHUB: SURVIVE WAVE Z SCRIPT ]] --
 
 -- LOAD LIBRARY
--- Pastikan ganti link di bawah ini ke link raw FSSHUB_Lib.lua kamu yang asli
-local Library = loadstring(game:HttpGet("raw.githubusercontent.com/fingerscrows/FSSHUB-Official/refs/heads/main/main/lib/FSSHUB_Lib.lua"))()
+-- Pastikan LINK INI benar mengarah ke FSSHUB_Lib.lua (Raw)
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"))()
 local Win = Library:Window("FSSHUB | Survive Wave Z")
 
 -- SERVICES & VARS
@@ -10,7 +10,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService") -- Service baru untuk Input
+local UserInputService = game:GetService("UserInputService")
 local Camera = Workspace.CurrentCamera
 local dist, height = 10, 1
 
@@ -166,13 +166,13 @@ Win:Toggle("ESP Head", false, function(t)
     end
 end)
 
--- SETUP SETTINGS & CONFIG
+-- SETUP SETTINGS
 Win:CreateConfigSystem("https://discord.gg/28cfy5E3ag")
 Win:CheckAutoload()
 
--- [[ FITUR TAMBAHAN: TOGGLE HIDE UI (RIGHT CTRL) ]] --
+-- [[ PERBAIKAN: TOGGLE HIDE UI (RIGHT CTRL) ]] --
 local ToggleKey = Enum.KeyCode.RightControl
-local LibName = "FSSHUB_Final" -- Harus sama dengan nama ScreenGui di Lib
+local LibName = "FSSHUB_Final" -- Nama UI di Library
 local UIVisible = true
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -181,8 +181,23 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == ToggleKey then
         UIVisible = not UIVisible
         
-        -- Cari UI di CoreGui atau PlayerGui (Tergantung Executor)
-        local TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName) or game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild(LibName)
+        -- Cari UI dengan metode yang lebih kuat (Support gethui)
+        local TargetUI = nil
+        
+        -- Coba cari di hidden UI service (gethui)
+        if gethui then
+            TargetUI = gethui():FindFirstChild(LibName)
+        end
+        
+        -- Jika tidak ketemu (atau executor tidak support gethui), cari di CoreGui standar
+        if not TargetUI then
+            TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName)
+        end
+        
+        -- Terakhir, cari di PlayerGui (untuk executor mobile tertentu)
+        if not TargetUI then
+            TargetUI = LocalPlayer.PlayerGui:FindFirstChild(LibName)
+        end
         
         if TargetUI then
             TargetUI.Enabled = UIVisible
