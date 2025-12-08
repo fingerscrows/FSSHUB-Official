@@ -1,7 +1,7 @@
 -- [[ FSSHUB: SURVIVE WAVE Z SCRIPT ]] --
 
 -- LOAD LIBRARY
--- Pastikan LINK INI benar mengarah ke FSSHUB_Lib.lua (Raw)
+-- Pastikan file Library (Batch 1) sudah di-upload ke GitHub kamu agar link ini bekerja!
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"))()
 local Win = Library:Window("FSSHUB | Survive Wave Z")
 
@@ -10,7 +10,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Camera = Workspace.CurrentCamera
 local dist, height = 10, 1
 
@@ -166,48 +165,28 @@ Win:Toggle("ESP Head", false, function(t)
     end
 end)
 
--- SETUP SETTINGS
+-- [[ SETUP SETTINGS & CONFIG ]] --
+-- Mengaktifkan sistem Config dan tombol Settings (Gear Icon)
 Win:CreateConfigSystem("https://discord.gg/28cfy5E3ag")
-Win:CheckAutoload()
 
--- [[ PERBAIKAN: TOGGLE HIDE UI (RIGHT CTRL) ]] --
-local ToggleKey = Enum.KeyCode.RightControl
-local LibName = "FSSHUB_Final" -- Nama UI di Library
-local UIVisible = true
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+-- Menambahkan Keybind Toggle UI ke Tab Settings
+Win:Section("UI CONTROLS", true) -- 'true' berarti masuk ke tab Settings
+Win:Keybind("Toggle UI Menu", Enum.KeyCode.RightControl, function(key)
+    -- Logika Sembunyikan/Tampilkan UI
+    local LibName = "FSSHUB_Final"
+    local TargetUI = nil
     
-    if input.KeyCode == ToggleKey then
-        UIVisible = not UIVisible
-        
-        -- Cari UI dengan metode yang lebih kuat (Support gethui)
-        local TargetUI = nil
-        
-        -- Coba cari di hidden UI service (gethui)
-        if gethui then
-            TargetUI = gethui():FindFirstChild(LibName)
-        end
-        
-        -- Jika tidak ketemu (atau executor tidak support gethui), cari di CoreGui standar
-        if not TargetUI then
-            TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName)
-        end
-        
-        -- Terakhir, cari di PlayerGui (untuk executor mobile tertentu)
-        if not TargetUI then
-            TargetUI = LocalPlayer.PlayerGui:FindFirstChild(LibName)
-        end
-        
-        if TargetUI then
-            TargetUI.Enabled = UIVisible
-        end
+    -- Coba cari di Hidden UI Service (gethui) untuk executor modern
+    if gethui then TargetUI = gethui():FindFirstChild(LibName) end
+    -- Coba cari di CoreGui (fallback)
+    if not TargetUI then TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName) end
+    -- Coba cari di PlayerGui (fallback mobile/emulator)
+    if not TargetUI then TargetUI = Players.LocalPlayer.PlayerGui:FindFirstChild(LibName) end
+    
+    if TargetUI then
+        TargetUI.Enabled = not TargetUI.Enabled
     end
-end)
+end, true) -- Parameter terakhir 'true' wajib agar masuk ke Settings Tab
 
--- Notifikasi info Keybind
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "FSSHUB Loaded";
-    Text = "Press [Right Ctrl] to Hide/Show Menu";
-    Duration = 5;
-})
+-- Load config terakhir (Autoload)
+Win:CheckAutoload()
