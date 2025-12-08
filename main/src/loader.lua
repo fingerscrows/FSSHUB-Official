@@ -10,7 +10,7 @@ local FILE_NAME = "FSS_V3_Key.txt"
 local GameList = {
     -- Masukkan ID Game Survive Wave Z di sini
     -- TIPS: Cek Console (F9) setelah run script untuk melihat ID asli kamu!
-    [123456789] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
+    [92371631484540] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
 }
 
 -- Link Default (Script yang diload jika game tidak dikenali)
@@ -121,3 +121,4 @@ EnterBtn.MouseButton1Click:Connect(function()
         for i=1,5 do MainFrame.Position=MainFrame.Position+UDim2.new(0,4,0,0); wait(0.04); MainFrame.Position=MainFrame.Position-UDim2.new(0,4,0,0); wait(0.04) end
     end
 end)
+
