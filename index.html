@@ -2,49 +2,66 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FSS HUB | KEY GENERATOR</title>
-    </head>
+    <title>FSS HUB | KEY SYSTEM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #8c50ff; --bg: #0f0f14; --card: #191920; --text: #e0e0e0; }
+        body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: var(--card); padding: 2rem; border-radius: 12px; border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { color: var(--primary); margin-bottom: 10px; font-size: 1.5rem; }
+        p { font-size: 0.9rem; color: #888; margin-bottom: 20px; }
+        input { background: #121216; border: 1px solid #333; color: var(--primary); padding: 12px; width: 100%; box-sizing: border-box; text-align: center; font-weight: bold; font-size: 1.1rem; border-radius: 6px; margin-bottom: 15px; outline: none; }
+        button { background: var(--primary); color: #fff; border: none; padding: 12px; width: 100%; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        .status { font-size: 0.75rem; margin-top: 15px; color: #555; }
+    </style>
+</head>
 <body>
     <div class="card">
         <h1>ACCESS GRANTED</h1>
-        <p>Generating key for your device...</p>
-        <input type="text" id="key" value="WAIT..." readonly onclick="copy()">
+        <p>Generating your unique 6-hour key...</p>
+        <input type="text" id="key" value="INITIALIZING..." readonly onclick="copy()">
         <button id="btn" onclick="copy()">COPY KEY</button>
-        <p id="status" style="font-size: 10px; margin-top: 10px; color: #555;">Initializing...</p>
+        <div class="status" id="status">Connecting to Secure Server...</div>
     </div>
 
     <script>
-        // CONFIG
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbw9JrYXbQ-nXZsF75KJRDy1dCgPl0WYDRgk3zwuE5WlYW8P5UrIrb6WyRvxB20HI7D5iQ/exec"; 
+        // [[ KONFIGURASI BARU ]]
+        // URL GAS Terbaru Anda
+        const GAS_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec"; 
         const TOKEN = "SAYA_SUKA_FSSHUB_GANTENG"; 
 
         async function init() {
-            // 1. Ambil HWID dari URL (Dikirim oleh Linkvertise/Work.ink)
-            const urlParams = new URLSearchParams(window.location.search);
-            const userHWID = urlParams.get('hwid');
+            // Ambil HWID dari URL (dikirim oleh script/work.ink)
+            const params = new URLSearchParams(window.location.search);
+            const hwid = params.get('hwid');
 
-            if (!userHWID) {
+            if (!hwid) {
                 document.getElementById("key").value = "ERROR: NO HWID";
-                document.getElementById("status").innerText = "Please use the link from the script!";
+                document.getElementById("status").innerText = "Please verify via the script link!";
                 return;
             }
 
-            document.getElementById("status").innerText = "Registering Device: " + userHWID.substring(0, 8) + "...";
+            document.getElementById("status").innerText = "Registering Device ID: " + hwid.substring(0, 6) + "...";
 
             try {
-                // 2. Minta Server Buatkan Key untuk HWID ini
-                const url = `${GAS_URL}?a=generate&t=${TOKEN}&hwid=${userHWID}`;
+                // Request Generate Key ke Google
+                const url = `${GAS_URL}?a=generate&t=${TOKEN}&hwid=${hwid}`;
                 const res = await fetch(url);
                 const text = await res.text();
                 
                 if(text.includes("KEY-")) {
                     document.getElementById("key").value = text;
-                    document.getElementById("status").innerText = "KEY GENERATED SUCCESSFULLY (6 HOURS)";
+                    document.getElementById("status").innerText = "STATUS: ACTIVE (EXPIRES IN 6 HOURS)";
+                    document.getElementById("status").style.color = "#00ff88";
                 } else {
                     document.getElementById("key").value = "SERVER ERROR";
+                    document.getElementById("status").innerText = "Response: " + text;
                 }
             } catch (e) {
                 document.getElementById("key").value = "CONNECTION FAIL";
+                console.error(e);
             }
         }
 
@@ -52,6 +69,7 @@
             const k = document.getElementById("key");
             k.select(); document.execCommand("copy");
             document.getElementById("btn").innerText = "COPIED!";
+            setTimeout(() => document.getElementById("btn").innerText = "COPY KEY", 2000);
         }
 
         init();
