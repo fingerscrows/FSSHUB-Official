@@ -1,4 +1,5 @@
--- [[ FSSHUB: SURVIVE WAVE Z (PRO VERSION) ]] --
+-- [[ FSSHUB: SURVIVE WAVE Z (V2.0 PRO) ]] --
+-- Rebranded: Dark Purple Theme & Optimized Loop
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -9,22 +10,18 @@ local RunService = game:GetService("RunService")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Load Library
+-- Load Library (New Theme)
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 local Library = loadstring(game:HttpGet(LIB_URL))()
 
 if not Library then return end
 
-local Window = Library:Window("SURVIVE WAVE Z | PRO")
+local Window = Library:Window("WAVE Z | PRO")
 
--- State Management (Agar bersih saat unload)
+-- State Management
 getgenv().FSS_WaveZ = {
-    Aimbot = false,
-    AutoFarm = false,
-    SafeHealth = true,
-    MinHealth = 30,
-    BringDist = 8,
-    TargetMode = "All", -- All, Normal, Boss
+    Aimbot = false, AutoFarm = false, SafeHealth = true,
+    MinHealth = 30, BringDist = 8, TargetMode = "All",
     Connections = {}
 }
 
@@ -35,7 +32,6 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
     getgenv().FSS_WaveZ.AutoFarm = state
     
     if state then
-        -- Loop Utama Farm (Heartbeat untuk fisika)
         local conn = RunService.Heartbeat:Connect(function()
             if not getgenv().FSS_WaveZ.AutoFarm then return end
             
@@ -44,9 +40,7 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
             
             -- Safe Health Check
             local hum = char:FindFirstChild("Humanoid")
-            if getgenv().FSS_WaveZ.SafeHealth and hum and hum.Health < getgenv().FSS_WaveZ.MinHealth then
-                return -- Pause farm jika darah rendah
-            end
+            if getgenv().FSS_WaveZ.SafeHealth and hum and hum.Health < getgenv().FSS_WaveZ.MinHealth then return end
             
             local myRoot = char.HumanoidRootPart
             local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * getgenv().FSS_WaveZ.BringDist)
@@ -58,18 +52,17 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
                     local zHum = z:FindFirstChild("Humanoid")
                     
                     if zRoot and zHum and zHum.Health > 0 then
-                        -- Filter Target
+                        -- Filter Logic
                         local isBoss = z:GetAttribute("IsBoss") or z.Name:lower():find("boss")
                         local allow = true
                         if getgenv().FSS_WaveZ.TargetMode == "Normal Only" and isBoss then allow = false end
                         if getgenv().FSS_WaveZ.TargetMode == "Boss Only" and not isBoss then allow = false end
                         
-                        -- Jarak aman untuk teleport (Max 300 studs)
+                        -- Teleport & Freeze
                         if allow and (zRoot.Position - myRoot.Position).Magnitude < 300 then
                             zRoot.CFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(-90), 0, 0)
                             zRoot.AssemblyLinearVelocity = Vector3.zero
                             
-                            -- Disable Collision (Sekali saja per zombie)
                             if not z:GetAttribute("NoCol") then
                                 for _, p in ipairs(z:GetChildren()) do 
                                     if p:IsA("BasePart") then p.CanCollide = false end 
@@ -81,12 +74,10 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
                 end
             end
             
-            -- Auto Attack Logic (Built-in)
+            -- Auto Attack
             local tool = char:FindFirstChildOfClass("Tool")
-            if tool then
-                tool:Activate()
+            if tool then tool:Activate()
             else
-                -- Auto Equip jika ada tool di backpack
                 local bpTool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
                 if bpTool then bpTool.Parent = char end
             end
@@ -99,15 +90,15 @@ FarmTab:Dropdown("Target Mode", {"All", "Normal Only", "Boss Only"}, "All", func
     getgenv().FSS_WaveZ.TargetMode = val
 end)
 
-FarmTab:Toggle("Safe Health (Pause < 30%)", true, function(state)
+FarmTab:Toggle("Safe Health (< 30%)", true, function(state)
     getgenv().FSS_WaveZ.SafeHealth = state
 end)
 
-FarmTab:Slider("Bring Distance", 5, 15, 8, function(val)
+FarmTab:Slider("Bring Distance", 5, 20, 8, function(val)
     getgenv().FSS_WaveZ.BringDist = val
 end)
 
--- [TAB 2: COMBAT ASSIST]
+-- [TAB 2: COMBAT]
 local CombatTab = Window:Section("Combat")
 
 CombatTab:Toggle("Silent Aimbot", false, function(state)
@@ -116,8 +107,7 @@ CombatTab:Toggle("Silent Aimbot", false, function(state)
         local conn = RunService.RenderStepped:Connect(function()
             if not getgenv().FSS_WaveZ.Aimbot then return end
             
-            local closest = nil
-            local minMag = 200 -- Radius FOV
+            local closest, minMag = nil, 250
             local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
             local zFolder = Workspace:FindFirstChild("ServerZombies")
             
@@ -162,9 +152,11 @@ VisTab:Toggle("Zombie ESP", false, function(state)
                             local h = Instance.new("Highlight")
                             h.Name = "FSS_ESP"
                             h.Adornee = z
-                            h.FillColor = Color3.fromRGB(255, 50, 50)
+                            -- FSSHUB Purple Accent for Zombies
+                            h.FillColor = Color3.fromRGB(140, 80, 255) 
                             h.OutlineColor = Color3.fromRGB(255, 255, 255)
                             h.FillTransparency = 0.6
+                            h.OutlineTransparency = 0
                             h.Parent = z
                         end
                     end
@@ -172,7 +164,6 @@ VisTab:Toggle("Zombie ESP", false, function(state)
             end
         end)
     else
-        -- Cleanup ESP
         local zFolder = Workspace:FindFirstChild("ServerZombies")
         if zFolder then
             for _, z in ipairs(zFolder:GetChildren()) do
@@ -190,12 +181,9 @@ SettingsTab:Button("Unload Script", function()
     getgenv().FSS_WaveZ.Aimbot = false
     getgenv().FSS_WaveZ.ESP = false
     
-    -- Putuskan semua koneksi (Anti-Lag)
     for _, c in pairs(getgenv().FSS_WaveZ.Connections) do
         if c then c:Disconnect() end
     end
     getgenv().FSS_WaveZ.Connections = {}
-    
-    -- Hapus GUI
     Window:Destroy()
 end)
