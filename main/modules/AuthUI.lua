@@ -1,5 +1,5 @@
--- [[ FSSHUB AUTH UI MODULE V1.0 ]] --
--- Standalone UI untuk Key System (Anti-Blank Bug)
+-- [[ FSSHUB AUTH UI MODULE V1.1 (FIXED FONT) ]] --
+-- Fix: Changed Enum.Font.Mono to Enum.Font.Code for better compatibility
 
 local AuthUI = {}
 local TweenService = game:GetService("TweenService")
@@ -33,7 +33,7 @@ function AuthUI.Show(options)
 
     local Screen = Create("ScreenGui", {Name = "FSSHUB_Auth", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 10000})
     
-    -- Main Frame (Fixed Size & Visibility)
+    -- Main Frame
     local Main = Create("Frame", {
         Parent = Screen,
         BackgroundColor3 = Theme.Bg,
@@ -41,7 +41,7 @@ function AuthUI.Show(options)
         Position = UDim2.new(0.5, 0, 0.5, 0),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BorderSizePixel = 0,
-        BackgroundTransparency = 1 -- Mulai transparan untuk animasi
+        BackgroundTransparency = 1
     })
     
     -- Elements
@@ -62,10 +62,11 @@ function AuthUI.Show(options)
         BackgroundTransparency = 1, TextTransparency = 1
     })
 
+    -- PERBAIKAN DI SINI: Mengganti Enum.Font.Mono menjadi Enum.Font.Code
     local Input = Create("TextBox", {
         Parent = Main, BackgroundColor3 = Color3.fromRGB(25, 25, 25),
         TextColor3 = Theme.Accent, PlaceholderText = "Paste Key Here...",
-        Font = Enum.Font.Mono, TextSize = 14,
+        Font = Enum.Font.Code, TextSize = 14, 
         Size = UDim2.new(0.8, 0, 0, 45), Position = UDim2.new(0.1, 0, 0.35, 0),
         TextTransparency = 1, BackgroundTransparency = 1
     })
@@ -124,8 +125,7 @@ function AuthUI.Show(options)
         end
     end)
 
-    -- ANIMASI MASUK (Fade In)
-    -- Ini lebih aman daripada UIScale 0 -> 1
+    -- ANIMASI MASUK
     local info = TweenInfo.new(0.5, Enum.EasingStyle.Quad)
     TweenService:Create(Main, info, {BackgroundTransparency = 0}):Play()
     TweenService:Create(Stroke, info, {Transparency = 0}):Play()
