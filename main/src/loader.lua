@@ -1,20 +1,31 @@
--- [[ FSSHUB LOADER V5.0 (ENTRY POINT) ]] --
--- Script ini hanya bertugas memanggil CORE system.
+-- [[ FSSHUB LOADER V5.0 (FIXED) ]] --
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/refs/heads/main/main/src/Core.lua"
+-- Hapus 'refs/heads/' dari URL agar lebih stabil di raw github
+local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/Core.lua"
 
 local success, err = pcall(function()
-    loadstring(game:HttpGet(CORE_URL))()
+    -- Ambil script sebagai chunk
+    local coreScript = game:HttpGet(CORE_URL)
+    local coreFunc = loadstring(coreScript)
+    
+    -- Jalankan chunk untuk mendapatkan Module Table (Core)
+    local CoreModule = coreFunc()
+    
+    -- Panggil fungsi Init() dari Core
+    if CoreModule and CoreModule.Init then
+        CoreModule.Init()
+    else
+        warn("[FSSHUB] Core loaded but no Init function found!")
+    end
 end)
 
 if not success then
     game.StarterGui:SetCore("SendNotification", {
         Title = "FSSHUB Error",
-        Text = "Failed to load CORE. Check Connection!",
+        Text = "Failed to run CORE: " .. tostring(err),
         Duration = 5
     })
     warn("[FSSHUB] Loader Error: " .. tostring(err))
 end
-
