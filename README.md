@@ -27,7 +27,6 @@ We listened to your feedback and rebuilt the experience.
 | :--- | :---: | :--- |
 | **Survive the Wave Z** | 🟣 **V2 PRO** | Silent Aimbot, Mass Teleport Farm, ESP (Purple), Auto-Loot |
 | **Universal Utility** | 🟣 **V2 PRO** | ESP, Noclip, Speed, Jump, Fullbright (Works everywhere) |
-| **Blox Fruits** | 🔄 **W.I.P** | *In Development* |
 
 ---
 
