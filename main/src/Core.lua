@@ -1,8 +1,8 @@
--- [[ FSSHUB CORE V6 (FINAL PRODUCTION) ]] --
--- Update: New GAS Endpoint & HWID System
+-- [[ FSSHUB CORE V6.1 (FINAL PRODUCTION) ]] --
+-- Update: Fixed URL, HWID Logic & Smart Validation
 
 local Core = {}
-local FILE_NAME = "FSSHUB_V6.key"
+local FILE_NAME = "FSSHUB_V6_License.key"
 -- URL GAS TERBARU ANDA
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec"
 
@@ -48,6 +48,8 @@ function Core.ValidateKey(input)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data then
             if data.status == "success" then
+                -- Menampilkan sisa waktu jika ada
+                if data.info then print("[FSSHUB] " .. data.info) end
                 return true
             else
                 warn("[FSSHUB] Key Invalid: " .. tostring(data.message))
@@ -67,7 +69,7 @@ function Core.LoadGame()
     local url = GAME_DB[id] or GAME_DB[gid] or MODULES.Universal
     local name = (GAME_DB[id] or GAME_DB[gid]) and "Game Script" or "Universal"
     
-    Notify("ACCESS GRANTED", "Loading " .. name .. "...")
+    Notify("ACCESS GRANTED", "Welcome! Loading " .. name .. "...")
     task.spawn(function() loadstring(game:HttpGet(url))() end)
 end
 
