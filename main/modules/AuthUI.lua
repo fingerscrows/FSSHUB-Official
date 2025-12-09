@@ -88,19 +88,31 @@ function AuthUI.Show(options)
         task.delay(1.5, function() btn.Text = "GET KEY" end)
     end)
     
-    -- TOMBOL LOGIN
+    -- [UPDATE LOGIKA TOMBOL LOGIN] --
     CreateBtn("LOGIN", 0.525, function(btn)
         local txt = string.gsub(Input.Text, "%s+", "")
         local oldTxt = btn.Text
         btn.Text = "CHECKING..."
         
-        local valid = options.OnSuccess(txt)
+        -- Menerima tabel hasil dari Core
+        local res = options.OnSuccess(txt)
         
-        if valid then
-            Title.Text = "SUCCESS!"
+        -- Cek res.success (karena sekarang return table)
+        if res.success then
             Stroke.Color = Theme.Accent
-            btn.Text = "ALLOWED"
-            task.wait(0.5)
+            Title.Text = "ACCESS GRANTED"
+            
+            -- Visual Effect untuk Premium
+            if res.info and (string.find(res.info, "Premium") or string.find(res.info, "Unlimited")) then
+                btn.Text = "👑 PREMIUM USER"
+                btn.TextColor3 = Color3.fromRGB(255, 215, 0) -- Warna Emas
+                Stroke.Color = Color3.fromRGB(255, 215, 0)
+            else
+                -- Tampilkan sisa waktu (misal: "6H 30M LEFT")
+                btn.Text = res.info and string.upper(res.info) or "ALLOWED"
+            end
+
+            task.wait(1.5) -- Beri waktu user melihat statusnya
             Screen:Destroy()
         else
             btn.Text = oldTxt
