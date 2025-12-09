@@ -1,119 +1,99 @@
--- [[ FSSHUB CORE SYSTEM V1.1 (STABLE) ]] --
--- Update: Added Retry Logic, Better Error Handling, Modular Structure
-
-local Core = {}
-
--- [1] CONFIGURATION
-local SECRET_SALT = "RAHASIA_FINAL_KAMU_123" 
-local UPDATE_INTERVAL = 6 
-local FILE_NAME = "FSS_V5_Key.txt"
-
--- Repository Base URL (Agar mudah diganti jika pindah repo)
-local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
-local MODULES = {
-    AuthUI = BASE_URL .. "main/modules/AuthUI.lua",
-    Universal = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
-}
-local GAME_DB = {
-    ["92371631484540"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua",
-    ["9168386959"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
-}
-
--- SERVICES
-local StarterGui = game:GetService("StarterGui")
-local HttpService = game:GetService("HttpService")
-
--- [2] UTILITIES
-local function Notify(title, text, duration)
-    StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 5})
-end
-
-local function SafeLoad(url, name)
-    local content, success = nil, false
-    -- Retry Logic (3 Attempts)
-    for i = 1, 3 do
-        local s, res = pcall(function() return game:HttpGet(url) end)
-        if s then 
-            content = res
-            success = true
-            break 
-        end
-        warn("[FSSHUB] Failed to load " .. name .. ". Retrying ("..i.."/3)...")
-        task.wait(1.5)
-    end
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FSS HUB | GATEWAY</title>
+    <style>
+        :root { --primary: #00ff88; --bg: #0a0a0a; --card: #141414; --text: #f0f0f0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        
+        .card { 
+            background: var(--card); border: 1px solid #333; padding: 2rem; border-radius: 10px; 
+            width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 20px rgba(0, 255, 136, 0.05); 
+            animation: slideUp 0.5s ease-out; position: relative;
+        }
+        
+        h1 { color: var(--primary); font-size: 1.5rem; margin: 0 0 5px 0; text-shadow: 0 0 10px rgba(0,255,136,0.3); }
+        p { color: #666; font-size: 0.8rem; margin: 0 0 20px 0; }
+        
+        input { 
+            background: #0f0f0f; border: 1px solid #333; color: var(--primary); padding: 12px; width: 100%; 
+            box-sizing: border-box; text-align: center; font-family: inherit; font-weight: bold; font-size: 1.1rem; 
+            border-radius: 5px; margin-bottom: 15px; outline: none; transition: 0.3s;
+        }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0,255,136,0.1); }
+        
+        button { 
+            background: var(--primary); color: #000; border: none; padding: 12px; width: 100%; 
+            font-weight: bold; font-family: inherit; border-radius: 5px; cursor: pointer; transition: 0.2s; 
+        }
+        button:active { transform: scale(0.98); background: #fff; }
+        
+        .timer { margin-top: 15px; font-size: 0.7rem; color: #444; }
+        .loader { position: fixed; inset: 0; background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 99; flex-direction: column; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="loader" class="loader">
+        <div class="spinner"></div>
+        <div style="color:var(--primary); font-size:0.8rem; letter-spacing:1px;">INITIALIZING...</div>
+    </div>
     
-    if not success then
-        Notify("Connection Error", "Failed to load " .. name .. ". Check internet!", 10)
-        return nil
-    end
-    
-    local func, err = loadstring(content)
-    if not func then
-        warn("[FSSHUB] Syntax Error in " .. name .. ": " .. tostring(err))
-        Notify("Script Error", name .. " has syntax errors.", 10)
-        return nil
-    end
-    
-    return func
-end
+    <div class="card" id="main" style="display:none;">
+        <h1>ACCESS GRANTED</h1>
+        <p>SESSION ID: <span id="sess">...</span></p>
+        
+        <input type="text" id="key" readonly value="GENERATING..." onclick="copy()">
+        <button id="btn" onclick="copy()">COPY KEY</button>
+        
+        <div class="timer" id="time">Calculating...</div>
+    </div>
 
-local function djb2Hash(str)
-    local hash = 5381
-    for i = 1, #str do
-        local byte = string.byte(str, i)
-        hash = (hash * 33) + byte
-        hash = hash % 4294967296 
-    end
-    return string.upper(string.format("%x", hash))
-end
+    <script>
+        const CONF = { SALT: "RAHASIA_FINAL_KAMU_123", INTERVAL: 6 };
+        
+        function hash(s) {
+            let h = 5381;
+            for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+            return (h >>> 0).toString(16).toUpperCase();
+        }
 
-function Core.GetValidKey()
-    local now = os.time()
-    local block = math.floor(math.floor(now / 3600) / UPDATE_INTERVAL)
-    local hash = djb2Hash(block .. "-" .. SECRET_SALT)
-    return "KEY-" .. hash
-end
+        function run() {
+            const now = Date.now(), block = Math.floor((now / 3600000) / CONF.INTERVAL);
+            document.getElementById("key").value = "KEY-" + hash(block + "-" + CONF.SALT);
+            
+            const next = (block + 1) * CONF.INTERVAL * 3600000;
+            const left = next - now;
+            
+            if (left <= 0) location.reload();
+            
+            const h = Math.floor(left / 3600000);
+            const m = Math.floor((left % 3600000) / 60000);
+            const s = Math.floor((left % 60000) / 1000);
+            document.getElementById("time").innerText = `EXPIRES IN: ${h}H ${m}M ${s}S`;
+        }
 
--- [3] MAIN LOGIC
-function Core.LoadGame()
-    local id = tostring(game.PlaceId)
-    local gid = tostring(game.GameId)
-    local url = GAME_DB[id] or GAME_DB[gid] or MODULES.Universal
-    
-    Notify("FSS HUB", "Key Verified! Loading Scripts...", 3)
-    
-    local gameScript = SafeLoad(url, "Game Script")
-    if gameScript then
-        task.spawn(gameScript)
-    end
-end
+        function copy() {
+            const k = document.getElementById("key");
+            k.select(); k.setSelectionRange(0,99999);
+            document.execCommand("copy");
+            
+            const b = document.getElementById("btn");
+            b.innerText = "COPIED!"; b.style.background = "#fff";
+            setTimeout(() => { b.innerText = "COPY KEY"; b.style.background = ""; }, 1000);
+        }
 
-function Core.Init()
-    local ValidKey = Core.GetValidKey()
-    
-    -- Check Saved Key
-    if isfile and isfile(FILE_NAME) then
-        local saved = string.gsub(readfile(FILE_NAME), "%s+", "")
-        if saved == ValidKey then
-            Core.LoadGame()
-            return
-        end
-    end
-    
-    -- Load Auth UI
-    local authFunc = SafeLoad(MODULES.AuthUI, "Auth UI")
-    if authFunc then
-        local AuthModule = authFunc() -- Execute to get the Module Table
-        if AuthModule and AuthModule.Show then
-            AuthModule.Show({
-                ValidKey = ValidKey,
-                OnSuccess = function(key)
-                    if writefile then writefile(FILE_NAME, key) end
-                    Core.LoadGame()
-                end
-            })
-        end
-    end
-end
-
-return Core
+        setTimeout(() => {
+            document.getElementById("loader").style.display = "none";
+            document.getElementById("main").style.display = "block";
+            document.getElementById("sess").innerText = Math.random().toString(36).substr(2, 8).toUpperCase();
+            setInterval(run, 1000); run();
+        }, 1000);
+    </script>
+</body>
+</html>
