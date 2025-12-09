@@ -9,28 +9,41 @@
         :root { --primary: #8c50ff; --bg: #0f0f14; --card: #191920; --text: #e0e0e0; }
         body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         .card { background: var(--card); padding: 2rem; border-radius: 12px; border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h1 { color: var(--primary); margin-bottom: 10px; font-size: 1.5rem; }
-        p { font-size: 0.9rem; color: #888; margin-bottom: 20px; }
+        h1 { color: var(--primary); margin-bottom: 5px; font-size: 1.5rem; }
+        .subtitle { font-size: 0.8rem; color: #777; margin-bottom: 20px; }
         input { background: #121216; border: 1px solid #333; color: var(--primary); padding: 12px; width: 100%; box-sizing: border-box; text-align: center; font-weight: bold; font-size: 1.1rem; border-radius: 6px; margin-bottom: 15px; outline: none; }
         button { background: var(--primary); color: #fff; border: none; padding: 12px; width: 100%; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         button:hover { opacity: 0.9; transform: translateY(-2px); }
+        
+        /* Gaya Countdown */
+        .timer-box { margin-top: 20px; padding: 10px; background: rgba(140, 80, 255, 0.1); border-radius: 8px; border: 1px dashed var(--primary); }
+        .timer-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        .timer-value { font-size: 1.2rem; font-weight: bold; color: #fff; margin-top: 5px; }
         .status { font-size: 0.75rem; margin-top: 15px; color: #555; }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>ACCESS GRANTED</h1>
-        <p>Generating your unique 6-hour key...</p>
+        <p class="subtitle">Your unique key is ready</p>
+        
         <input type="text" id="key" value="INITIALIZING..." readonly onclick="copy()">
         <button id="btn" onclick="copy()">COPY KEY</button>
+        
+        <div class="timer-box" id="timerBox" style="display:none;">
+            <div class="timer-label">Key Expires In:</div>
+            <div class="timer-value" id="countdown">00:00:00</div>
+        </div>
+
         <div class="status" id="status">Connecting to Secure Server...</div>
     </div>
 
     <script>
-        // [[ KONFIGURASI BARU ]]
-        // Menggunakan URL GAS Terbaru (TGX0mz_)
+        // [[ KONFIGURASI ]]
         const GAS_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec"; 
         const TOKEN = "SAYA_SUKA_FSSHUB_GANTENG"; 
+
+        let expiryTime = 0;
 
         async function init() {
             const params = new URLSearchParams(window.location.search);
@@ -43,26 +56,50 @@
                 return;
             }
 
-            document.getElementById("status").innerText = "Registering Device ID: " + hwid.substring(0, 6) + "...";
+            document.getElementById("status").innerText = "Checking Database...";
 
             try {
-                // Request Generate Key ke Google
                 const url = `${GAS_URL}?a=generate&t=${TOKEN}&hwid=${hwid}`;
                 const res = await fetch(url);
-                const text = await res.text();
+                const data = await res.json(); // Sekarang baca JSON!
                 
-                if(text.includes("KEY-")) {
-                    document.getElementById("key").value = text;
-                    document.getElementById("status").innerText = "STATUS: ACTIVE (EXPIRES IN 6 HOURS)";
+                if(data.status === "success") {
+                    document.getElementById("key").value = data.key;
+                    document.getElementById("status").innerText = "STATUS: ACTIVE";
                     document.getElementById("status").style.color = "#00ff88";
+                    
+                    // Setup Countdown
+                    expiryTime = data.expiry;
+                    document.getElementById("timerBox").style.display = "block";
+                    startTimer();
                 } else {
                     document.getElementById("key").value = "SERVER ERROR";
-                    document.getElementById("status").innerText = "Response: " + text;
+                    document.getElementById("status").innerText = data.message || "Unknown Error";
                 }
             } catch (e) {
                 document.getElementById("key").value = "CONNECTION FAIL";
                 console.error(e);
             }
+        }
+
+        function startTimer() {
+            setInterval(() => {
+                const now = Date.now();
+                const distance = expiryTime - now;
+
+                if (distance < 0) {
+                    document.getElementById("countdown").innerText = "EXPIRED";
+                    document.getElementById("key").value = "KEY EXPIRED";
+                    return;
+                }
+
+                const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+                document.getElementById("countdown").innerText = 
+                    `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+            }, 1000);
         }
 
         function copy() {
