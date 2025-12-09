@@ -1,64 +1,76 @@
--- [[ FSSHUB: SURVIVE WAVE Z SCRIPT (Safe Mode) ]] --
+-- [[ FSSHUB: SURVIVE WAVE Z SCRIPT (Optimized V2) ]] --
 
--- 1. DEBUG & SAFETY CHECK
+-- 1. SETUP
+if not game:IsLoaded() then game.Loaded:Wait() end
 local StarterGui = game:GetService("StarterGui")
-StarterGui:SetCore("SendNotification", {
-    Title = "FSSHUB",
-    Text = "Script Starting...",
-    Duration = 2
-})
 
--- 2. LOAD LIBRARY
--- Pastikan link ini mengarah ke file FSSHUB_Lib.lua yang sudah kamu update (Batch 1)
+-- Notifikasi Awal
+StarterGui:SetCore("SendNotification", {Title = "FSSHUB", Text = "Loading Script...", Duration = 2})
+
+-- Load Library dengan Retry
 local LibraryUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
-
-local success, Library = pcall(function()
-    return loadstring(game:HttpGet(LibraryUrl))()
-end)
-
-if not success or not Library then
-    warn("[FSSHUB ERROR] Library Failed: " .. tostring(Library))
-    StarterGui:SetCore("SendNotification", {
-        Title = "CRITICAL ERROR",
-        Text = "Library Failed! Check Console (F9)",
-        Duration = 10
-    })
-    return
+local success, Library
+for i=1,3 do
+    local s, res = pcall(function() return loadstring(game:HttpGet(LibraryUrl))() end)
+    if s then success = true; Library = res; break end
+    task.wait(1)
 end
 
--- 3. INISIALISASI WINDOW
-local Win = Library:Window("FSSHUB | Survive Wave Z")
+if not success or not Library then
+    return StarterGui:SetCore("SendNotification", {Title = "CRITICAL ERROR", Text = "Library Failed to Load!", Duration = 5})
+end
 
--- SERVICES & VARS
+-- 2. VARIABLES & SERVICES
+local Win = Library:Window("FSSHUB | Survive Wave Z")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 local Camera = Workspace.CurrentCamera
-local dist, height = 10, 1
 
--- [[ GAME FEATURES ]] --
+local Config = {
+    Dist = 10,
+    Height = 1,
+    AimbotRadius = 300
+}
 
+-- 3. FITUR GAME
 Win:Section("COMBAT")
+
 Win:Toggle("Aimbot (Head)", false, function(t)
     local aimbotOn = t
     if t then
         local aimConnection = RunService.RenderStepped:Connect(function()
             if not aimbotOn then return end
-            local closestHead, minMag = nil, math.huge
+            
+            local closestHead = nil
+            local minMag = Config.AimbotRadius
             local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-            if Workspace:FindFirstChild("ServerZombies") then
-                for _, v in pairs(Workspace.ServerZombies:GetDescendants()) do
-                    if v.Name == "Head" and v.Parent:FindFirstChild("Humanoid") and v.Parent.Humanoid.Health > 0 then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(v.Position)
+            
+            -- Optimasi: Langsung cek folder Zombie jika ada
+            local zombieFolder = Workspace:FindFirstChild("ServerZombies")
+            if zombieFolder then
+                for _, zombie in ipairs(zombieFolder:GetChildren()) do
+                    local head = zombie:FindFirstChild("Head")
+                    local hum = zombie:FindFirstChild("Humanoid")
+                    
+                    if head and hum and hum.Health > 0 then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
                         if onScreen then
                             local mag = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                            if mag < minMag and mag < 300 then minMag = mag; closestHead = v end
+                            if mag < minMag then
+                                minMag = mag
+                                closestHead = head
+                            end
                         end
                     end
                 end
             end
-            if closestHead then Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestHead.Position) end
+            
+            if closestHead then 
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestHead.Position) 
+            end
         end)
         table.insert(Library.ActiveConnections, aimConnection)
     end
@@ -66,70 +78,107 @@ end)
 
 Win:Toggle("Auto Attack", false, function(t)
     local shootOn = t
-    if not t then if LocalPlayer.Character then local g = LocalPlayer.Character:FindFirstChildOfClass("Model"); if g then g:SetAttribute("IsShooting", false) end end end
+    -- Reset atribut saat mati
+    if not t and LocalPlayer.Character then 
+        local gun = LocalPlayer.Character:FindFirstChildOfClass("Model")
+        if gun then gun:SetAttribute("IsShooting", false) end 
+    end
+
     if t then
-        spawn(function()
+        task.spawn(function()
             while shootOn do
-                task.wait()
+                task.wait() -- Ultra fast loop
                 if LocalPlayer.Character then
                     local gun = LocalPlayer.Character:FindFirstChildOfClass("Model")
-                    if gun and Workspace:FindFirstChild("ServerZombies") then
-                        gun:SetAttribute("IsShooting", true)
-                        if gun:FindFirstChild("Activate") then gun:Activate() end
-                        local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool"); if tool then tool:Activate() end
-                        task.wait(); gun:SetAttribute("IsShooting", false)
+                    -- Validasi sederhana apakah ini senjata
+                    if gun and gun:FindFirstChild("Handle") then
+                         gun:SetAttribute("IsShooting", true)
+                         if gun:FindFirstChild("Activate") then gun:Activate() end
+                         
+                         -- Support untuk Tool biasa (bukan model custom)
+                         local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                         if tool then tool:Activate() end
                     end
                 end
+            end
+            -- Cleanup saat loop berhenti
+            if LocalPlayer.Character then
+                local gun = LocalPlayer.Character:FindFirstChildOfClass("Model")
+                if gun then gun:SetAttribute("IsShooting", false) end
             end
         end)
     end
 end)
 
-Win:Section("MOBS")
+Win:Section("MOBS (Optimized)")
+
 Win:Toggle("Bring Mobs", false, function(t)
     local bringOn = t
     if t then
         local connection = RunService.Heartbeat:Connect(function()
             if not bringOn then return end
-            pcall(function()
-                local zFolder = Workspace:FindFirstChild("ServerZombies") or Workspace
-                for _,z in pairs(zFolder:GetDescendants()) do
-                    if z.Name=="Humanoid" and z.Health>0 and z.RootPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        local myRoot = LocalPlayer.Character.HumanoidRootPart; local zRoot = z.RootPart
-                        local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * dist) + Vector3.new(0, height, 0)
-                        zRoot.CFrame = CFrame.lookAt(targetPos, myRoot.Position) * CFrame.Angles(math.rad(-90), 0, 0)
-                        zRoot.Anchored = false; z.PlatformStand = true; z:ChangeState(Enum.HumanoidStateType.Physics)
-                        zRoot.AssemblyLinearVelocity = Vector3.new(0,0,0); zRoot.AssemblyAngularVelocity = Vector3.new(0,0,0)
-                        for _, p in pairs(z.Parent:GetChildren()) do if p:IsA("BasePart") then p.CanCollide = false end end
+            
+            -- Optimasi: Cek folder langsung, hindari GetDescendants
+            local zFolder = Workspace:FindFirstChild("ServerZombies")
+            if not zFolder then return end
+
+            local myChar = LocalPlayer.Character
+            if not myChar then return end
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+            if not myRoot then return end
+
+            local myPos = myRoot.Position
+            local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * Config.Dist) + Vector3.new(0, Config.Height, 0)
+            
+            for _, z in ipairs(zFolder:GetChildren()) do
+                local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
+                local zHum = z:FindFirstChild("Humanoid")
+                
+                -- Cek Jarak (Max 250 stud agar tidak lag menarik seluruh map)
+                if zRoot and zHum and zHum.Health > 0 and (zRoot.Position - myPos).Magnitude < 250 then
+                    -- Metode CFrame (Lebih ringan dari body movers untuk teleport)
+                    zRoot.CFrame = CFrame.lookAt(targetPos, myPos) * CFrame.Angles(math.rad(-90), 0, 0)
+                    zRoot.AssemblyLinearVelocity = Vector3.zero
+                    zRoot.AssemblyAngularVelocity = Vector3.zero
+                    
+                    -- Nonaktifkan collision zombie (hanya sekali jika belum diset)
+                    if not z:GetAttribute("NoCol") then
+                        for _, p in ipairs(z:GetChildren()) do 
+                            if p:IsA("BasePart") then p.CanCollide = false end 
+                        end
+                        z:SetAttribute("NoCol", true)
                     end
                 end
-            end)
-        end)
-        table.insert(Library.ActiveConnections, connection)
-    else
-        pcall(function()
-            local zFolder = Workspace:FindFirstChild("ServerZombies") or Workspace
-            for _,z in pairs(zFolder:GetDescendants()) do
-                if z.Name=="Humanoid" and z.RootPart then z.PlatformStand = false; z:ChangeState(Enum.HumanoidStateType.GettingUp) end
             end
         end)
+        table.insert(Library.ActiveConnections, connection)
     end
 end)
-Win:Slider("Distance", 1, 20, 10, function(v) dist = v end, false)
-Win:Slider("Height", -5, 5, 1, function(v) height = v end, false)
+
+Win:Slider("Distance", 1, 20, 10, function(v) Config.Dist = v end, false)
+Win:Slider("Height", -5, 5, 1, function(v) Config.Height = v end, false)
 
 Win:Section("PLAYER")
+
 Win:Toggle("Auto Loot", false, function(t)
     local collectOn = t
     if t then
-        spawn(function()
+        task.spawn(function()
             while collectOn do
-                task.wait()
-                for _,p in pairs(Workspace:GetChildren()) do
-                    if not collectOn then break end
-                    local n = p.Name
-                    if (n == "RewardChest" or n == "AmmoBox" or n == "MysteryBox" or n == "Pickup" or (p:IsA("Part") and not p.Anchored and n~="CharacterImpact")) then
-                         pcall(function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then p.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame end end)
+                task.wait(0.2) -- Interval aman
+                local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myRoot then
+                    -- Loop Workspace anak langsung (bukan descendants)
+                    for _, p in ipairs(Workspace:GetChildren()) do
+                        if not collectOn then break end
+                        -- List nama item
+                        if p.Name == "RewardChest" or p.Name == "AmmoBox" or p.Name == "MysteryBox" or p.Name == "Pickup" then
+                             if p:IsA("Model") and p.PrimaryPart then
+                                 p:SetPrimaryPartCFrame(myRoot.CFrame)
+                             elseif p:IsA("Part") or p:IsA("MeshPart") then
+                                 p.CFrame = myRoot.CFrame
+                             end
+                        end
                     end
                 end
             end
@@ -140,20 +189,23 @@ end)
 Win:Toggle("Auto Revive", false, function(t)
     local reviveOn = t
     if t then
-        spawn(function()
+        task.spawn(function()
             while reviveOn do
-                task.wait(0.2) 
+                task.wait(0.5)
                 pcall(function()
                     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                         for _, plr in pairs(Players:GetPlayers()) do
+                         for _, plr in ipairs(Players:GetPlayers()) do
                             if plr ~= LocalPlayer and plr.Character then
                                 local tHum = plr.Character:FindFirstChild("Humanoid")
                                 if tHum and tHum.Health <= 0 then
-                                    local prompt = nil
-                                    for _, v in pairs(plr.Character:GetDescendants()) do if v:IsA("ProximityPrompt") then prompt = v break end end
-                                    if prompt then
-                                        LocalPlayer.Character.HumanoidRootPart.CFrame = (prompt.Parent and prompt.Parent.CFrame or plr.Character.HumanoidRootPart.CFrame) + Vector3.new(0,3,0)
-                                        task.wait(0.2); prompt.HoldDuration = 0; fireproximityprompt(prompt, 1, true)
+                                    -- Cari Prompt
+                                    local prompt = plr.Character:FindFirstChild("RevivePrompt", true) -- Recursive true
+                                    if prompt and prompt:IsA("ProximityPrompt") then
+                                        -- Teleport ke teman
+                                        LocalPlayer.Character.HumanoidRootPart.CFrame = plr.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+                                        task.wait(0.2)
+                                        prompt.HoldDuration = 0
+                                        fireproximityprompt(prompt, 1, true)
                                     end
                                 end
                             end
@@ -164,20 +216,24 @@ Win:Toggle("Auto Revive", false, function(t)
         end)
     end
 end)
-Win:Slider("HipHeight", 2, 50, 2, function(v) if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.HipHeight = v end end, false)
 
 Win:Section("VISUAL")
 Win:Toggle("ESP Head", false, function(t)
     local espOn = t
     if t then
-        spawn(function()
+        task.spawn(function()
             while espOn do
-                task.wait(0.5)
-                if Workspace:FindFirstChild("ServerZombies") then
-                    for _, z in pairs(Workspace.ServerZombies:GetDescendants()) do
-                        if z.Name == "Head" and z.Parent:FindFirstChild("Humanoid") and z.Parent.Humanoid.Health > 0 then
-                            if not z:FindFirstChild("H_ESP") then
-                                local b = Instance.new("BoxHandleAdornment", z); b.Name = "H_ESP"; b.Adornee = z; b.Size = z.Size; b.Color3 = Color3.new(1,0,0); b.AlwaysOnTop = true; b.Transparency = 0.5; b.ZIndex = 5
+                task.wait(1)
+                local zFolder = Workspace:FindFirstChild("ServerZombies")
+                if zFolder then
+                    for _, z in ipairs(zFolder:GetChildren()) do
+                        local head = z:FindFirstChild("Head")
+                        local hum = z:FindFirstChild("Humanoid")
+                        if head and hum and hum.Health > 0 then
+                            if not head:FindFirstChild("H_ESP") then
+                                local b = Instance.new("BoxHandleAdornment", head)
+                                b.Name = "H_ESP"; b.Adornee = head; b.Size = head.Size + Vector3.new(0.5, 0.5, 0.5)
+                                b.Color3 = Color3.fromRGB(255, 0, 0); b.AlwaysOnTop = true; b.Transparency = 0.4; b.ZIndex = 5
                             end
                         end
                     end
@@ -185,39 +241,25 @@ Win:Toggle("ESP Head", false, function(t)
             end
         end)
     else
-        if Workspace:FindFirstChild("ServerZombies") then for _, z in pairs(Workspace.ServerZombies:GetDescendants()) do if z:FindFirstChild("H_ESP") then z.H_ESP:Destroy() end end end
+        -- Cleanup ESP
+        local zFolder = Workspace:FindFirstChild("ServerZombies")
+        if zFolder then
+            for _, z in ipairs(zFolder:GetChildren()) do
+                local head = z:FindFirstChild("Head")
+                if head and head:FindFirstChild("H_ESP") then head.H_ESP:Destroy() end
+            end
+        end
     end
 end)
 
--- [[ SETUP SETTINGS & CONFIG ]] --
 Win:CreateConfigSystem("https://discord.gg/28cfy5E3ag")
 
--- KEYBIND SETTING (Toggle UI)
--- Menggunakan fungsi Library:ToggleUI() yang baru kita buat agar sinkron
+-- UI TOGGLE (Fixed)
 Win:Section("UI CONTROLS", true)
 Win:Keybind("Toggle UI Menu", Enum.KeyCode.RightControl, function(key)
-    if Library.ToggleUI then
+    if Library and Library.ToggleUI then
         Library:ToggleUI()
-    else
-        -- Fallback manual jika fungsi Library belum update
-        local LibName = "FSSHUB_Final"
-        local TargetUI = nil
-        
-        -- Cari di PlayerGui (Prioritas Utama)
-        if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
-            TargetUI = Players.LocalPlayer.PlayerGui:FindFirstChild(LibName)
-        end
-        
-        -- Cari di CoreGui (Fallback)
-        if not TargetUI then
-            pcall(function() TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName) end)
-        end
-        
-        if TargetUI then
-            TargetUI.Enabled = not TargetUI.Enabled
-        end
     end
 end, true)
 
--- Autoload
 Win:CheckAutoload()
