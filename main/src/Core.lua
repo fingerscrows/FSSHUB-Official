@@ -1,10 +1,11 @@
--- [[ FSSHUB CORE V7 (FINAL PRODUCTION) ]] --
--- Update: Fixed URL, HWID Logic & Countdown Info
+-- [[ FSSHUB CORE V7.6 (VISUAL UPDATE) ]] --
+-- Changelog: Mengirim info status ke AuthUI, Auto-Login Notification
 
 local Core = {}
 local FILE_NAME = "FSSHUB_V7_License.key"
--- URL GAS TERBARU ANDA
-local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec"
+
+-- GANTI URL INI DENGAN DEPLOYMENT GAS V7.5 TERBARU KAMU
+local API_URL = "https://script.google.com/macros/s/AKfycb... (PASTE URL BARU DISINI) .../exec" 
 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 local HttpService = game:GetService("HttpService")
@@ -70,15 +71,18 @@ function Core.LoadGame()
     task.spawn(function() loadstring(game:HttpGet(url))() end)
 end
 
--- [UPDATE BAGIAN Core.Init] --
 function Core.Init()
-    -- Cek Key Tersimpan
+    -- Cek Key Tersimpan (Auto-Login)
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
         if result.valid then
-            -- Tampilkan notifikasi status saat auto-login
-            Notify("WELCOME BACK", (result.info == "Premium User" and "👑 PREMIUM MEMBER" or "⏳ " .. (result.info or "Active")))
+            -- Tampilkan notifikasi status (Premium/Biasa) saat auto-login
+            local statusMsg = (result.info and (string.find(result.info, "Premium") or string.find(result.info, "Unlimited"))) 
+                              and "👑 PREMIUM MEMBER" 
+                              or ("⏳ " .. (result.info or "Active"))
+            
+            Notify("WELCOME BACK", statusMsg)
             Core.LoadGame()
             return
         end
@@ -94,7 +98,7 @@ function Core.Init()
                 if result.valid then
                     writefile(FILE_NAME, key)
                     Core.LoadGame()
-                    -- RETURN DATA LENGKAP KE UI
+                    -- RETURN DATA LENGKAP KE UI AGAR BISA UBAH WARNA TOMBOL
                     return {success = true, info = result.info} 
                 end
                 return {success = false}
