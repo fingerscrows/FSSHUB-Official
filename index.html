@@ -2,160 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Gateway</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FSSHUB | Secure Gateway</title>
     <style>
-        body { background-color: #000; color: #fff; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+        :root { --primary: #00ff88; --bg: #050505; --card: #111; }
+        body { background-color: var(--bg); color: #fff; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         
-        /* CONTAINER UTAMA */
-        #secure-container { display: none; text-align: center; border: 1px solid #00ff00; padding: 30px; border-radius: 10px; background: #0a0a0a; width: 350px; box-shadow: 0 0 15px rgba(0, 255, 0, 0.2); }
+        .container { 
+            background: var(--card); border: 1px solid #333; padding: 2rem; 
+            border-radius: 12px; width: 90%; max-width: 380px; text-align: center;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+            position: relative;
+        }
         
-        /* CONTAINER ERROR */
-        #error-container { display: none; text-align: center; max-width: 400px; padding: 20px; border: 1px solid red; border-radius: 10px; background: #100000; }
+        h2 { color: var(--primary); margin-top: 0; text-shadow: 0 0 10px rgba(0,255,136,0.5); }
+        .status { font-size: 0.8rem; color: #666; margin-bottom: 1.5rem; }
+        
+        input { 
+            background: #0a0a0a; border: 1px solid #333; color: var(--primary); 
+            padding: 12px; width: 100%; box-sizing: border-box; text-align: center; 
+            font-size: 1.1rem; border-radius: 6px; outline: none; margin-bottom: 10px;
+            font-family: 'Courier New', monospace; font-weight: bold;
+        }
+        
+        button { 
+            background: var(--primary); color: #000; border: none; padding: 12px; 
+            font-weight: bold; cursor: pointer; width: 100%; border-radius: 6px;
+            font-size: 1rem; transition: 0.2s;
+        }
+        button:active { transform: scale(0.98); background: #fff; }
+        
+        .timer { margin-top: 15px; font-size: 0.75rem; color: #444; }
+        
+        /* Loading Animation */
+        .loader { display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; background: var(--bg); z-index: 10; align-items: center; justify-content: center; flex-direction: column; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        h2 { margin-top: 0; color: #00ff00; }
-        h1 { color: red; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
-        
-        input { background: #111; border: 1px solid #333; color: #00ff00; padding: 12px; width: 90%; text-align: center; font-size: 16px; margin: 15px 0; border-radius: 5px; }
-        button { background: #00ff00; color: #000; border: none; padding: 12px; font-weight: bold; cursor: pointer; width: 100%; border-radius: 5px; }
-        button:hover { background: #fff; }
-        
-        .timer { font-size: 11px; color: #666; margin-top: 10px; }
-        .reason { color: #ff5555; font-size: 12px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="error-container">
-        <h1>ACCESS DENIED</h1>
-        <p class="reason" id="error-msg">Checking security...</p>
-        <button onclick="window.location.href='https://work.ink/29DK/fsshub-get-key-script'">GET NEW LINK</button>
+    <div id="loader" class="loader" style="display: flex;">
+        <div class="spinner"></div>
+        <div style="color: var(--primary); font-size: 0.8rem;">INITIALIZING...</div>
     </div>
 
-    <div id="secure-container">
+    <div class="container" id="main" style="display:none;">
         <h2>ACCESS GRANTED</h2>
-        <div id="status" style="font-size:12px; color:#888;">Validating...</div>
+        <div class="status">Session ID: <span id="sess-id">...</span></div>
         
-        <input type="text" id="keyField" readonly value="Generating..." onclick="copyKey()">
-        <button onclick="copyKey()">COPY KEY</button>
+        <input type="text" id="keyField" readonly value="GENERATING..." onclick="copyKey()">
+        <button id="copyBtn" onclick="copyKey()">COPY KEY</button>
         
-        <div class="timer" id="countdown">Loading...</div>
+        <div class="timer" id="countdown">Calculating expiration...</div>
     </div>
 
     <script>
-        // --- KONFIGURASI UTAMA ---
+        // CONFIG MUST MATCH LUA SCRIPT
         const SECRET_SALT = "RAHASIA_FINAL_KAMU_123"; 
-        const UPDATE_INTERVAL = 6; // 12 Jam
-        const REQUIRED_VERSION = "1"; // Ubah ini jika link berubah (?ver=1)
-        // -------------------------
+        const UPDATE_INTERVAL = 6; // Hours
 
-        // 1. SISTEM KEAMANAN BERLAPIS
-        function runSecurityCheck() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const userVer = urlParams.get('ver');
-            const sessionLock = sessionStorage.getItem("fss_session_lock");
-
-            // A. Cek Versi (Wajib ?ver=1)
-            if (userVer !== REQUIRED_VERSION) {
-                killSession("Invalid or Expired Link Version.");
-                return;
-            }
-
-            // B. Cek Refresh/Back (Anti-Replay)
-            if (sessionLock) {
-                killSession("Session Expired. Do not refresh or go back.");
-                return;
-            }
-
-            // C. Cek Referrer (Opsional - Anti Direct Access)
-            // Hapus blok kode C ini jika user banyak komplain error
-            /*
-            if (document.referrer === "") {
-                killSession("Direct Access not allowed.");
-                return;
-            }
-            */
-
-            // JIKA LOLOS SEMUA CEK:
-            initSuccess();
-        }
-
-        function killSession(reason) {
-            document.getElementById("secure-container").style.display = "none";
-            document.getElementById("error-container").style.display = "block";
-            document.getElementById("error-msg").innerText = reason;
-            document.title = "Access Denied";
-        }
-
-        function initSuccess() {
-            // 1. Kunci Session (Agar tidak bisa refresh)
-            sessionStorage.setItem("fss_session_lock", "true");
-            
-            // 2. Manipulasi URL (Sembunyikan ?ver=1, ganti jadi token acak)
-            const fakeToken = Math.floor(Math.random() * 99999999999);
-            window.history.replaceState(null, "", "?token=" + fakeToken + "&secure=true");
-            
-            // 3. Tampilkan UI
-            document.getElementById("secure-container").style.display = "block";
-            document.getElementById("status").innerText = "Session Token: " + fakeToken;
-
-            // 4. Jalankan Timer & Key Gen
-            startKeySystem();
-            
-            // 5. Matikan Tombol Back
-            window.history.pushState(null, "", window.location.href);
-            window.onpopstate = function () {
-                window.history.pushState(null, "", window.location.href);
-                alert("Security Alert: Going back is disabled.");
-            };
-        }
-
-        // 2. GENERATOR KUNCI & TIMER (Sama seperti V3)
+        // HASHING (DJB2)
         function djb2Hash(str) {
             let hash = 5381;
             for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) + hash) + str.charCodeAt(i); 
+                hash = ((hash << 5) + hash) + str.charCodeAt(i);
             }
-            return (hash >>> 0).toString(16).toUpperCase(); 
+            return (hash >>> 0).toString(16).toUpperCase();
         }
 
-        function startKeySystem() {
-            function update() {
-                const now = new Date();
-                const utcNow = now.getTime();
-                const totalHours = Math.floor(utcNow / (1000 * 60 * 60));
-                const currentBlock = Math.floor(totalHours / UPDATE_INTERVAL);
-                
-                // Generate Key
-                const rawString = currentBlock + "-" + SECRET_SALT;
-                const finalHash = djb2Hash(rawString);
-                document.getElementById("keyField").value = "KEY-" + finalHash;
+        function generateKey() {
+            const now = new Date();
+            const utcNow = now.getTime();
+            const hours = Math.floor(utcNow / (1000 * 60 * 60));
+            const currentBlock = Math.floor(hours / UPDATE_INTERVAL);
 
-                // Generate Countdown
-                const nextBlockMs = (currentBlock + 1) * UPDATE_INTERVAL * 3600000;
-                const diff = nextBlockMs - utcNow;
-                
-                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const s = Math.floor((diff % (1000 * 60)) / 1000);
-                
-                document.getElementById("countdown").innerText = 
-                    `Key Resets in: ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-            }
-            setInterval(update, 1000);
-            update();
+            // Generate Key
+            const raw = currentBlock + "-" + SECRET_SALT;
+            const key = "KEY-" + djb2Hash(raw);
+            
+            document.getElementById("keyField").value = key;
+
+            // Timer
+            const nextBlockMs = (currentBlock + 1) * UPDATE_INTERVAL * 3600000;
+            const diff = nextBlockMs - utcNow;
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            document.getElementById("countdown").innerText = `Key expires in: ${h}h ${m}m`;
         }
 
         function copyKey() {
             const k = document.getElementById("keyField");
             k.select();
             document.execCommand("copy");
-            alert("Key Copied!");
+            
+            const btn = document.getElementById("copyBtn");
+            const originalText = btn.innerText;
+            btn.innerText = "COPIED!";
+            btn.style.backgroundColor = "#fff";
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.backgroundColor = "";
+            }, 1000);
         }
 
-        // Jalankan Security saat load
-        runSecurityCheck();
+        // INIT
+        window.onload = function() {
+            setTimeout(() => {
+                document.getElementById("loader").style.display = "none";
+                document.getElementById("main").style.display = "block";
+                document.getElementById("sess-id").innerText = Math.floor(Math.random() * 999999).toString(16).toUpperCase();
+                generateKey();
+                setInterval(generateKey, 10000); // Check every 10s
+            }, 1500); // Fake Loading Time
+        };
     </script>
 </body>
 </html>
