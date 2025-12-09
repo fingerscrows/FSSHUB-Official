@@ -15,7 +15,6 @@
         button { background: var(--primary); color: #fff; border: none; padding: 12px; width: 100%; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         button:hover { opacity: 0.9; transform: translateY(-2px); }
         
-        /* Gaya Countdown */
         .timer-box { margin-top: 20px; padding: 10px; background: rgba(140, 80, 255, 0.1); border-radius: 8px; border: 1px dashed var(--primary); }
         .timer-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
         .timer-value { font-size: 1.2rem; font-weight: bold; color: #fff; margin-top: 5px; }
@@ -61,7 +60,7 @@
             try {
                 const url = `${GAS_URL}?a=generate&t=${TOKEN}&hwid=${hwid}`;
                 const res = await fetch(url);
-                const data = await res.json(); // Sekarang baca JSON!
+                const data = await res.json();
                 
                 if(data.status === "success") {
                     document.getElementById("key").value = data.key;
