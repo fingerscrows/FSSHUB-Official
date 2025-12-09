@@ -1,9 +1,10 @@
--- [[ FSSHUB LIBRARY SOURCE V2 (With Keybind) ]] --
+-- [[ FSSHUB LIBRARY SOURCE V2.1 (Xeno Support) ]] --
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
 
 local FSSHUB = {}
 FSSHUB.Theme = {
@@ -75,10 +76,37 @@ end
 
 function FSSHUB:Window(title)
     local Lib = {}
-    local ParentTarget = gethui and gethui() or CoreGui
+    
+    -- [[ FIXED PARENTING FOR XENO / MOBILE ]] --
+    local function GetRobustParent()
+        -- 1. Coba gethui (Standard modern)
+        if gethui then
+            local s, r = pcall(gethui)
+            if s and r and r:IsA("Instance") then return r end
+        end
+        -- 2. Coba CoreGui (Standard PC)
+        if CoreGui then
+            return CoreGui
+        end
+        -- 3. Fallback PlayerGui (Pasti work di Mobile/Xeno jika CoreGui gagal)
+        if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
+            return Players.LocalPlayer.PlayerGui
+        end
+        return CoreGui -- Default terakhir
+    end
+
+    local ParentTarget = GetRobustParent()
+    
+    -- Bersihkan UI lama di semua kemungkinan tempat agar tidak duplikat
     if ParentTarget:FindFirstChild("FSSHUB_Final") then ParentTarget.FSSHUB_Final:Destroy() end
+    if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") and Players.LocalPlayer.PlayerGui:FindFirstChild("FSSHUB_Final") then
+        Players.LocalPlayer.PlayerGui.FSSHUB_Final:Destroy()
+    end
+    if CoreGui:FindFirstChild("FSSHUB_Final") then CoreGui.FSSHUB_Final:Destroy() end
 
     local ScreenGui = Create("ScreenGui", {Name = "FSSHUB_Final", Parent = ParentTarget, ResetOnSpawn = false})
+    -- Tambahkan DisplayOrder tinggi agar selalu di atas
+    ScreenGui.DisplayOrder = 9999 
     
     -- NOTIFICATION CONTAINER
     local NotifyContainer = Create("Frame", {
@@ -283,6 +311,7 @@ function FSSHUB:Window(title)
         UpdateVisual(value)
         if not isSettings then FSSHUB.Elements[text] = {Type = "Slider", Function = function(v) UpdateVisual(v); pcall(callback, v) end} end
     end
+    
     function Lib:Keybind(text, default, callback, isSettings)
         local key = default or Enum.KeyCode.RightControl
         if not isSettings and FSSHUB.ConfigData[text] then key = Enum.KeyCode[FSSHUB.ConfigData[text]] end
@@ -321,6 +350,7 @@ function FSSHUB:Window(title)
         pcall(callback, key)
         if not isSettings then FSSHUB.Elements[text] = {Type = "Keybind", Function = function(v) key = Enum.KeyCode[v]; KeyBtn.Text = key.Name; pcall(callback, key) end} end
     end
+
     function Lib:Box(text, callback)
         local BoxFrame = Create("Frame", {Parent = SettingsContainer, BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 50)})
         Create("UICorner", {Parent = BoxFrame, CornerRadius = UDim.new(0, 6)})
