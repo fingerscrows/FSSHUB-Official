@@ -2,7 +2,7 @@
 
 -- LOAD LIBRARY
 -- Pastikan file Library (Batch 1) sudah di-upload ke GitHub kamu agar link ini bekerja!
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/lib/FSSHUB_Lib.lua"))()
 local Win = Library:Window("FSSHUB | Survive Wave Z")
 
 -- SERVICES & VARS
