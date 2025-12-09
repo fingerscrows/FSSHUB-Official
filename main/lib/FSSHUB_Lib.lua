@@ -1,12 +1,10 @@
--- [[ FSSHUB LIBRARY SOURCE V2.2 (PC Safe Mode) ]] --
+-- [[ FSSHUB LIBRARY SOURCE V2.3 (STABLE & KEYBIND) ]] --
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-
--- Hapus akses langsung ke CoreGui di sini agar tidak error saat start
--- local CoreGui = game:GetService("CoreGui") <--- PENYEBAB ERROR
+local CoreGui = game:GetService("CoreGui")
 
 local FSSHUB = {}
 FSSHUB.Theme = {
@@ -79,42 +77,33 @@ end
 function FSSHUB:Window(title)
     local Lib = {}
     
-    -- [[ SAFE PARENTING LOGIC ]] --
-    local function GetSafeParent()
-        -- 1. Coba gethui (Metode paling aman untuk executor modern)
-        if gethui then
-            local s, r = pcall(gethui)
-            if s and r and r:IsA("Instance") then return r end
-        end
-        
-        -- 2. Coba CoreGui dengan pcall (Agar tidak error jika diblokir)
-        local success, core = pcall(function() return game:GetService("CoreGui") end)
-        if success and core then
-            return core
-        end
-        
-        -- 3. Fallback ke PlayerGui (Pasti bisa di semua executor)
-        if Players.LocalPlayer then
-            local pGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
-            if pGui then return pGui end
-        end
-        
-        return game:GetService("CoreGui") -- Terpaksa return ini jika semua gagal
-    end
-
-    local ParentTarget = GetSafeParent()
+    -- [[ 1. LOGIKA PARENTING YANG PASTI MUNCUL ]] --
+    -- Kita prioritaskan PlayerGui karena 100% aman dan pasti muncul di layar
+    local ParentTarget = nil
     
-    -- Bersihkan UI lama
-    if ParentTarget:FindFirstChild("FSSHUB_Final") then ParentTarget.FSSHUB_Final:Destroy() end
-    -- Cek juga di PlayerGui barangkali ada sisa
-    if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
-        if Players.LocalPlayer.PlayerGui:FindFirstChild("FSSHUB_Final") then
-            Players.LocalPlayer.PlayerGui.FSSHUB_Final:Destroy()
-        end
+    -- Coba ambil PlayerGui
+    if Players.LocalPlayer then
+        ParentTarget = Players.LocalPlayer:WaitForChild("PlayerGui", 5)
+    end
+    
+    -- Jika PlayerGui gagal (sangat jarang), baru coba CoreGui
+    if not ParentTarget then
+        ParentTarget = CoreGui
     end
 
+    -- [[ 2. BERSIHKAN UI LAMA ]] --
+    -- Hapus instance lama agar tidak menumpuk
+    if ParentTarget:FindFirstChild("FSSHUB_Final") then ParentTarget.FSSHUB_Final:Destroy() end
+    -- Cek juga di CoreGui kalau-kalau ada sisa
+    if CoreGui:FindFirstChild("FSSHUB_Final") then CoreGui.FSSHUB_Final:Destroy() end
+
+    -- [[ 3. BUAT GUI BARU ]] --
     local ScreenGui = Create("ScreenGui", {Name = "FSSHUB_Final", Parent = ParentTarget, ResetOnSpawn = false})
-    if ScreenGui.Parent:IsA("PlayerGui") then ScreenGui.DisplayOrder = 9999 end -- Agar di atas UI game
+    
+    -- DisplayOrder tinggi agar UI selalu di atas UI game lain
+    if ScreenGui.Parent:IsA("PlayerGui") then
+        ScreenGui.DisplayOrder = 10000 
+    end
     
     -- NOTIFICATION CONTAINER
     local NotifyContainer = Create("Frame", {
@@ -320,6 +309,7 @@ function FSSHUB:Window(title)
         if not isSettings then FSSHUB.Elements[text] = {Type = "Slider", Function = function(v) UpdateVisual(v); pcall(callback, v) end} end
     end
     
+    -- [[ FUNGSI KEYBIND (YANG DIMINTA) ]] --
     function Lib:Keybind(text, default, callback, isSettings)
         local key = default or Enum.KeyCode.RightControl
         if not isSettings and FSSHUB.ConfigData[text] then key = Enum.KeyCode[FSSHUB.ConfigData[text]] end
