@@ -27,19 +27,22 @@ local Players = game:GetService("Players")
 
 -- FUNGSI MENCARI UI PARENT YANG AMAN (Anti-Crash Xeno)
 local function GetSafeGui()
-    -- 1. Coba gethui (Executor Modern)
+    -- 1. Prioritaskan PlayerGui (Paling Aman & Stabil di Xeno)
+    if Players.LocalPlayer then
+        local pGui = Players.LocalPlayer:WaitForChild("PlayerGui", 5)
+        if pGui then return pGui end
+    end
+
+    -- 2. Coba gethui (Jika ada)
     if gethui then
         local s, r = pcall(gethui)
         if s and r and r:IsA("Instance") then return r end
     end
-    -- 2. Coba CoreGui dengan pcall
+
+    -- 3. Terakhir CoreGui (Pakai pcall agar tidak crash script)
     local s, core = pcall(function() return game:GetService("CoreGui") end)
     if s and core then return core end
     
-    -- 3. Fallback ke PlayerGui (Pasti Aman)
-    if Players.LocalPlayer then
-        return Players.LocalPlayer:WaitForChild("PlayerGui", 5)
-    end
     return nil
 end
 
@@ -121,7 +124,8 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "FSS_V3_UI"
 ScreenGui.Parent = ParentTarget
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 9999 -- Pastikan di paling atas
+-- DisplayOrder tinggi agar di atas UI game
+if ScreenGui.Parent:IsA("PlayerGui") then ScreenGui.DisplayOrder = 10000 end
 
 local MainFrame = Instance.new("Frame"); MainFrame.Name = "MainFrame"; MainFrame.Parent = ScreenGui; MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18); MainFrame.Position = UDim2.new(0.5, -175, 0.5, -125); MainFrame.Size = UDim2.new(0, 350, 0, 250)
 local Corner = Instance.new("UICorner"); Corner.CornerRadius = UDim.new(0, 8); Corner.Parent = MainFrame
