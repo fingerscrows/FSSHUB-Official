@@ -1,5 +1,5 @@
--- [[ FSS HUB V3.3 - SAFE LOADER (Xeno Support) ]] --
--- Fitur: Anti-Crash CoreGui, String ID Check, & Debug Mode
+-- [[ FSS HUB V3.4 - SAFE LOADER (Xeno/PC Fixed) ]] --
+-- Fitur: Anti-Crash, String ID Check, & PlayerGui Priority
 
 -- 1. KONFIGURASI UTAMA
 local SECRET_SALT = "RAHASIA_FINAL_KAMU_123" -- WAJIB SAMA dengan HTML
@@ -7,7 +7,7 @@ local UPDATE_INTERVAL = 6
 local DISCORD_INVITE = "https://discord.gg/28cfy5E3ag"
 local FILE_NAME = "FSS_V3_Key.txt"
 
--- 2. DATABASE GAME (String ID)
+-- 2. DATABASE GAME (Gunakan String ID)
 local GameList = {
     -- Masukkan Place ID dan Universe ID (Game ID) sebagai String
     ["92371631484540"] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
@@ -18,7 +18,7 @@ local GameList = {
 local UNIVERSAL_SCRIPT = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua" 
 
 -- ---------------------------------------------------------
--- SERVICES (AMANKAN CORE GUI)
+-- SERVICES (AMANKAN CORE GUI DARI CRASH)
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
@@ -29,7 +29,13 @@ local Players = game:GetService("Players")
 local function GetSafeGui()
     -- 1. Prioritaskan PlayerGui (Paling Aman & Stabil di Xeno)
     if Players.LocalPlayer then
-        local pGui = Players.LocalPlayer:WaitForChild("PlayerGui", 5)
+        -- Tunggu sebentar jika PlayerGui belum dimuat
+        local pGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
+        if not pGui then
+             -- Coba tunggu max 2 detik
+             local s, r = pcall(function() return Players.LocalPlayer:WaitForChild("PlayerGui", 2) end)
+             if s and r then pGui = r end
+        end
         if pGui then return pGui end
     end
 
@@ -100,7 +106,9 @@ local function LoadGameScript()
             Text = "Loading Default Script..."; 
             Duration = 5;
         })
-        loadstring(game:HttpGet(UNIVERSAL_SCRIPT))()
+        -- Load Universal Script
+        local s, err = pcall(function() loadstring(game:HttpGet(UNIVERSAL_SCRIPT))() end)
+        if not s then warn("Universal Load Error: "..tostring(err)) end
     end
 end
 
@@ -125,7 +133,7 @@ ScreenGui.Name = "FSS_V3_UI"
 ScreenGui.Parent = ParentTarget
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 -- DisplayOrder tinggi agar di atas UI game
-if ScreenGui.Parent:IsA("PlayerGui") then ScreenGui.DisplayOrder = 10000 end
+if ScreenGui.Parent:IsA("PlayerGui") then ScreenGui.DisplayOrder = 9999 end
 
 local MainFrame = Instance.new("Frame"); MainFrame.Name = "MainFrame"; MainFrame.Parent = ScreenGui; MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18); MainFrame.Position = UDim2.new(0.5, -175, 0.5, -125); MainFrame.Size = UDim2.new(0, 350, 0, 250)
 local Corner = Instance.new("UICorner"); Corner.CornerRadius = UDim.new(0, 8); Corner.Parent = MainFrame
