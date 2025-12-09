@@ -1,13 +1,13 @@
--- [[ FSSHUB AUTH UI MODULE V1.1 (FIXED FONT) ]] --
--- Fix: Changed Enum.Font.Mono to Enum.Font.Code for better compatibility
+-- [[ FSSHUB AUTH UI MODULE V1.2 (MOBILE RESPONSIVE) ]] --
+-- Update: Added UIScale for mobile & Fixed Font Issue
 
 local AuthUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
--- THEME
 local Theme = {
     Bg = Color3.fromRGB(15, 15, 15),
     Accent = Color3.fromRGB(0, 255, 136),
@@ -33,62 +33,41 @@ function AuthUI.Show(options)
 
     local Screen = Create("ScreenGui", {Name = "FSSHUB_Auth", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 10000})
     
-    -- Main Frame
     local Main = Create("Frame", {
-        Parent = Screen,
-        BackgroundColor3 = Theme.Bg,
-        Size = UDim2.new(0, 380, 0, 220),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BorderSizePixel = 0,
-        BackgroundTransparency = 1
-    })
-    
-    -- Elements
-    local Stroke = Create("UIStroke", {Parent = Main, Color = Theme.Accent, Thickness = 2, Transparency = 1})
-    local Corner = Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 10)})
-    
-    local Title = Create("TextLabel", {
-        Parent = Main, Text = "FSS HUB | GATEWAY", TextColor3 = Theme.Accent,
-        Font = Enum.Font.GothamBold, TextSize = 22,
-        Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 15),
-        BackgroundTransparency = 1, TextTransparency = 1
-    })
-    
-    local SubTitle = Create("TextLabel", {
-        Parent = Main, Text = "Enter key to access script", TextColor3 = Theme.Dim,
-        Font = Enum.Font.Gotham, TextSize = 12,
-        Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0, 40),
-        BackgroundTransparency = 1, TextTransparency = 1
+        Parent = Screen, BackgroundColor3 = Theme.Bg,
+        Size = UDim2.new(0, 380, 0, 220), Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0, BackgroundTransparency = 1
     })
 
-    -- PERBAIKAN DI SINI: Mengganti Enum.Font.Mono menjadi Enum.Font.Code
+    -- [NEW] AUTO SCALE FOR MOBILE
+    local Scale = Create("UIScale", {Parent = Main, Scale = 1})
+    if Workspace.CurrentCamera.ViewportSize.Y < 500 then
+        Scale.Scale = 0.8 -- Kecilkan sedikit jika di HP kecil
+    end
+    
+    local Stroke = Create("UIStroke", {Parent = Main, Color = Theme.Accent, Thickness = 2, Transparency = 1})
+    Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 10)})
+    
+    local Title = Create("TextLabel", {Parent = Main, Text = "FSS HUB | GATEWAY", TextColor3 = Theme.Accent, Font = Enum.Font.GothamBold, TextSize = 22, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 15), BackgroundTransparency = 1, TextTransparency = 1})
+    local SubTitle = Create("TextLabel", {Parent = Main, Text = "Enter key to access script", TextColor3 = Theme.Dim, Font = Enum.Font.Gotham, TextSize = 12, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0, 40), BackgroundTransparency = 1, TextTransparency = 1})
+
     local Input = Create("TextBox", {
-        Parent = Main, BackgroundColor3 = Color3.fromRGB(25, 25, 25),
-        TextColor3 = Theme.Accent, PlaceholderText = "Paste Key Here...",
-        Font = Enum.Font.Code, TextSize = 14, 
-        Size = UDim2.new(0.8, 0, 0, 45), Position = UDim2.new(0.1, 0, 0.35, 0),
+        Parent = Main, BackgroundColor3 = Color3.fromRGB(25, 25, 25), TextColor3 = Theme.Accent, PlaceholderText = "Paste Key Here...",
+        Font = Enum.Font.Code, TextSize = 14, Size = UDim2.new(0.8, 0, 0, 45), Position = UDim2.new(0.1, 0, 0.35, 0),
         TextTransparency = 1, BackgroundTransparency = 1
     })
     Create("UICorner", {Parent = Input, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = Input, Color = Color3.fromRGB(50,50,50), Thickness = 1, Transparency = 1})
 
-    -- Buttons
-    local BtnContainer = Create("Frame", {
-        Parent = Main, Size = UDim2.new(0.8, 0, 0, 40),
-        Position = UDim2.new(0.1, 0, 0.65, 0), BackgroundTransparency = 1
-    })
-    local Layout = Create("UIListLayout", {Parent = BtnContainer, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10)})
+    local BtnContainer = Create("Frame", {Parent = Main, Size = UDim2.new(0.8, 0, 0, 40), Position = UDim2.new(0.1, 0, 0.65, 0), BackgroundTransparency = 1})
+    Create("UIListLayout", {Parent = BtnContainer, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10)})
 
     local function MakeBtn(text, col, func)
         local Btn = Create("TextButton", {
-            Parent = BtnContainer, Text = text, TextColor3 = Color3.new(0,0,0),
-            BackgroundColor3 = col, Font = Enum.Font.GothamBold, TextSize = 14,
-            Size = UDim2.new(0.5, -5, 1, 0), AutoButtonColor = false,
-            BackgroundTransparency = 1, TextTransparency = 1
+            Parent = BtnContainer, Text = text, TextColor3 = Color3.new(0,0,0), BackgroundColor3 = col, Font = Enum.Font.GothamBold, TextSize = 14,
+            Size = UDim2.new(0.5, -5, 1, 0), AutoButtonColor = false, BackgroundTransparency = 1, TextTransparency = 1
         })
         Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 6)})
-        
         Btn.MouseButton1Click:Connect(function()
             TweenService:Create(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.5, -8, 0.9, 0)}):Play()
             task.wait(0.1)
@@ -108,7 +87,6 @@ function AuthUI.Show(options)
         local txt = string.gsub(Input.Text, "%s+", "")
         if txt == options.ValidKey then
             Title.Text = "SUCCESS!"
-            -- Animasi Keluar
             TweenService:Create(Main, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 1.5, 0)}):Play()
             task.wait(0.5)
             Screen:Destroy()
@@ -125,7 +103,6 @@ function AuthUI.Show(options)
         end
     end)
 
-    -- ANIMASI MASUK
     local info = TweenInfo.new(0.5, Enum.EasingStyle.Quad)
     TweenService:Create(Main, info, {BackgroundTransparency = 0}):Play()
     TweenService:Create(Stroke, info, {Transparency = 0}):Play()
@@ -133,20 +110,12 @@ function AuthUI.Show(options)
     TweenService:Create(SubTitle, info, {TextTransparency = 0}):Play()
     TweenService:Create(Input, info, {TextTransparency = 0, BackgroundTransparency = 0}):Play()
     Input.UIStroke.Transparency = 0
-    
     TweenService:Create(GetKeyBtn, info, {TextTransparency = 0, BackgroundTransparency = 0}):Play()
     TweenService:Create(LoginBtn, info, {TextTransparency = 0, BackgroundTransparency = 0}):Play()
 
-    -- Draggable
     local dragging, dragInput, dragStart, startPos
-    Main.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true; dragStart = input.Position; startPos = Main.Position
-        end
-    end)
-    Main.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-    end)
+    Main.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = Main.Position end end)
+    Main.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
