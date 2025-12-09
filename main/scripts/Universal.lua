@@ -1,5 +1,5 @@
--- [[ FSSHUB: UNIVERSAL MODULE (V2.0) ]] --
--- Rebranded to match Purple Theme
+-- [[ FSSHUB: UNIVERSAL MODULE (V2.5) ]] --
+-- Changelog: Added Server Hop, Rejoin, Improved ESP (Name+Dist)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -8,8 +8,9 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 -- Load Library
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -17,12 +18,12 @@ local Library = loadstring(game:HttpGet(LIB_URL))()
 
 if not Library then return end
 
-local Window = Library:Window("FSS HUB | UNIVERSAL")
+local Window = Library:Window("FSS HUB | UNIVERSAL V2.5")
 
 -- Global Config
 getgenv().FSS_Universal = {
     Speed = 16, Jump = 50, InfJump = false, Noclip = false, 
-    ESP = false, Fullbright = false, Connections = {}
+    ESP = false, ESP_Info = false, Fullbright = false, Connections = {}
 }
 
 -- [TAB 1: LOCAL PLAYER]
@@ -102,7 +103,34 @@ end)
 -- [TAB 2: VISUALS]
 local VisualTab = Window:Section("Visuals")
 
-VisualTab:Toggle("Player ESP", false, function(state)
+local function CreateBillboard(char, name)
+    if char:FindFirstChild("FSS_Info") then char.FSS_Info:Destroy() end
+    
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    
+    local bill = Instance.new("BillboardGui")
+    bill.Name = "FSS_Info"
+    bill.Adornee = head
+    bill.Size = UDim2.new(0, 100, 0, 40)
+    bill.StudsOffset = Vector3.new(0, 2, 0)
+    bill.AlwaysOnTop = true
+    
+    local txt = Instance.new("TextLabel", bill)
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextColor3 = Color3.fromRGB(140, 80, 255)
+    txt.TextStrokeTransparency = 0
+    txt.TextStrokeColor3 = Color3.new(0,0,0)
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 12
+    txt.Text = name
+    
+    bill.Parent = char
+    return txt
+end
+
+VisualTab:Toggle("Player ESP (Chams)", false, function(state)
     getgenv().FSS_Universal.ESP = state
     
     local function AddESP(plr)
@@ -114,13 +142,12 @@ VisualTab:Toggle("Player ESP", false, function(state)
             local hl = Instance.new("Highlight")
             hl.Name = "Highlight_FSS"
             hl.Adornee = char
-            hl.FillColor = Color3.fromRGB(140, 80, 255) -- Warna UNGU FSSHUB (Updated)
+            hl.FillColor = Color3.fromRGB(140, 80, 255)
             hl.OutlineColor = Color3.fromRGB(255, 255, 255)
             hl.FillTransparency = 0.5
             hl.OutlineTransparency = 0
             hl.Parent = char
         end
-        
         if plr.Character then UpdateChar(plr.Character) end
         plr.CharacterAdded:Connect(UpdateChar)
     end
@@ -132,6 +159,42 @@ VisualTab:Toggle("Player ESP", false, function(state)
         for _, p in ipairs(Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("Highlight_FSS") then
                 p.Character.Highlight_FSS:Destroy()
+            end
+        end
+    end
+end)
+
+VisualTab:Toggle("Show Names & Dist", false, function(state)
+    getgenv().FSS_Universal.ESP_Info = state
+    if state then
+        task.spawn(function()
+            while getgenv().FSS_Universal.ESP_Info do
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                        local root = p.Character:FindFirstChild("HumanoidRootPart")
+                        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        
+                        if root and myRoot then
+                            local dist = math.floor((root.Position - myRoot.Position).Magnitude)
+                            local txtLabel = p.Character:FindFirstChild("FSS_Info") and p.Character.FSS_Info:FindFirstChild("TextLabel")
+                            
+                            if not txtLabel then 
+                                txtLabel = CreateBillboard(p.Character, p.Name) 
+                            end
+                            
+                            if txtLabel then
+                                txtLabel.Text = p.Name .. " [" .. dist .. "m]"
+                            end
+                        end
+                    end
+                end
+                task.wait(0.5)
+            end
+        end)
+    else
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("FSS_Info") then
+                p.Character.FSS_Info:Destroy()
             end
         end
     end
@@ -157,24 +220,46 @@ WorldTab:Toggle("Fullbright", false, function(state)
     end
 end)
 
--- [TAB 4: SETTINGS]
-local SettingsTab = Window:Section("Settings")
+-- [TAB 4: MISC]
+local MiscTab = Window:Section("Misc")
 
+MiscTab:Button("Server Hop (Join New)", function()
+    local PlaceId = game.PlaceId
+    local Api = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+    
+    local function ListServers(cursor)
+        local Raw = game:HttpGet(Api .. ((cursor and "&cursor="..cursor) or ""))
+        return HttpService:JSONDecode(Raw)
+    end
+    
+    local Server, Next
+    repeat
+        local Servers = ListServers(Next)
+        Server = Servers.data[math.random(1, #Servers.data)]
+        Next = Servers.nextPageCursor
+    until Server.playing < Server.maxPlayers and Server.id ~= game.JobId
+    
+    TeleportService:TeleportToPlaceInstance(PlaceId, Server.id, LocalPlayer)
+end)
+
+MiscTab:Button("Rejoin Server", function()
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+end)
+
+-- [SETTINGS]
+local SettingsTab = Window:Section("Settings")
 SettingsTab:Button("Unload & Cleanup", function()
-    -- Disable Flags
     getgenv().FSS_Universal.SpeedEnabled = false
     getgenv().FSS_Universal.JumpEnabled = false
     getgenv().FSS_Universal.InfJump = false
     getgenv().FSS_Universal.Noclip = false
     getgenv().FSS_Universal.ESP = false
+    getgenv().FSS_Universal.ESP_Info = false
     getgenv().FSS_Universal.Fullbright = false
     
-    -- Clear Connections
     for _, conn in pairs(getgenv().FSS_Universal.Connections) do
         if conn then conn:Disconnect() end
     end
     getgenv().FSS_Universal.Connections = {}
-    
-    -- Destroy GUI
     Window:Destroy()
 end)
