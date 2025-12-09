@@ -1,8 +1,8 @@
--- [[ FSSHUB LOADER V3.1 ]] --
+-- [[ FSSHUB LOADER V6.1 ]] --
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
--- Anti-Cache dengan ?v=random
+-- Anti-Cache dengan ?v=random agar update langsung terasa
 local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/Core.lua?v=" .. tostring(math.random(1, 10000))
 
 local function Boot()
