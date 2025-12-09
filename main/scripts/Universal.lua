@@ -1,4 +1,4 @@
--- [[ FSSHUB: UNIVERSAL MODULE (V2.5) ]] --
+-- [[ FSSHUB: UNIVERSAL MODULE (V2.6) ]] --
 -- Changelog: Added Server Hop, Rejoin, Improved ESP (Name+Dist)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -18,7 +18,7 @@ local Library = loadstring(game:HttpGet(LIB_URL))()
 
 if not Library then return end
 
-local Window = Library:Window("FSS HUB | UNIVERSAL V2.5")
+local Window = Library:Window("FSS HUB | UNIVERSAL V2.6")
 
 -- Global Config
 getgenv().FSS_Universal = {
