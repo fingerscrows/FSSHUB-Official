@@ -40,13 +40,13 @@ Copy the script below and paste it into your executor (Solara, Xeno, Delta, Flux
 🗝️ Key System
 FSSHUB V2 uses a secure gateway to protect our premium features (which remain FREE).
 
-Execute the script.
+1. Execute the script.
 
-Click "GET KEY" in the UI.
+2.  Click "GET KEY" in the UI.
 
-Complete the simple checkpoint.
+3.  Complete the simple checkpoint.
 
-Paste the key and enjoy!
+4.  Paste the key and enjoy!
 
 <div align="center"> <h3>📢 JOIN THE COMMUNITY</h3> <p>Get updates, request games, and chat with other users.</p> <a href="https://discord.gg/28cfy5E3ag"> <img src="https://www.google.com/search?q=https://img.shields.io/badge/DISCORD-JOIN_SERVER-7289da%3Fstyle%3Dfor-the-badge%26logo%3Ddiscord%26logoColor%3Dwhite" alt="Join Discord"> </a> </div>
 
