@@ -1,9 +1,9 @@
--- [[ FSSHUB LOADER V2.0 ]] --
--- "Simplicity is the ultimate sophistication"
+-- [[ FSSHUB LOADER V3.1 ]] --
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/Core.lua"
+-- Anti-Cache dengan ?v=random
+local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/Core.lua?v=" .. tostring(math.random(1, 10000))
 
 local function Boot()
     local success, result = pcall(function()
