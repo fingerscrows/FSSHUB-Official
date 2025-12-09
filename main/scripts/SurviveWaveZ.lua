@@ -167,5 +167,6 @@ Settings:Button("Unload Script", function()
     getgenv().Aimbot = false
     getgenv().BringMobs = false
     getgenv().AutoAttack = false
+    getgenv().ESP = false
     Win:Destroy()
 end)
