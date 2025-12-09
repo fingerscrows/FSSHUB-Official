@@ -1,11 +1,11 @@
--- [[ FSSHUB CORE SYSTEM V3.2 (ANTI-CRASH) ]] --
--- Update: Fixed JSON Crash & Added Debugger
+-- [[ FSSHUB CORE SYSTEM V3.3 (FULL DEBUGGER) ]] --
+-- Update: Verbose Logging untuk Tracking Invalid Key
 
 local Core = {}
 
 -- [1] CONFIGURATION
 local FILE_NAME = "FSSHUB_V3_Auth.key"
--- MASUKKAN URL GOOGLE APPS SCRIPT BARU DARI LANGKAH 1 DI SINI:
+-- PASTIKAN URL INI SAMA PERSIS DENGAN YANG ADA DI INDEX.HTML
 local API_URL = "https://script.google.com/macros/s/AKfycbymNkoO6T4fp0Iu1fDpN7_jC5PkwZX9TtU813gH9VbQd2jqC4y2dqbj9p_1drNM1tL_9A/exec" 
 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
@@ -42,34 +42,41 @@ local function SafeLoad(url, name)
     return func
 end
 
--- [SERVER VALIDATION - ANTI CRASH]
+-- [FULL DEBUG VALIDATION]
 function Core.ValidateKey(keyInput)
-    if not keyInput or #keyInput < 5 then return false end
+    -- Bersihkan key dari spasi kosong yang mungkin ikut ter-copy
+    keyInput = string.gsub(keyInput, "^%s*(.-)%s*$", "%1")
     
-    -- Request ke Google
+    if not keyInput or #keyInput < 5 then 
+        warn("[FSSHUB DEBUG] Key terlalu pendek/kosong.")
+        return false 
+    end
+    
+    print("[FSSHUB DEBUG] Mengirim Key ke Server: '" .. keyInput .. "'")
+    
     local success, response = pcall(function()
         return game:HttpGet(API_URL .. "?key=" .. keyInput .. "&nocache=" .. math.random(1, 10000))
     end)
     
     if success then
-        -- Coba baca sebagai JSON dengan pcall agar tidak crash
+        print("[FSSHUB DEBUG] Server Menjawab: " .. tostring(response)) -- LIHAT INI DI KONSOL
+        
         local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(response) end)
         
         if decodeSuccess and data then
-            -- Jika sukses baca JSON
             if data.status == "success" then
+                print("[FSSHUB DEBUG] STATUS: SUCCESS - Key Valid!")
                 return true
+            else
+                -- INI YANG TERJADI PADA KASUS KAMU
+                warn("[FSSHUB DEBUG] STATUS: GAGAL - Server menolak key.")
+                warn("[FSSHUB DEBUG] Pesan Server: " .. tostring(data.message))
             end
         else
-            -- JIKA GAGAL BACA JSON (Berarti Permission Google Salah / HTML Error)
-            warn("------------------------------------------------")
-            warn("[FSSHUB DEBUG] CRITICAL ERROR: Server sent HTML instead of JSON!")
-            warn("RESPONSE DARI GOOGLE: " .. string.sub(response, 1, 200)) -- Lihat apa isi errornya
-            warn("SOLUSI: Pastikan Deployment Google Apps Script diatur ke 'ANYONE'!")
-            warn("------------------------------------------------")
+            warn("[FSSHUB DEBUG] ERROR PARSING: Respons bukan JSON valid.")
         end
     else
-        warn("[FSSHUB DEBUG] Connection Failed: " .. tostring(response))
+        warn("[FSSHUB DEBUG] KONEKSI GAGAL: " .. tostring(response))
     end
     
     return false
@@ -88,16 +95,18 @@ function Core.LoadGame()
 end
 
 function Core.Init()
-    -- Cek file yang tersimpan
     if isfile and isfile(FILE_NAME) then
         local savedKey = string.gsub(readfile(FILE_NAME), "%s+", "")
+        print("[FSSHUB DEBUG] Auto-Login dengan key tersimpan: " .. savedKey)
         if Core.ValidateKey(savedKey) then
             Core.LoadGame()
             return
+        else
+            warn("[FSSHUB DEBUG] Key tersimpan sudah expired/salah.")
+            delfile(FILE_NAME) -- Hapus key lama
         end
     end
     
-    -- Load UI
     local authLoader = SafeLoad(MODULES.AuthUI, "Auth UI")
     if authLoader then
         local AuthModule = authLoader()
@@ -105,13 +114,12 @@ function Core.Init()
             AuthModule.Show({
                 ValidKey = nil,
                 OnSuccess = function(keyInput)
-                    -- UI memanggil fungsi ini dan MENUNGGU return true/false
                     if Core.ValidateKey(keyInput) then
                         if writefile then writefile(FILE_NAME, keyInput) end
                         Core.LoadGame()
-                        return true -- Kirim sinyal SUKSES ke UI
+                        return true
                     else
-                        return false -- Kirim sinyal GAGAL ke UI
+                        return false
                     end
                 end
             })
