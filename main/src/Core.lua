@@ -1,8 +1,8 @@
--- [[ FSSHUB CORE V6.1 (FINAL PRODUCTION) ]] --
--- Update: Fixed URL, HWID Logic & Smart Validation
+-- [[ FSSHUB CORE V7 (FINAL PRODUCTION) ]] --
+-- Update: Fixed URL, HWID Logic & Countdown Info
 
 local Core = {}
-local FILE_NAME = "FSSHUB_V6_License.key"
+local FILE_NAME = "FSSHUB_V7_License.key"
 -- URL GAS TERBARU ANDA
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec"
 
@@ -33,9 +33,8 @@ end
 
 -- VALIDASI KEY KE SERVER
 function Core.ValidateKey(input)
-    if not input or #input < 5 then return false end
-    -- Bersihkan spasi
-    input = string.gsub(input, "^%s*(.-)%s*$", "%1")
+    if not input or #input < 5 then return {valid=false} end
+    input = string.gsub(input, "^%s*(.-)%s*$", "%1") -- Trim spasi
     
     local hwid = GetHWID()
     
@@ -48,9 +47,7 @@ function Core.ValidateKey(input)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data then
             if data.status == "success" then
-                -- Menampilkan sisa waktu jika ada
-                if data.info then print("[FSSHUB] " .. data.info) end
-                return true
+                return {valid=true, info=data.info}
             else
                 warn("[FSSHUB] Key Invalid: " .. tostring(data.message))
             end
@@ -60,7 +57,7 @@ function Core.ValidateKey(input)
     else
         warn("[FSSHUB] Connection Fail")
     end
-    return false
+    return {valid=false}
 end
 
 function Core.LoadGame()
@@ -69,7 +66,7 @@ function Core.LoadGame()
     local url = GAME_DB[id] or GAME_DB[gid] or MODULES.Universal
     local name = (GAME_DB[id] or GAME_DB[gid]) and "Game Script" or "Universal"
     
-    Notify("ACCESS GRANTED", "Welcome! Loading " .. name .. "...")
+    Notify("ACCESS GRANTED", "Loading " .. name .. "...")
     task.spawn(function() loadstring(game:HttpGet(url))() end)
 end
 
@@ -77,7 +74,9 @@ function Core.Init()
     -- Cek Key Tersimpan
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
-        if Core.ValidateKey(saved) then
+        local result = Core.ValidateKey(saved)
+        if result.valid then
+            Notify("WELCOME BACK", "Key Active. " .. (result.info or ""))
             Core.LoadGame()
             return
         end
@@ -89,8 +88,10 @@ function Core.Init()
         local UI = uiFunc()
         UI.Show({
             OnSuccess = function(key)
-                if Core.ValidateKey(key) then
+                local result = Core.ValidateKey(key)
+                if result.valid then
                     writefile(FILE_NAME, key)
+                    Notify("LOGIN SUCCESS", "Expires in: " .. (result.info or "Unknown"))
                     Core.LoadGame()
                     return true
                 end
