@@ -1,4 +1,4 @@
--- [[ FSSHUB: SURVIVE WAVE Z SCRIPT (XENO SUPPORT) ]] --
+-- [[ FSSHUB: SURVIVE WAVE Z SCRIPT (Safe Mode) ]] --
 
 -- 1. DEBUG & SAFETY CHECK
 local StarterGui = game:GetService("StarterGui")
@@ -8,8 +8,7 @@ StarterGui:SetCore("SendNotification", {
     Duration = 2
 })
 
--- 2. LOAD LIBRARY DENGAN ERROR HANDLING
--- Pastikan Link ini mengarah ke file FSSHUB_Lib.lua yang SUDAH kamu update di GitHub (Batch 1)
+-- 2. LOAD LIBRARY
 local LibraryUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
 local success, Library = pcall(function()
@@ -17,13 +16,13 @@ local success, Library = pcall(function()
 end)
 
 if not success or not Library then
-    warn("[FSSHUB ERROR] Library Failed to Load: " .. tostring(Library))
+    warn("[FSSHUB ERROR] Library Failed: " .. tostring(Library))
     StarterGui:SetCore("SendNotification", {
         Title = "CRITICAL ERROR",
         Text = "Library Failed! Check Console (F9)",
         Duration = 10
     })
-    return -- Stop script jika library gagal
+    return
 end
 
 -- 3. INISIALISASI WINDOW
@@ -192,27 +191,30 @@ end)
 -- [[ SETUP SETTINGS & CONFIG ]] --
 Win:CreateConfigSystem("https://discord.gg/28cfy5E3ag")
 
--- Keybind untuk Hide UI di dalam Tab Settings
--- Parameter terakhir 'true' artinya tombol ini masuk ke menu Settings (Gear Icon)
+-- KEYBIND SETTING (Toggle UI)
+-- Menggunakan PlayerGui karena sekarang Library menaruh UI di sana
 Win:Section("UI CONTROLS", true)
 Win:Keybind("Toggle UI Menu", Enum.KeyCode.RightControl, function(key)
     local LibName = "FSSHUB_Final"
     local TargetUI = nil
     
-    -- Pencarian UI yang ketat (Xeno Friendly)
-    if gethui then 
-        local s, r = pcall(gethui)
-        if s and r then TargetUI = r:FindFirstChild(LibName) end
+    -- Cari di PlayerGui terlebih dahulu (Paling Aman)
+    if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
+        TargetUI = Players.LocalPlayer.PlayerGui:FindFirstChild(LibName)
     end
-    if not TargetUI then TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName) end
-    if not TargetUI then TargetUI = Players.LocalPlayer.PlayerGui:FindFirstChild(LibName) end
+    
+    -- Fallback ke CoreGui (Jika ada)
+    if not TargetUI then
+        local s, c = pcall(function() return game:GetService("CoreGui") end)
+        if s and c then TargetUI = c:FindFirstChild(LibName) end
+    end
     
     if TargetUI then
         TargetUI.Enabled = not TargetUI.Enabled
     else
-        warn("UI Not Found for Toggling!")
+        warn("[FSSHUB] Cannot find UI to toggle!")
     end
 end, true)
 
--- Autoload Config Terakhir
+-- Autoload
 Win:CheckAutoload()
