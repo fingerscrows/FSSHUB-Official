@@ -1,15 +1,14 @@
--- [[ FSSHUB AUTH UI V6 ]] --
+-- [[ FSSHUB AUTH UI V6 (HWID LINK) ]] --
 local AuthUI = {}
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 
--- Theme Config
 local Theme = {
     Bg = Color3.fromRGB(15, 15, 20),
-    Accent = Color3.fromRGB(140, 80, 255), -- Purple
+    Accent = Color3.fromRGB(140, 80, 255),
     Text = Color3.fromRGB(240, 240, 240),
     Error = Color3.fromRGB(255, 65, 65),
     Outline = Color3.fromRGB(45, 45, 55)
@@ -29,7 +28,6 @@ function AuthUI.Show(options)
     Screen.Parent = Parent
     Screen.ResetOnSpawn = false
     
-    -- Main Frame
     local Main = Instance.new("Frame", Screen)
     Main.BackgroundColor3 = Theme.Bg
     Main.Size = UDim2.new(0, 380, 0, 240)
@@ -39,7 +37,6 @@ function AuthUI.Show(options)
     local Corner = Instance.new("UICorner", Main); Corner.CornerRadius = UDim.new(0, 12)
     local Stroke = Instance.new("UIStroke", Main); Stroke.Color = Theme.Accent; Stroke.Thickness = 1.5
     
-    -- Title
     local Title = Instance.new("TextLabel", Main)
     Title.Text = "FSS HUB | GATEWAY"
     Title.TextColor3 = Theme.Accent
@@ -49,7 +46,6 @@ function AuthUI.Show(options)
     Title.Position = UDim2.new(0, 0, 0, 20)
     Title.BackgroundTransparency = 1
     
-    -- Input Box
     local InputBg = Instance.new("Frame", Main)
     InputBg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
     InputBg.Size = UDim2.new(0.85, 0, 0, 45)
@@ -65,7 +61,6 @@ function AuthUI.Show(options)
     Input.Font = Enum.Font.Code
     Input.TextSize = 14
     
-    -- Buttons
     local function CreateBtn(text, posScale, func)
         local Btn = Instance.new("TextButton", Main)
         Btn.Text = text
@@ -83,16 +78,10 @@ function AuthUI.Show(options)
         return Btn
     end
     
-    -- TOMBOL GET KEY (LINK GENERATOR)
+    -- TOMBOL GET KEY
     CreateBtn("GET KEY", 0.075, function(btn)
         local hwid = GetHWID()
-        
-        -- FORMAT LINK KE WEBSITE ANDA + HWID
-        -- Ganti 'fingerscrows' dengan username github yang benar jika beda
         local link = "https://fingerscrows.github.io/fsshub-official/?hwid=" .. hwid
-        
-        -- Jika pakai Work.ink, gunakan:
-        -- local link = "https://work.ink/linkanda?hwid=" .. hwid
         
         setclipboard(link)
         btn.Text = "COPIED!"
@@ -105,7 +94,7 @@ function AuthUI.Show(options)
         local oldTxt = btn.Text
         btn.Text = "CHECKING..."
         
-        local valid = options.OnSuccess(txt) -- Panggil Validasi Core
+        local valid = options.OnSuccess(txt)
         
         if valid then
             Title.Text = "SUCCESS!"
@@ -125,7 +114,6 @@ function AuthUI.Show(options)
         end
     end)
     
-    -- Drag Logic
     local dragging, dragInput, dragStart, startPos
     Main.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = Main.Position end end)
     Main.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
