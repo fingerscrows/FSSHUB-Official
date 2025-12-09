@@ -50,4 +50,4 @@ FSSHUB V2 uses a secure gateway to protect our premium features (which remain FR
 
 <div align="center"> <h3>📢 JOIN THE COMMUNITY</h3> <p>Get updates, request games, and chat with other users.</p> <a href="https://discord.gg/28cfy5E3ag"> <img src="https://www.google.com/search?q=https://img.shields.io/badge/DISCORD-JOIN_SERVER-7289da%3Fstyle%3Dfor-the-badge%26logo%3Ddiscord%26logoColor%3Dwhite" alt="Join Discord"> </a> </div>
 
-<div align="center"> <b>© 2024 FSSHUB Team. Developed with 💜 by FingersCrows.</b> </div>
+<div align="center"> <b>© 2025 FSSHUB Team. Developed with 💜 by FingersCrows.</b> </div>
