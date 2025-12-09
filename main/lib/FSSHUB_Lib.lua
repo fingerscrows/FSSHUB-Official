@@ -1,10 +1,12 @@
--- [[ FSSHUB LIBRARY SOURCE V2.1 (Xeno Support) ]] --
+-- [[ FSSHUB LIBRARY SOURCE V2.2 (PC Safe Mode) ]] --
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+
+-- Hapus akses langsung ke CoreGui di sini agar tidak error saat start
+-- local CoreGui = game:GetService("CoreGui") <--- PENYEBAB ERROR
 
 local FSSHUB = {}
 FSSHUB.Theme = {
@@ -77,36 +79,42 @@ end
 function FSSHUB:Window(title)
     local Lib = {}
     
-    -- [[ FIXED PARENTING FOR XENO / MOBILE ]] --
-    local function GetRobustParent()
-        -- 1. Coba gethui (Standard modern)
+    -- [[ SAFE PARENTING LOGIC ]] --
+    local function GetSafeParent()
+        -- 1. Coba gethui (Metode paling aman untuk executor modern)
         if gethui then
             local s, r = pcall(gethui)
             if s and r and r:IsA("Instance") then return r end
         end
-        -- 2. Coba CoreGui (Standard PC)
-        if CoreGui then
-            return CoreGui
+        
+        -- 2. Coba CoreGui dengan pcall (Agar tidak error jika diblokir)
+        local success, core = pcall(function() return game:GetService("CoreGui") end)
+        if success and core then
+            return core
         end
-        -- 3. Fallback PlayerGui (Pasti work di Mobile/Xeno jika CoreGui gagal)
-        if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
-            return Players.LocalPlayer.PlayerGui
+        
+        -- 3. Fallback ke PlayerGui (Pasti bisa di semua executor)
+        if Players.LocalPlayer then
+            local pGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
+            if pGui then return pGui end
         end
-        return CoreGui -- Default terakhir
+        
+        return game:GetService("CoreGui") -- Terpaksa return ini jika semua gagal
     end
 
-    local ParentTarget = GetRobustParent()
+    local ParentTarget = GetSafeParent()
     
-    -- Bersihkan UI lama di semua kemungkinan tempat agar tidak duplikat
+    -- Bersihkan UI lama
     if ParentTarget:FindFirstChild("FSSHUB_Final") then ParentTarget.FSSHUB_Final:Destroy() end
-    if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") and Players.LocalPlayer.PlayerGui:FindFirstChild("FSSHUB_Final") then
-        Players.LocalPlayer.PlayerGui.FSSHUB_Final:Destroy()
+    -- Cek juga di PlayerGui barangkali ada sisa
+    if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
+        if Players.LocalPlayer.PlayerGui:FindFirstChild("FSSHUB_Final") then
+            Players.LocalPlayer.PlayerGui.FSSHUB_Final:Destroy()
+        end
     end
-    if CoreGui:FindFirstChild("FSSHUB_Final") then CoreGui.FSSHUB_Final:Destroy() end
 
     local ScreenGui = Create("ScreenGui", {Name = "FSSHUB_Final", Parent = ParentTarget, ResetOnSpawn = false})
-    -- Tambahkan DisplayOrder tinggi agar selalu di atas
-    ScreenGui.DisplayOrder = 9999 
+    if ScreenGui.Parent:IsA("PlayerGui") then ScreenGui.DisplayOrder = 9999 end -- Agar di atas UI game
     
     -- NOTIFICATION CONTAINER
     local NotifyContainer = Create("Frame", {
