@@ -39,7 +39,7 @@
 
 Salin kode di bawah ini dan jalankan di executor Roblox kamu:
 
-```loadstring(game:HttpGet("[https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua](https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua)"))()```
+```loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua"))()```
 
 Catatan: Pastikan kamu menggunakan executor terbaru agar script berjalan lancar.
 
