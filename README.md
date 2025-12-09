@@ -1,74 +1,70 @@
-# 🚀 FSSHUB | Premium Roblox Script Hub
+# 🚀 FSSHUB | The Ultimate Free Roblox Script Ecosystem
 
-![FSSHUB Banner](https://img.shields.io/badge/FSSHUB-Official-00ff88?style=for-the-badge&logo=roblox&logoColor=black) 
-![Version](https://img.shields.io/badge/Version-3.0-blue?style=flat-square)
-![Status](https://img.shields.io/badge/Status-UNDETECTED-green?style=flat-square)
+![FSSHUB Banner](https://img.shields.io/badge/FSSHUB-Official-7289da?style=for-the-badge&logo=roblox&logoColor=white) 
+![Version](https://img.shields.io/badge/Version-3.5-blue?style=flat-square)
+![Price](https://img.shields.io/badge/Price-FREE-green?style=flat-square)
+![Status](https://img.shields.io/badge/Status-UNDETECTED-success?style=flat-square)
 
-**FSSHUB** adalah Script Hub profesional untuk Roblox yang dirancang dengan stabilitas, keamanan, dan kemudahan penggunaan sebagai prioritas utama. Mendukung eksekutor PC (Xeno, Solara) dan Mobile (Delta, Fluxus, Hydrogen).
+**Unlock your full potential with FSSHUB.**
+
+FSSHUB is the **premier choice** for Roblox automation, designed to be the **best, lightest, and most reliable universal script** on the market—and it is completely **FREE**. 
+
+Built with performance in mind, our hub seamlessly adapts to both PC (Xeno, Solara) and Mobile (Delta, Fluxus) executors, ensuring a lag-free experience while dominating your favorite games.
 
 ---
 
-## 🎮 Game yang Didukung
-| Game | Status | Fitur Utama |
+## 💎 Why Choose FSSHUB?
+
+We don't just provide scripts; we provide an **ecosystem** for professional gaming.
+
+* **⚡ Ultra-Lightweight Core:** Optimized LuaU code ensures 0% FPS drop, even on low-end devices.
+* **🛡️ Enterprise-Grade Security:** Features an advanced "Safe Mode" to prevent crashes on sensitive executors like Xeno.
+* **🌍 True Universal Support:** One script for everything. Our Smart Loader automatically detects the game and injects the perfect module.
+* **🎨 Modern & Clean UI:** A sleek, minimal interface with customizable Keybinds and instant minimization.
+
+---
+
+## 🎮 Supported Games & Features
+
+We are constantly expanding our library. Currently, we offer premium-grade support for:
+
+| Game Module | Status | Key Features |
 | :--- | :---: | :--- |
-| **Survive the Wave Z** | ✅ **Active** | Aimbot, Bring Mobs, Auto Loot, Auto Revive |
-| **Universal (All Games)** | ⚠️ **Beta** | Basic UI & Visuals |
-| *More coming soon...* | 🔄 | - |
+| **Survive the Wave Z** | ✅ **Stable** | Silent Aimbot, Mass Auto-Farm, Auto Loot, Remote Revive |
+| **Universal Utility** | ⚠️ **Beta** | Player ESP, SpeedHacks, Gravity Control, UI Toggle |
+| **Blox Fruits** | 🔄 **W.I.P** | *Coming Soon* |
+
+### ✨ Current Feature Highlights
+* **Combat AI:** Automatically lock onto enemy heads with precision.
+* **Smart Farming:** Bring mobs to you safely without taking damage.
+* **Auto-Collection:** Loot chests and items instantly across the map.
 
 ---
 
-## ✨ Fitur Unggulan
+## 🔮 Roadmap & Upcoming Updates
 
-### ⚔️ Combat & Farming (Survive Wave Z)
-- **Aimbot (Head Lock)**: Mengunci aim otomatis ke kepala zombie terdekat.
-- **Auto Attack**: Menembak otomatis tanpa perlu menekan mouse.
-- **Bring Mobs**: Menarik semua zombie ke depan kamu untuk farming cepat (Safe Distance & Height settings).
-- **Auto Loot**: Mengambil Reward Chest, Ammo, dan Mystery Box secara instan.
-- **Auto Revive**: Menghidupkan teman satu tim secara otomatis dari jarak jauh.
+We are building the future of scripting. Join us now to be the first to access:
 
-### 🛡️ Core System
-- **Smart Loader**: Otomatis mendeteksi game yang sedang dimainkan.
-- **Safe Mode**: Anti-Crash untuk eksekutor sensitif seperti Xeno.
-- **Key System**: Sistem keamanan kunci 6 Jam (Monetized via Work.ink).
-- **Config Manager**: Simpan dan muat pengaturan script kamu secara otomatis.
-- **Cross-Platform**: UI yang responsif untuk PC dan HP.
+- [ ] **Universal Aimbot V2:** Works in ANY shooter game.
+- [ ] **Blox Fruits Auto-Farm:** The fastest leveling logic in the market.
+- [ ] **Pet Simulator 99 Module:** Auto-hatch and trade sniper.
+- [ ] **Cloud Configs:** Save your settings online and load them anywhere.
 
 ---
 
-## 📥 Cara Menggunakan (Installation)
+## 📥 Installation (Get Started Now)
 
-Salin kode di bawah ini dan jalankan di executor Roblox kamu:
+Experience the power of FSSHUB in seconds. Copy the code below and execute it in your script executor:
 
-```loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua"))()```
+```loadstring(game:HttpGet("[https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua](https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua)"))()```
+Note: FSSHUB supports executors including Xeno, and Delta.
 
-Catatan: Pastikan kamu menggunakan executor terbaru agar script berjalan lancar.
+🌐 Join the Community
+Don't miss out on crucial updates, giveaways, and support. Our community is the heart of FSSHUB.
 
-🔑 Cara Mendapatkan Key
-Script ini menggunakan sistem kunci untuk mendukung pengembangan.
-
-Jalankan Script di dalam game.
-
-Klik tombol "GET KEY LINK" pada menu loader.
-
-Link akan tersalin. Buka browser dan paste link tersebut.
-
-Bergabunglah ke Discord Server kami.
-
-Ikuti instruksi di channel #get-key atau selesaikan langkah di Work.ink.
-
-Masukkan Key yang didapat ke dalam Script dan klik UNLOCK.
-
-⚙️ Kontrol & Pengaturan
-Toggle UI (Sembunyikan Menu): Tekan Right Control (PC) atau gunakan tombol di Settings.
-
-Minimize: Tombol - di pojok kanan atas panel.
-
-Config: Pergi ke tab Settings ⚙️ untuk menyimpan konfigurasi Auto-Farm kamu.
+<div align="center"> <h3>📢 JOIN OUR DISCORD SERVER</h3> <p>Get exclusive scripts, report bugs, and chat with 10,000+ members.</p> <a href="https://discord.gg/28cfy5E3ag"> <img src="https://www.google.com/search?q=https://img.shields.io/badge/CLICK_TO_JOIN-DISCORD-7289da%3Fstyle%3Dfor-the-badge%26logo%3Ddiscord%26logoColor%3Dwhite" alt="Join Discord"> </a> </div>
 
 ⚠️ Disclaimer
-Script ini dibuat untuk tujuan Edukasi dan Testing semata. Pengembang FSSHUB tidak bertanggung jawab atas penyalahgunaan script atau sanksi (banned) yang mungkin terjadi pada akun pengguna. Gunakan dengan bijak (Use at your own risk).
+This software is provided for educational and testing purposes only. The developers of FSSHUB are not responsible for any misuse or account suspensions resulting from the use of this software. Use responsibly.
 
-<div align="center"> <b>Developed with ❤️ by FingersCrows</b>
-
-
-<a href="https://discord.gg/28cfy5E3ag">Join Discord Community</a> </div>
+<div align="center"> <b>© 2024 FSSHUB Development Team. All rights reserved.</b> </div>
