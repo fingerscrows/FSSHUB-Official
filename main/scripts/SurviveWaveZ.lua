@@ -9,6 +9,7 @@ StarterGui:SetCore("SendNotification", {
 })
 
 -- 2. LOAD LIBRARY
+-- Pastikan link ini mengarah ke file FSSHUB_Lib.lua yang sudah kamu update (Batch 1)
 local LibraryUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
 local success, Library = pcall(function()
@@ -192,27 +193,29 @@ end)
 Win:CreateConfigSystem("https://discord.gg/28cfy5E3ag")
 
 -- KEYBIND SETTING (Toggle UI)
--- Menggunakan PlayerGui karena sekarang Library menaruh UI di sana
+-- Menggunakan fungsi Library:ToggleUI() yang baru kita buat agar sinkron
 Win:Section("UI CONTROLS", true)
 Win:Keybind("Toggle UI Menu", Enum.KeyCode.RightControl, function(key)
-    local LibName = "FSSHUB_Final"
-    local TargetUI = nil
-    
-    -- Cari di PlayerGui terlebih dahulu (Paling Aman)
-    if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
-        TargetUI = Players.LocalPlayer.PlayerGui:FindFirstChild(LibName)
-    end
-    
-    -- Fallback ke CoreGui (Jika ada)
-    if not TargetUI then
-        local s, c = pcall(function() return game:GetService("CoreGui") end)
-        if s and c then TargetUI = c:FindFirstChild(LibName) end
-    end
-    
-    if TargetUI then
-        TargetUI.Enabled = not TargetUI.Enabled
+    if Library.ToggleUI then
+        Library:ToggleUI()
     else
-        warn("[FSSHUB] Cannot find UI to toggle!")
+        -- Fallback manual jika fungsi Library belum update
+        local LibName = "FSSHUB_Final"
+        local TargetUI = nil
+        
+        -- Cari di PlayerGui (Prioritas Utama)
+        if Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui") then
+            TargetUI = Players.LocalPlayer.PlayerGui:FindFirstChild(LibName)
+        end
+        
+        -- Cari di CoreGui (Fallback)
+        if not TargetUI then
+            pcall(function() TargetUI = game:GetService("CoreGui"):FindFirstChild(LibName) end)
+        end
+        
+        if TargetUI then
+            TargetUI.Enabled = not TargetUI.Enabled
+        end
     end
 end, true)
 
