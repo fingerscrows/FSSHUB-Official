@@ -1,4 +1,4 @@
--- [[ FSSHUB CORE SYSTEM V1.1 (FIXED) ]] --
+-- [[ FSSHUB CORE SYSTEM V1.2 (UNIVERSAL SUPPORT) ]] --
 
 local Core = {}
 
@@ -7,22 +7,24 @@ local SECRET_SALT = "RAHASIA_FINAL_KAMU_123"
 local UPDATE_INTERVAL = 6 
 local FILE_NAME = "FSS_V5_Key.txt"
 
--- BASE URL (Wajib benar case-sensitive)
+-- BASE URL (Pastikan case-sensitive benar)
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 
 local MODULES = {
     AuthUI = BASE_URL .. "main/modules/AuthUI.lua",
-    -- Arahkan ke script game yang benar
-    Universal = BASE_URL .. "main/scripts/SurviveWaveZ.lua" 
+    -- Link ke Script Universal yang baru kamu push
+    Universal = BASE_URL .. "main/scripts/Universal.lua" 
 }
 
 local GAME_DB = {
+    -- ID Game Survive Wave Z
     ["92371631484540"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua",
     ["9168386959"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
 }
 
 -- SERVICES
 local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
 
 -- [2] UTILITIES
 local function Notify(title, text, duration)
@@ -47,7 +49,7 @@ local function SafeLoad(url, name)
     
     local func, err = loadstring(content)
     if not func then
-        Notify("Script Error", name .. " syntax error.", 10)
+        Notify("Script Error", name .. " syntax error: " .. tostring(err), 10)
         return nil
     end
     return func
@@ -74,16 +76,24 @@ end
 function Core.LoadGame()
     local id = tostring(game.PlaceId)
     local gid = tostring(game.GameId)
-    local url = GAME_DB[id] or GAME_DB[gid] or MODULES.Universal
     
-    Notify("FSS HUB", "Key Verified! Loading Scripts...", 3)
-    local gameScriptFunc = SafeLoad(url, "Game Script")
-    if gameScriptFunc then task.spawn(gameScriptFunc) end
+    -- Cek apakah game ada di database, jika tidak pakai Universal
+    local specificScript = GAME_DB[id] or GAME_DB[gid]
+    local url = specificScript or MODULES.Universal
+    local scriptType = specificScript and "Game Script" or "Universal Script"
+    
+    Notify("FSS HUB", "Key Verified! Loading " .. scriptType .. "...", 3)
+    
+    local gameScriptFunc = SafeLoad(url, scriptType)
+    if gameScriptFunc then 
+        task.spawn(gameScriptFunc) 
+    end
 end
 
 function Core.Init()
     local ValidKey = Core.GetValidKey()
     
+    -- Auto Login jika file key ada
     if isfile and isfile(FILE_NAME) then
         local saved = string.gsub(readfile(FILE_NAME), "%s+", "")
         if saved == ValidKey then
@@ -92,6 +102,7 @@ function Core.Init()
         end
     end
     
+    -- Load UI Login
     local authLoader = SafeLoad(MODULES.AuthUI, "Auth UI")
     if authLoader then
         local AuthModule = authLoader()
