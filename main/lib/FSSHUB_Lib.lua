@@ -1,10 +1,13 @@
--- [[ FSSHUB LIBRARY SOURCE V2.3 (STABLE & KEYBIND) ]] --
+-- [[ FSSHUB LIBRARY SOURCE V2.4 (STABLE FIXED) ]] --
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
+
+-- Akses service dengan aman
+local CoreGui = nil
+pcall(function() CoreGui = game:GetService("CoreGui") end)
 
 local FSSHUB = {}
 FSSHUB.Theme = {
@@ -77,33 +80,30 @@ end
 function FSSHUB:Window(title)
     local Lib = {}
     
-    -- [[ 1. LOGIKA PARENTING YANG PASTI MUNCUL ]] --
-    -- Kita prioritaskan PlayerGui karena 100% aman dan pasti muncul di layar
+    -- [[ PARENTING FIX: Gunakan gethui atau CoreGui (Safe) ]] --
     local ParentTarget = nil
-    
-    -- Coba ambil PlayerGui
-    if Players.LocalPlayer then
-        ParentTarget = Players.LocalPlayer:WaitForChild("PlayerGui", 5)
+    if gethui then
+        local s, r = pcall(gethui)
+        if s and r then ParentTarget = r end
     end
     
-    -- Jika PlayerGui gagal (sangat jarang), baru coba CoreGui
-    if not ParentTarget then
+    if not ParentTarget and CoreGui then
         ParentTarget = CoreGui
     end
-
-    -- [[ 2. BERSIHKAN UI LAMA ]] --
-    -- Hapus instance lama agar tidak menumpuk
-    if ParentTarget:FindFirstChild("FSSHUB_Final") then ParentTarget.FSSHUB_Final:Destroy() end
-    -- Cek juga di CoreGui kalau-kalau ada sisa
-    if CoreGui:FindFirstChild("FSSHUB_Final") then CoreGui.FSSHUB_Final:Destroy() end
-
-    -- [[ 3. BUAT GUI BARU ]] --
-    local ScreenGui = Create("ScreenGui", {Name = "FSSHUB_Final", Parent = ParentTarget, ResetOnSpawn = false})
     
-    -- DisplayOrder tinggi agar UI selalu di atas UI game lain
-    if ScreenGui.Parent:IsA("PlayerGui") then
-        ScreenGui.DisplayOrder = 10000 
+    -- Fallback terakhir ke PlayerGui jika semua gagal
+    if not ParentTarget and Players.LocalPlayer then
+        ParentTarget = Players.LocalPlayer:WaitForChild("PlayerGui", 2)
     end
+    
+    -- Hapus UI Lama
+    if ParentTarget and ParentTarget:FindFirstChild("FSSHUB_Final") then
+        ParentTarget.FSSHUB_Final:Destroy()
+    end
+
+    local ScreenGui = Create("ScreenGui", {Name = "FSSHUB_Final", Parent = ParentTarget, ResetOnSpawn = false})
+    -- ZIndex tinggi agar selalu di atas
+    if ScreenGui.Parent:IsA("PlayerGui") then ScreenGui.DisplayOrder = 10000 end 
     
     -- NOTIFICATION CONTAINER
     local NotifyContainer = Create("Frame", {
@@ -205,18 +205,20 @@ function FSSHUB:Window(title)
         GearBtn.TextTransparency = showingSettings and 0.5 or 0
     end)
 
-    local minimized = false; local preMinSize = Main.Size
+    -- [[ MINIMIZE FIX: Simple Toggle Visibility ]]
+    local minimized = false; local savedSize = Main.Size
     MinBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
-            preMinSize = Main.Size
-            ResizeBtn.Visible = false; MainContainer.Visible = false; SettingsContainer.Visible = false
-            local diff = preMinSize.Y.Offset - 40
-            Main:TweenSizeAndPosition(UDim2.new(preMinSize.X.Scale, preMinSize.X.Offset, 0, 40), UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset, Main.Position.Y.Scale, Main.Position.Y.Offset - (diff/2)), "Out", "Quad", 0.3, true)
+            savedSize = Main.Size
+            ResizeBtn.Visible = false
+            MainContainer.Visible = false
+            SettingsContainer.Visible = false
+            -- Hanya ubah Size, jangan Tween posisi agar tidak loncat
+            Main:TweenSize(UDim2.new(savedSize.X.Scale, savedSize.X.Offset, 0, 40), "Out", "Quad", 0.3, true)
             MinBtn.Text = "+"
         else
-            local diff = preMinSize.Y.Offset - 40
-            Main:TweenSizeAndPosition(preMinSize, UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset, Main.Position.Y.Scale, Main.Position.Y.Offset + (diff/2)), "Out", "Quad", 0.3, true)
+            Main:TweenSize(savedSize, "Out", "Quad", 0.3, true)
             wait(0.3)
             if showingSettings then SettingsContainer.Visible = true else MainContainer.Visible = true end
             ResizeBtn.Visible = true; MinBtn.Text = "-"
@@ -229,6 +231,11 @@ function FSSHUB:Window(title)
         for _, conn in pairs(FSSHUB.ActiveConnections) do if conn.Disconnect then conn:Disconnect() end end
         ScreenGui:Destroy()
     end)
+    
+    -- [[ GLOBAL TOGGLE FUNCTION ]] --
+    function Lib:ToggleUI()
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
 
     -- NOTIFICATION SYSTEM
     function Lib:Notify(text, type)
@@ -309,7 +316,6 @@ function FSSHUB:Window(title)
         if not isSettings then FSSHUB.Elements[text] = {Type = "Slider", Function = function(v) UpdateVisual(v); pcall(callback, v) end} end
     end
     
-    -- [[ FUNGSI KEYBIND (YANG DIMINTA) ]] --
     function Lib:Keybind(text, default, callback, isSettings)
         local key = default or Enum.KeyCode.RightControl
         if not isSettings and FSSHUB.ConfigData[text] then key = Enum.KeyCode[FSSHUB.ConfigData[text]] end
