@@ -1,4 +1,4 @@
--- [[ FSSHUB AUTH UI V7 (HWID LINK) ]] --
+-- [[ FSSHUB AUTH UI V7.6 (PREMIUM VISUALS) ]] --
 local AuthUI = {}
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local UserInputService = game:GetService("UserInputService")
@@ -11,7 +11,8 @@ local Theme = {
     Accent = Color3.fromRGB(140, 80, 255),
     Text = Color3.fromRGB(240, 240, 240),
     Error = Color3.fromRGB(255, 65, 65),
-    Outline = Color3.fromRGB(45, 45, 55)
+    Outline = Color3.fromRGB(45, 45, 55),
+    Premium = Color3.fromRGB(255, 215, 0) -- Warna Emas
 }
 
 local function GetHWID()
@@ -88,34 +89,37 @@ function AuthUI.Show(options)
         task.delay(1.5, function() btn.Text = "GET KEY" end)
     end)
     
-    -- [UPDATE LOGIKA TOMBOL LOGIN] --
+    -- TOMBOL LOGIN (UPDATED LOGIC)
     CreateBtn("LOGIN", 0.525, function(btn)
         local txt = string.gsub(Input.Text, "%s+", "")
         local oldTxt = btn.Text
+        local oldColor = btn.BackgroundColor3
+        
         btn.Text = "CHECKING..."
         
-        -- Menerima tabel hasil dari Core
-        local res = options.OnSuccess(txt)
+        -- Menerima object result {success, info}
+        local result = options.OnSuccess(txt)
         
-        -- Cek res.success (karena sekarang return table)
-        if res.success then
+        if result and result.success then
             Stroke.Color = Theme.Accent
             Title.Text = "ACCESS GRANTED"
             
-            -- Visual Effect untuk Premium
-            if res.info and (string.find(res.info, "Premium") or string.find(res.info, "Unlimited")) then
+            -- Cek apakah Premium
+            if result.info and (string.find(result.info, "Premium") or string.find(result.info, "Unlimited")) then
                 btn.Text = "👑 PREMIUM USER"
-                btn.TextColor3 = Color3.fromRGB(255, 215, 0) -- Warna Emas
-                Stroke.Color = Color3.fromRGB(255, 215, 0)
+                btn.BackgroundColor3 = Theme.Premium
+                btn.TextColor3 = Color3.fromRGB(0,0,0) -- Text hitam biar kontras dengan emas
+                Stroke.Color = Theme.Premium
             else
-                -- Tampilkan sisa waktu (misal: "6H 30M LEFT")
-                btn.Text = res.info and string.upper(res.info) or "ALLOWED"
+                -- User Biasa (Tampilkan Sisa Waktu)
+                btn.Text = result.info and string.upper(result.info) or "ALLOWED"
             end
-
-            task.wait(1.5) -- Beri waktu user melihat statusnya
+            
+            task.wait(1.5)
             Screen:Destroy()
         else
             btn.Text = oldTxt
+            btn.BackgroundColor3 = oldColor
             Title.Text = "INVALID KEY"
             Stroke.Color = Theme.Error
             Title.TextColor3 = Theme.Error
@@ -126,6 +130,7 @@ function AuthUI.Show(options)
         end
     end)
     
+    -- Drag Logic
     local dragging, dragInput, dragStart, startPos
     Main.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = Main.Position end end)
     Main.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
