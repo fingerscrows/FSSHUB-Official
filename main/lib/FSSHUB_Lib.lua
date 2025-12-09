@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY SOURCE V3.0 (OPTIMIZED) ]] --
--- Update: Task Library, Better Parenting (gethui), Smoother Tweens
+-- [[ FSSHUB LIBRARY SOURCE V3.5 (FULL RESTORED & OPTIMIZED) ]] --
+-- Update: Restored Visuals (Border, Credits, Autoload), Settings Keybind, Task Lib
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -96,11 +96,13 @@ function FSSHUB:Window(title)
         Size = UDim2.new(0, 320, 0, 450), ClipsDescendants = true
     })
     Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 10)})
+    -- [RESTORED] Main Stroke Border (Outline)
     Create("UIStroke", {Parent = Main, Color = FSSHUB.Theme.Accent, Thickness = 2, Transparency = 0.4})
 
     -- HEADER
     local Header = Create("Frame", {Parent = Main, BackgroundColor3 = FSSHUB.Theme.Header, Size = UDim2.new(1, 0, 0, 40)})
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 10)})
+    -- [RESTORED] Header Filler Frame (Untuk menutup corner radius bawah header agar menyatu dengan body)
     Create("Frame", {Parent = Header, BackgroundColor3 = FSSHUB.Theme.Header, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel = 0})
 
     -- TITLE
@@ -185,7 +187,7 @@ function FSSHUB:Window(title)
 
     local function GetContainer(isSettings) return isSettings and SettingsContainer or MainContainer end
     
-    -- COMPONENTS
+    -- COMPONENTS (Optimized + Features)
     function Lib:Section(text, isSettings)
         local SecFrame = Create("Frame", {Parent = GetContainer(isSettings), BackgroundTransparency = 1, Size = UDim2.new(0.96, 0, 0, 25)})
         Create("TextLabel", {Parent = SecFrame, Text = text, TextColor3 = FSSHUB.Theme.TextDim, Font = Enum.Font.GothamBold, TextSize = 12, Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1, TextYAlignment = Enum.TextYAlignment.Bottom})
@@ -194,23 +196,18 @@ function FSSHUB:Window(title)
     function Lib:Toggle(text, default, callback)
         local enabled = default or false
         FSSHUB.ConfigData[text] = enabled 
-        
         local Btn = Create("TextButton", {Parent = MainContainer, BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 36), Text = "", AutoButtonColor = false})
         Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 6)})
         Create("TextLabel", {Parent = Btn, Text = text, TextColor3 = FSSHUB.Theme.Text, Font = Enum.Font.GothamMedium, TextSize = 14, Size = UDim2.new(1, -45, 1, 0), Position = UDim2.new(0, 10, 0, 0), TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1})
         local Indicator = Create("Frame", {Parent = Btn, BackgroundColor3 = Color3.fromRGB(50,50,50), Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -28, 0.5, -9)}); Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(0, 4)})
-        
         local function UpdateState(s)
             enabled = s
             FSSHUB.ConfigData[text] = s
             TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = enabled and FSSHUB.Theme.Accent or Color3.fromRGB(50,50,50)}):Play()
             pcall(callback, enabled)
         end
-        
         Btn.MouseButton1Click:Connect(function() UpdateState(not enabled) end)
         if default then UpdateState(true) end
-        
-        -- Cleanup logic khusus toggle
         table.insert(FSSHUB.ActiveConnections, { Disconnect = function() if enabled then pcall(callback, false) end end })
         FSSHUB.Elements[text] = {Type = "Toggle", Function = UpdateState}
     end
@@ -218,41 +215,33 @@ function FSSHUB:Window(title)
     function Lib:Slider(text, min, max, default, callback, isSettings)
         local value = default or min
         if not isSettings then FSSHUB.ConfigData[text] = value end
-        
         local Frame = Create("Frame", {Parent = GetContainer(isSettings), BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 50)})
         Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
         Create("TextLabel", {Parent = Frame, Text = text, TextColor3 = FSSHUB.Theme.Text, Font = Enum.Font.GothamMedium, TextSize = 14, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 10, 0, 5), TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1})
         local ValueLbl = Create("TextLabel", {Parent = Frame, Text = tostring(value), TextColor3 = FSSHUB.Theme.TextDim, Font = Enum.Font.Gotham, TextSize = 12, Size = UDim2.new(0, 30, 0, 20), Position = UDim2.new(1, -35, 0, 5), TextXAlignment = Enum.TextXAlignment.Right, BackgroundTransparency = 1})
-        
         local SliderBar = Create("TextButton", {Parent = Frame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(1, -20, 0, 25), Position = UDim2.new(0, 10, 0, 25)})
         local Bg = Create("Frame", {Parent = SliderBar, BackgroundColor3 = Color3.fromRGB(25, 25, 25), Size = UDim2.new(1, 0, 0, 6), Position = UDim2.new(0, 0, 0.5, -3)}); Create("UICorner", {Parent = Bg, CornerRadius = UDim.new(1, 0)})
         local Fill = Create("Frame", {Parent = Bg, BackgroundColor3 = FSSHUB.Theme.Accent, Size = UDim2.new(0, 0, 1, 0), BorderSizePixel=0}); Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)})
-        
         local function Update(val)
             value = math.clamp(val, min, max)
             if not isSettings then FSSHUB.ConfigData[text] = value end
             ValueLbl.Text = tostring(value)
-            local percent = (value - min) / (max - min)
-            Fill.Size = UDim2.new(percent, 0, 1, 0)
+            Fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
             pcall(callback, value)
         end
-        
         local dragging = false
         SliderBar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; local x = (input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X; Update(math.floor(min + ((max - min) * x))) end end)
         UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then local x = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1); Update(math.floor(min + ((max - min) * x))) end end)
         UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-        
         Update(value)
         if not isSettings then FSSHUB.Elements[text] = {Type = "Slider", Function = Update} end
     end
     
-    -- (Keybind, Box, Dropdown: Kode sama seperti sebelumnya, hanya ganti spawn/wait dengan task library jika ada)
-    -- Saya perpendek bagian ini agar muat, logika sama.
-    
-    function Lib:Keybind(text, default, callback)
+    function Lib:Keybind(text, default, callback, isSettings)
         local key = default or Enum.KeyCode.RightControl
-        FSSHUB.ConfigData[text] = key.Name
-        local Frame = Create("Frame", {Parent = MainContainer, BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 36)})
+        if not isSettings and FSSHUB.ConfigData[text] then key = Enum.KeyCode[FSSHUB.ConfigData[text]] end
+        
+        local Frame = Create("Frame", {Parent = GetContainer(isSettings), BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 36)})
         Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
         Create("TextLabel", {Parent = Frame, Text = text, TextColor3 = FSSHUB.Theme.Text, Font = Enum.Font.GothamMedium, TextSize = 14, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.new(0, 10, 0, 0), TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1})
         local Btn = Create("TextButton", {Parent = Frame, Text = key.Name, BackgroundColor3 = Color3.fromRGB(45,45,45), TextColor3 = FSSHUB.Theme.TextDim, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12)}); Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 4)})
@@ -262,40 +251,64 @@ function FSSHUB:Window(title)
             local c; c = UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard then
                     key = input.KeyCode; Btn.Text = key.Name; Btn.TextColor3 = FSSHUB.Theme.TextDim
-                    FSSHUB.ConfigData[text] = key.Name; pcall(callback, key); c:Disconnect()
+                    if not isSettings then FSSHUB.ConfigData[text] = key.Name end
+                    pcall(callback, key); c:Disconnect()
                 end
             end)
         end)
         pcall(callback, key)
     end
+    
+    function Lib:Button(text, callback, isSettings)
+        local Btn = Create("TextButton", {Parent = GetContainer(isSettings), BackgroundColor3 = FSSHUB.Theme.Item, Size = UDim2.new(0.96, 0, 0, 36), Text = text, TextColor3 = FSSHUB.Theme.Text, Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false})
+        Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 6)})
+        Btn.MouseButton1Click:Connect(function() 
+            TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = FSSHUB.Theme.Accent}):Play() 
+            task.wait(0.1) 
+            TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = FSSHUB.Theme.Item}):Play() 
+            pcall(callback) 
+        end)
+    end
+    
+    function Lib:Label(text, isSettings)
+        local LabelFrame = Create("Frame", {Parent = GetContainer(isSettings), BackgroundTransparency = 1, Size = UDim2.new(0.96, 0, 0, 20)})
+        Create("TextLabel", {Parent = LabelFrame, Text = text, TextColor3 = FSSHUB.Theme.TextDim, Font = Enum.Font.GothamMedium, TextSize = 13, Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, BackgroundTransparency = 1})
+    end
 
     function Lib:CreateConfigSystem(discordLink)
         Lib:Section("CONFIG MANAGER", true)
         local ConfigName = ""
-        local NameBox = Create("TextBox", {Parent = SettingsContainer, BackgroundColor3 = FSSHUB.Theme.Item, Text = "", PlaceholderText = "Config Name...", TextColor3 = FSSHUB.Theme.Text, Size = UDim2.new(0.96, 0, 0, 35)}); Create("UICorner", {Parent = NameBox, CornerRadius=UDim.new(0,6)})
+        local NameBox = Create("TextBox", {Parent = SettingsContainer, BackgroundColor3 = FSSHUB.Theme.Item, Text = "", PlaceholderText = "Config Name...", TextColor3 = FSSHUB.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, Size = UDim2.new(0.96, 0, 0, 35)}); Create("UICorner", {Parent = NameBox, CornerRadius=UDim.new(0,6)})
         NameBox.FocusLost:Connect(function() ConfigName = NameBox.Text end)
         
-        local function Save()
-            if ConfigName ~= "" then 
-                writefile(FSSHUB.FolderName.."/"..ConfigName..".json", HttpService:JSONEncode(FSSHUB.ConfigData))
-                Lib:Notify("Saved: "..ConfigName, "success")
-            end
-        end
-        local function Load()
-             if isfile(FSSHUB.FolderName.."/"..ConfigName..".json") then
-                 local data = HttpService:JSONDecode(readfile(FSSHUB.FolderName.."/"..ConfigName..".json"))
-                 for k,v in pairs(data) do if FSSHUB.Elements[k] then FSSHUB.Elements[k].Function(v) end end
-                 Lib:Notify("Loaded!", "success")
-             end
-        end
+        local function Save() if ConfigName~="" and writefile then writefile(FSSHUB.FolderName.."/"..ConfigName..".json", HttpService:JSONEncode(FSSHUB.ConfigData)); Lib:Notify("Saved: "..ConfigName, "success") end end
+        local function Load() if isfile(FSSHUB.FolderName.."/"..ConfigName..".json") then local d=HttpService:JSONDecode(readfile(FSSHUB.FolderName.."/"..ConfigName..".json")); for k,v in pairs(d) do if FSSHUB.Elements[k] then FSSHUB.Elements[k].Function(v) end end; Lib:Notify("Loaded!", "success") end end
         
         local BtnGrid = Create("Frame", {Parent = SettingsContainer, BackgroundTransparency = 1, Size = UDim2.new(0.96, 0, 0, 40)})
         Create("UIListLayout", {Parent = BtnGrid, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5)})
-        local SaveBtn = Create("TextButton", {Parent = BtnGrid, Text = "SAVE", BackgroundColor3 = FSSHUB.Theme.Item, TextColor3 = FSSHUB.Theme.Green, Size = UDim2.new(0.5, -2, 1, 0)}); Create("UICorner", {Parent = SaveBtn, CornerRadius=UDim.new(0,6)})
-        local LoadBtn = Create("TextButton", {Parent = BtnGrid, Text = "LOAD", BackgroundColor3 = FSSHUB.Theme.Item, TextColor3 = FSSHUB.Theme.Accent, Size = UDim2.new(0.5, -2, 1, 0)}); Create("UICorner", {Parent = LoadBtn, CornerRadius=UDim.new(0,6)})
+        local SaveBtn = Create("TextButton", {Parent = BtnGrid, Text = "SAVE", BackgroundColor3 = FSSHUB.Theme.Item, TextColor3 = FSSHUB.Theme.Green, Font = Enum.Font.GothamBold, TextSize=12, Size = UDim2.new(0.5, -2, 1, 0)}); Create("UICorner", {Parent = SaveBtn, CornerRadius=UDim.new(0,6)})
+        local LoadBtn = Create("TextButton", {Parent = BtnGrid, Text = "LOAD", BackgroundColor3 = FSSHUB.Theme.Item, TextColor3 = FSSHUB.Theme.Accent, Font = Enum.Font.GothamBold, TextSize=12, Size = UDim2.new(0.5, -2, 1, 0)}); Create("UICorner", {Parent = LoadBtn, CornerRadius=UDim.new(0,6)})
+        SaveBtn.MouseButton1Click:Connect(Save); LoadBtn.MouseButton1Click:Connect(Load)
+
+        -- [RESTORED] Autoload Button (Fitur yang sebelumnya hilang)
+        Lib:Button("Set As Autoload", function()
+             if ConfigName ~= "" and writefile then
+                 writefile(FSSHUB.FolderName.."/"..FSSHUB.AutoloadFile, ConfigName)
+                 Lib:Notify("Autoload Set: "..ConfigName, "success")
+             else
+                 Lib:Notify("Enter Config Name!", "error")
+             end
+        end, true)
+
+        -- [RESTORED] Settings & Credits (Fitur yang sebelumnya hilang)
+        Lib:Section("UI SETTINGS", true)
+        Lib:Slider("Font Size", 10, 18, 14, function(v) for _,o in pairs(Main:GetDescendants()) do if (o:IsA("TextLabel") or o:IsA("TextButton")) and o.Name~="BrandTitle" and o.Text~="⚙️" and o.Text~="↘" and o.Text~="×" and o.Text~="-" then o.TextSize=v end end end, true)
         
-        SaveBtn.MouseButton1Click:Connect(Save)
-        LoadBtn.MouseButton1Click:Connect(Load)
+        Lib:Section("CREDITS", true)
+        Lib:Label("Script by: FSSHUB Team", true)
+        if discordLink then 
+            Lib:Button("Copy Discord Link", function() if setclipboard then setclipboard(discordLink) Lib:Notify("Link Copied!", "success") end end, true) 
+        end
     end
     
     function Lib:CheckAutoload()
@@ -303,9 +316,8 @@ function FSSHUB:Window(title)
             local n = readfile(FSSHUB.FolderName.."/"..FSSHUB.AutoloadFile)
             if isfile(FSSHUB.FolderName.."/"..n..".json") then
                 task.delay(1, function()
-                    local data = HttpService:JSONDecode(readfile(FSSHUB.FolderName.."/"..n..".json"))
-                    for k,v in pairs(data) do if FSSHUB.Elements[k] then FSSHUB.Elements[k].Function(v) end end
-                    Lib:Notify("Autoloaded: "..n, "success")
+                    local s, d = pcall(function() return HttpService:JSONDecode(readfile(FSSHUB.FolderName.."/"..n..".json")) end)
+                    if s and d then for k,v in pairs(d) do if FSSHUB.Elements[k] then FSSHUB.Elements[k].Function(v) end end; Lib:Notify("Autoloaded!", "success") end
                 end)
             end
         end
