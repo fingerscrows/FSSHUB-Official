@@ -1,26 +1,21 @@
--- [[ FSS HUB V4.0 - SMART LOADER (LIBRARY INTEGRATED) ]] --
--- Update: Uses Universal Library for GUI, Clean Code, Auto-Theme
+-- [[ FSS HUB V4.1 - SMART LOADER (FIXED) ]] --
+-- Update: Integrated with Fixed Library V4.1
 
--- 0. SAFETY CHECK
 if not game:IsLoaded() then game.Loaded:Wait() end
 
--- 1. CONFIGURATION
-local SECRET_SALT = "RAHASIA_FINAL_KAMU_123" -- Match with HTML
-local UPDATE_INTERVAL = 6 -- Hours
+local SECRET_SALT = "RAHASIA_FINAL_KAMU_123" 
+local UPDATE_INTERVAL = 6 
 local DISCORD_INVITE = "https://discord.gg/28cfy5E3ag"
-local FILE_NAME = "FSS_V4_Key.txt"
+local FILE_NAME = "FSSHUB_V4_Key.txt"
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
--- 2. DATABASE GAME
 local GameList = {
     ["92371631484540"] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
     ["9168386959"] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
 }
 local UNIVERSAL_SCRIPT = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua" 
 
--- 3. SERVICES & UTILS
 local StarterGui = game:GetService("StarterGui")
-local HttpService = game:GetService("HttpService")
 
 local function SafeLoad(url)
     local content, success = nil, false
@@ -37,7 +32,6 @@ local function SafeLoad(url)
     end
 end
 
--- 4. KEY SYSTEM LOGIC (DJB2)
 local function djb2Hash(str)
     local hash = 5381
     for i = 1, #str do
@@ -55,26 +49,21 @@ local function GetValidKey()
     return "KEY-" .. hash
 end
 
--- 5. MAIN LOGIC
 local function Init()
-    -- Step A: Load Library First
     local s, Library = pcall(function() return loadstring(game:HttpGet(LIB_URL))() end)
     if not s or not Library then 
         return StarterGui:SetCore("SendNotification", {Title = "FSS HUB", Text = "Failed to load Library!", Duration = 5}) 
     end
 
-    -- Step B: Function to Run Game Script
     local function RunGame()
         local id = tostring(game.PlaceId)
         local gid = tostring(game.GameId)
         local scriptUrl = GameList[id] or GameList[gid] or UNIVERSAL_SCRIPT
-        
         Library:Notify("Key Verified! Loading Script...", "success")
         task.wait(1)
         SafeLoad(scriptUrl)
     end
 
-    -- Step C: Check Saved Key
     local ValidKey = GetValidKey()
     if isfile and isfile(FILE_NAME) then
         local saved = string.gsub(readfile(FILE_NAME), "%s+", "")
@@ -85,19 +74,18 @@ local function Init()
         end
     end
 
-    -- Step D: Show Auth Window (Jika key salah/tidak ada)
     Library:AuthWindow({
         Title = "FSS HUB | GATEWAY",
         Status = "Enter key to access script",
-        GetKeyLink = DISCORD_INVITE, -- Link ini akan dicopy saat tombol "Get Key" ditekan
+        GetKeyLink = DISCORD_INVITE,
         OnLogin = function(inputKey)
             local cleanInput = string.gsub(inputKey, "%s+", "")
             if cleanInput == ValidKey then
                 if writefile then writefile(FILE_NAME, cleanInput) end
                 RunGame()
-                return true -- Return true menutup window otomatis
+                return true
             else
-                return false -- Return false memicu efek getar/error
+                return false
             end
         end
     })
