@@ -1,5 +1,5 @@
--- [[ FSS HUB V3.2 - ROBUST UNIVERSAL LOADER ]] --
--- Fitur: Dual ID Check (Place/Universe), String Matching, & Debugger
+-- [[ FSS HUB V3.3 - SAFE LOADER (Xeno Support) ]] --
+-- Fitur: Anti-Crash CoreGui, String ID Check, & Debug Mode
 
 -- 1. KONFIGURASI UTAMA
 local SECRET_SALT = "RAHASIA_FINAL_KAMU_123" -- WAJIB SAMA dengan HTML
@@ -7,24 +7,48 @@ local UPDATE_INTERVAL = 6
 local DISCORD_INVITE = "https://discord.gg/28cfy5E3ag"
 local FILE_NAME = "FSS_V3_Key.txt"
 
--- 2. DATABASE GAME (Gunakan String "" untuk ID agar akurat)
+-- 2. DATABASE GAME (String ID)
 local GameList = {
-    -- Masukkan Place ID ATAU Universe ID di sini
-    -- Contoh ID Survive Wave Z (kamu bisa masukkan keduanya biar aman)
+    -- Masukkan Place ID dan Universe ID (Game ID) sebagai String
     ["92371631484540"] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
-    ["123456789"] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
+    ["9168386959"] = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua",
 }
 
--- Link Default (Script yang diload jika game tidak dikenali)
+-- Link Default
 local UNIVERSAL_SCRIPT = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/scripts/SurviveWaveZ.lua" 
 
 -- ---------------------------------------------------------
--- SERVICES
-local CoreGui = game:GetService("CoreGui")
+-- SERVICES (AMANKAN CORE GUI)
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+-- FUNGSI MENCARI UI PARENT YANG AMAN (Anti-Crash Xeno)
+local function GetSafeGui()
+    -- 1. Coba gethui (Executor Modern)
+    if gethui then
+        local s, r = pcall(gethui)
+        if s and r and r:IsA("Instance") then return r end
+    end
+    -- 2. Coba CoreGui dengan pcall
+    local s, core = pcall(function() return game:GetService("CoreGui") end)
+    if s and core then return core end
+    
+    -- 3. Fallback ke PlayerGui (Pasti Aman)
+    if Players.LocalPlayer then
+        return Players.LocalPlayer:WaitForChild("PlayerGui", 5)
+    end
+    return nil
+end
+
+local ParentTarget = GetSafeGui()
+if not ParentTarget then
+    -- Jika benar-benar tidak ada tempat menaruh UI (sangat jarang), stop script
+    warn("[FSSHUB CRITICAL] Cannot find GUI Parent!")
+    return 
+end
 
 -- 3. HELPER FUNCTIONS (HASHING)
 local function djb2Hash(str)
@@ -46,36 +70,33 @@ local function GetCurrentData()
     return "KEY-" .. hash, ((currentBlock + 1) * UPDATE_INTERVAL * 3600) - now
 end
 
--- 4. FUNGSI LOAD GAME (LOGIKA BARU)
+-- 4. FUNGSI LOAD GAME
 local function LoadGameScript()
-    -- Ambil ID sebagai String untuk menghindari error pembulatan angka besar
     local PlaceID = tostring(game.PlaceId)
     local GameID = tostring(game.GameId)
     
-    -- Debugging ke Console (Tekan F9 untuk lihat)
+    -- Debugging
     warn("------------------------------------------------")
     warn("[FSSHUB DEBUG] Checking ID...")
     warn("[FSSHUB DEBUG] Place ID: " .. PlaceID)
-    warn("[FSSHUB DEBUG] Game ID (Universe): " .. GameID)
+    warn("[FSSHUB DEBUG] Game ID: " .. GameID)
     warn("------------------------------------------------")
     
-    -- Cek apakah salah satu ID ada di daftar
     local Link = GameList[PlaceID] or GameList[GameID]
     
     if Link then
-        StarterGui:SetCore("SendNotification", {Title = "FSS HUB"; Text = "Game Detected! Loading Script..."; Duration = 5;})
+        StarterGui:SetCore("SendNotification", {Title = "FSS HUB"; Text = "Game Detected! Loading..."; Duration = 5;})
         local s, err = pcall(function() loadstring(game:HttpGet(Link))() end)
-        if not s then warn("Script Load Error: "..tostring(err)) end
+        if not s then 
+            warn("Script Load Error: "..tostring(err)) 
+            StarterGui:SetCore("SendNotification", {Title = "FSS HUB"; Text = "Failed to load script!"; Duration = 5;})
+        end
     else
-        -- Jika tidak dikenal, beritahu user ID mereka (untuk lapor ke dev)
         StarterGui:SetCore("SendNotification", {
             Title = "ID Unknown"; 
-            Text = "PID: " .. PlaceID .. "\nGID: " .. GameID; 
-            Duration = 10;
+            Text = "Loading Default Script..."; 
+            Duration = 5;
         })
-        warn("[FSSHUB] ID not found in GameList. Loading Universal.")
-        
-        -- Load Universal agar user tetap bisa main
         loadstring(game:HttpGet(UNIVERSAL_SCRIPT))()
     end
 end
@@ -91,8 +112,16 @@ if isfile and isfile(FILE_NAME) then
 end
 
 -- 6. UI BUILDER (INTERFACE)
-for _, v in pairs(CoreGui:GetChildren()) do if v.Name == "FSS_V3_UI" then v:Destroy() end end
-local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "FSS_V3_UI"; ScreenGui.Parent = CoreGui; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Hapus UI lama di target parent
+for _, v in pairs(ParentTarget:GetChildren()) do 
+    if v.Name == "FSS_V3_UI" then v:Destroy() end 
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FSS_V3_UI"
+ScreenGui.Parent = ParentTarget
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 9999 -- Pastikan di paling atas
 
 local MainFrame = Instance.new("Frame"); MainFrame.Name = "MainFrame"; MainFrame.Parent = ScreenGui; MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18); MainFrame.Position = UDim2.new(0.5, -175, 0.5, -125); MainFrame.Size = UDim2.new(0, 350, 0, 250)
 local Corner = Instance.new("UICorner"); Corner.CornerRadius = UDim.new(0, 8); Corner.Parent = MainFrame
@@ -109,7 +138,6 @@ local KeyBox = Instance.new("TextBox"); KeyBox.Parent = Content; KeyBox.Backgrou
 local GetKeyBtn = Instance.new("TextButton"); GetKeyBtn.Parent = Content; GetKeyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); GetKeyBtn.Position = UDim2.new(0.1, 0, 0.55, 0); GetKeyBtn.Size = UDim2.new(0.38, 0, 0, 40); GetKeyBtn.Font = Enum.Font.GothamBold; GetKeyBtn.Text = "GET KEY LINK"; GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255); GetKeyBtn.TextSize = 12; Instance.new("UICorner", GetKeyBtn).CornerRadius=UDim.new(0,6)
 local EnterBtn = Instance.new("TextButton"); EnterBtn.Parent = Content; EnterBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 136); EnterBtn.Position = UDim2.new(0.52, 0, 0.55, 0); EnterBtn.Size = UDim2.new(0.38, 0, 0, 40); EnterBtn.Font = Enum.Font.GothamBold; EnterBtn.Text = "UNLOCK"; EnterBtn.TextColor3 = Color3.fromRGB(20, 20, 20); EnterBtn.TextSize = 14; Instance.new("UICorner", EnterBtn).CornerRadius=UDim.new(0,6)
 
--- Footer (Timer)
 local TimerLabel = Instance.new("TextLabel"); TimerLabel.Parent = Content; TimerLabel.BackgroundTransparency = 1; TimerLabel.Position = UDim2.new(0.55, 0, 0.85, 0); TimerLabel.Size = UDim2.new(0.4, 0, 0, 20); TimerLabel.Font = Enum.Font.Gotham; TimerLabel.Text = "Checking..."; TimerLabel.TextColor3 = Color3.fromRGB(255, 80, 80); TimerLabel.TextSize = 12; TimerLabel.TextXAlignment = Enum.TextXAlignment.Right
 
 -- LOGIC UI
@@ -130,7 +158,6 @@ end)
 
 EnterBtn.MouseButton1Click:Connect(function()
     local RealKey, _ = GetCurrentData()
-    -- Hapus spasi agar input lebih toleran
     local inputClean = string.gsub(KeyBox.Text, " ", "")
     if inputClean == RealKey then
         InfoText.Text = "Success! Loading..."
@@ -145,7 +172,6 @@ EnterBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- TIMER LOOP
 task.spawn(function()
     while ScreenGui.Parent do
         local _, secondsLeft = GetCurrentData()
