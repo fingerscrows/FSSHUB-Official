@@ -148,6 +148,7 @@ function FSSHUB:Window(title)
             SlideBar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then Update(i); local c; c=UserInputService.InputChanged:Connect(function(io) if io.UserInputType==Enum.UserInputType.MouseMovement then Update(io) end end); i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then c:Disconnect() end end) end end)
         end
 
+        -- [NEW] DROPDOWN FEATURE
         function Elements:Dropdown(text, options, default, callback)
             local expanded = false
             local selected = default or options[1]
@@ -179,7 +180,7 @@ function FSSHUB:Window(title)
             end)
         end
         
-        function Elements:InitConfig() end
+        function Elements:InitConfig() end -- Placeholder for consistency
 
         return Elements
     end
