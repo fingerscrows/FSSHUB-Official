@@ -1,234 +1,119 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>FSSHUB | Secure Gateway</title>
-    <style>
-        :root { 
-            --primary: #00ff88; 
-            --error: #ff5555;
-            --bg: #050505; 
-            --card: #111; 
-        }
-        
-        body { 
-            background-color: var(--bg); 
-            color: #fff; 
-            font-family: 'Courier New', monospace; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
-            overflow: hidden; 
-            user-select: none;
-        }
-        
-        /* Main Card */
-        .container { 
-            background: var(--card); 
-            border: 1px solid #333; 
-            padding: 2rem; 
-            border-radius: 12px; 
-            width: 90%; 
-            max-width: 400px; 
-            text-align: center;
-            box-shadow: 0 0 30px rgba(0, 255, 136, 0.05);
-            position: relative;
-            animation: fadeIn 0.5s ease-out;
-        }
-        
-        h2 { 
-            color: var(--primary); 
-            margin-top: 0; 
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(0,255,136,0.3); 
-        }
-        
-        .status { 
-            font-size: 0.75rem; 
-            color: #666; 
-            margin-bottom: 2rem; 
-            border-bottom: 1px solid #222;
-            padding-bottom: 10px;
-        }
-        
-        /* Input & Button */
-        input { 
-            background: #0a0a0a; 
-            border: 1px solid #333; 
-            color: var(--primary); 
-            padding: 15px; 
-            width: 100%; 
-            box-sizing: border-box; 
-            text-align: center; 
-            font-size: 1.2rem; 
-            border-radius: 6px; 
-            outline: none; 
-            margin-bottom: 15px;
-            font-family: 'Courier New', monospace; 
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-        
-        input:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0,255,136,0.1); }
-        
-        button { 
-            background: var(--primary); 
-            color: #000; 
-            border: none; 
-            padding: 15px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            width: 100%; 
-            border-radius: 6px;
-            font-size: 1rem; 
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        button:hover { 
-            background: #fff; 
-            box-shadow: 0 0 15px rgba(255,255,255,0.4); 
-        }
-        button:active { transform: scale(0.98); }
-        
-        .timer { 
-            margin-top: 20px; 
-            font-size: 0.7rem; 
-            color: #444; 
-        }
+-- [[ FSSHUB CORE SYSTEM V1.1 (STABLE) ]] --
+-- Update: Added Retry Logic, Better Error Handling, Modular Structure
 
-        /* Loading Animation */
-        .loader { 
-            display: flex; 
-            width: 100%; height: 100%; 
-            position: fixed; top:0; left:0; 
-            background: var(--bg); 
-            z-index: 999; 
-            align-items: center; justify-content: center; 
-            flex-direction: column; 
-        }
-        .spinner { 
-            width: 40px; height: 40px; 
-            border: 3px solid #222; 
-            border-top: 3px solid var(--primary); 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite; 
-            margin-bottom: 15px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+local Core = {}
 
-    </style>
-</head>
-<body>
+-- [1] CONFIGURATION
+local SECRET_SALT = "RAHASIA_FINAL_KAMU_123" 
+local UPDATE_INTERVAL = 6 
+local FILE_NAME = "FSS_V5_Key.txt"
 
-    <div id="loader" class="loader">
-        <div class="spinner"></div>
-        <div style="color: var(--primary); font-size: 0.8rem; letter-spacing: 2px;">SECURE HANDSHAKE...</div>
-    </div>
+-- Repository Base URL (Agar mudah diganti jika pindah repo)
+local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
+local MODULES = {
+    AuthUI = BASE_URL .. "main/modules/AuthUI.lua",
+    Universal = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
+}
+local GAME_DB = {
+    ["92371631484540"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua",
+    ["9168386959"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
+}
 
-    <div class="container" id="main" style="display:none;">
-        <h2>ACCESS GRANTED</h2>
-        <div class="status">SESSION ID: <span id="sess-id" style="color:#888;">...</span></div>
-        
-        <label style="font-size:10px; color:#555; display:block; text-align:left; margin-bottom:5px;">YOUR ACCESS KEY:</label>
-        <input type="text" id="keyField" readonly value="GENERATING..." onclick="copyKey()">
-        <button id="copyBtn" onclick="copyKey()">COPY KEY TO CLIPBOARD</button>
-        
-        <div class="timer" id="countdown">Synchronizing time...</div>
-    </div>
+-- SERVICES
+local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
 
-    <script>
-        // --- KONFIGURASI (HARUS SAMA DENGAN LUA) ---
-        const SECRET_SALT = "RAHASIA_FINAL_KAMU_123"; 
-        const UPDATE_INTERVAL = 6; // Jam
-        // -------------------------------------------
+-- [2] UTILITIES
+local function Notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 5})
+end
 
-        // 1. ALGORITMA HASHING (DJB2)
-        // Fungsi ini mengubah string menjadi angka unik (hash)
-        function djb2Hash(str) {
-            let hash = 5381;
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) + hash) + str.charCodeAt(i);
-            }
-            // Konversi ke Hexadecimal uppercase agar seragam dengan Lua
-            return (hash >>> 0).toString(16).toUpperCase();
-        }
+local function SafeLoad(url, name)
+    local content, success = nil, false
+    -- Retry Logic (3 Attempts)
+    for i = 1, 3 do
+        local s, res = pcall(function() return game:HttpGet(url) end)
+        if s then 
+            content = res
+            success = true
+            break 
+        end
+        warn("[FSSHUB] Failed to load " .. name .. ". Retrying ("..i.."/3)...")
+        task.wait(1.5)
+    end
+    
+    if not success then
+        Notify("Connection Error", "Failed to load " .. name .. ". Check internet!", 10)
+        return nil
+    end
+    
+    local func, err = loadstring(content)
+    if not func then
+        warn("[FSSHUB] Syntax Error in " .. name .. ": " .. tostring(err))
+        Notify("Script Error", name .. " has syntax errors.", 10)
+        return nil
+    end
+    
+    return func
+end
 
-        // 2. GENERATOR KUNCI UTAMA
-        function generateKey() {
-            const now = new Date();
-            // Gunakan UTC agar waktu konsisten di seluruh dunia (mencegah beda zona waktu)
-            const utcNow = now.getTime(); 
-            const totalHours = Math.floor(utcNow / (1000 * 60 * 60));
-            const currentBlock = Math.floor(totalHours / UPDATE_INTERVAL);
+local function djb2Hash(str)
+    local hash = 5381
+    for i = 1, #str do
+        local byte = string.byte(str, i)
+        hash = (hash * 33) + byte
+        hash = hash % 4294967296 
+    end
+    return string.upper(string.format("%x", hash))
+end
 
-            // Buat Raw String: "BlockWaktu-SaltRahasia"
-            const rawString = currentBlock + "-" + SECRET_SALT;
-            
-            // Hash String tersebut
-            const finalHash = djb2Hash(rawString);
-            const finalKey = "KEY-" + finalHash;
-            
-            document.getElementById("keyField").value = finalKey;
+function Core.GetValidKey()
+    local now = os.time()
+    local block = math.floor(math.floor(now / 3600) / UPDATE_INTERVAL)
+    local hash = djb2Hash(block .. "-" .. SECRET_SALT)
+    return "KEY-" .. hash
+end
 
-            // Hitung Mundur (Timer)
-            const nextBlockMs = (currentBlock + 1) * UPDATE_INTERVAL * 3600000;
-            const diff = nextBlockMs - utcNow;
-            
-            if (diff > 0) {
-                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const s = Math.floor((diff % (1000 * 60)) / 1000);
-                document.getElementById("countdown").innerText = `KEY EXPIRES IN: ${h}H ${m}M ${s}S`;
-            } else {
-                location.reload(); // Refresh jika waktu habis
-            }
-        }
+-- [3] MAIN LOGIC
+function Core.LoadGame()
+    local id = tostring(game.PlaceId)
+    local gid = tostring(game.GameId)
+    local url = GAME_DB[id] or GAME_DB[gid] or MODULES.Universal
+    
+    Notify("FSS HUB", "Key Verified! Loading Scripts...", 3)
+    
+    local gameScript = SafeLoad(url, "Game Script")
+    if gameScript then
+        task.spawn(gameScript)
+    end
+end
 
-        // 3. FUNGSI COPY
-        function copyKey() {
-            const k = document.getElementById("keyField");
-            k.select();
-            k.setSelectionRange(0, 99999); // Untuk Mobile
-            
-            try {
-                document.execCommand("copy");
-                const btn = document.getElementById("copyBtn");
-                const originalText = btn.innerText;
-                
-                // Efek Visual
-                btn.innerText = "COPIED SUCCESSFULLY!";
-                btn.style.backgroundColor = "#fff";
-                
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.backgroundColor = "";
-                }, 1500);
-            } catch (err) {
-                alert("Manual Copy Required!");
-            }
-        }
+function Core.Init()
+    local ValidKey = Core.GetValidKey()
+    
+    -- Check Saved Key
+    if isfile and isfile(FILE_NAME) then
+        local saved = string.gsub(readfile(FILE_NAME), "%s+", "")
+        if saved == ValidKey then
+            Core.LoadGame()
+            return
+        end
+    end
+    
+    -- Load Auth UI
+    local authFunc = SafeLoad(MODULES.AuthUI, "Auth UI")
+    if authFunc then
+        local AuthModule = authFunc() -- Execute to get the Module Table
+        if AuthModule and AuthModule.Show then
+            AuthModule.Show({
+                ValidKey = ValidKey,
+                OnSuccess = function(key)
+                    if writefile then writefile(FILE_NAME, key) end
+                    Core.LoadGame()
+                end
+            })
+        end
+    end
+end
 
-        // 4. INISIALISASI
-        window.onload = function() {
-            // Simulasi Loading agar terlihat "Techy"
-            setTimeout(() => {
-                document.getElementById("loader").style.display = "none";
-                document.getElementById("main").style.display = "block";
-                
-                // Generate Fake Session ID
-                const sess = Math.random().toString(36).substring(2, 10).toUpperCase();
-                document.getElementById("sess-id").innerText = sess;
-
-                generateKey();
-                setInterval(generateKey, 1000); // Update setiap detik untuk timer
-            }, 1500);
-        };
-    </script>
-</body>
-</html>
+return Core
