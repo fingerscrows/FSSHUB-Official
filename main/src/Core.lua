@@ -6,7 +6,7 @@ local Core = {}
 -- [1] CONFIGURATION
 local FILE_NAME = "FSSHUB_V3_Auth.key"
 -- PASTIKAN URL INI SAMA PERSIS DENGAN YANG ADA DI INDEX.HTML
-local API_URL = "https://script.google.com/macros/s/AKfycbymNkoO6T4fp0Iu1fDpN7_jC5PkwZX9TtU813gH9VbQd2jqC4y2dqbj9p_1drNM1tL_9A/exec" 
+local API_URL = "https://script.google.com/macros/s/AKfycbycmoRiUAxf0c7ccswQ7xbJNP1e8zfPKEtIhbN0ggeeFMIMQNSrw5eyPW5ECTZwG-QpyQ/exec" 
 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 
