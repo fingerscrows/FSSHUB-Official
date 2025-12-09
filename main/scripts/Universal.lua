@@ -1,5 +1,5 @@
--- [[ FSSHUB: UNIVERSAL MODULE (V1.0) ]] --
--- Dibuat untuk kompatibilitas maksimal di berbagai game
+-- [[ FSSHUB: UNIVERSAL MODULE (V2.0) ]] --
+-- Rebranded to match Purple Theme
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -11,7 +11,7 @@ local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Load Library (Menggunakan Lib yang sudah ada)
+-- Load Library
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 local Library = loadstring(game:HttpGet(LIB_URL))()
 
@@ -19,21 +19,15 @@ if not Library then return end
 
 local Window = Library:Window("FSS HUB | UNIVERSAL")
 
--- Global Config & State
+-- Global Config
 getgenv().FSS_Universal = {
-    Speed = 16,
-    Jump = 50,
-    InfJump = false,
-    Noclip = false,
-    ESP = false,
-    Fullbright = false,
-    Connections = {} -- Table untuk menyimpan koneksi agar bisa dibersihkan (Memory Management)
+    Speed = 16, Jump = 50, InfJump = false, Noclip = false, 
+    ESP = false, Fullbright = false, Connections = {}
 }
 
 -- [TAB 1: LOCAL PLAYER]
 local PlayerTab = Window:Section("Local Player")
 
--- WalkSpeed Logic (Loop agar tidak di-reset game)
 PlayerTab:Toggle("Enable Speed", false, function(state)
     getgenv().FSS_Universal.SpeedEnabled = state
     if state then
@@ -52,11 +46,10 @@ PlayerTab:Toggle("Enable Speed", false, function(state)
     end
 end)
 
-PlayerTab:Slider("WalkSpeed Value", 16, 200, 16, function(value)
+PlayerTab:Slider("WalkSpeed Value", 16, 300, 16, function(value)
     getgenv().FSS_Universal.Speed = value
 end)
 
--- JumpPower Logic
 PlayerTab:Toggle("Enable Jump", false, function(state)
     getgenv().FSS_Universal.JumpEnabled = state
     if state then
@@ -76,37 +69,29 @@ PlayerTab:Toggle("Enable Jump", false, function(state)
     end
 end)
 
-PlayerTab:Slider("JumpPower Value", 50, 300, 50, function(value)
+PlayerTab:Slider("JumpPower Value", 50, 400, 50, function(value)
     getgenv().FSS_Universal.Jump = value
 end)
 
--- Infinite Jump
 PlayerTab:Toggle("Infinite Jump", false, function(state)
     getgenv().FSS_Universal.InfJump = state
     if state then
         local connection = UserInputService.JumpRequest:Connect(function()
-            if getgenv().FSS_Universal.InfJump then
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                end
+            if getgenv().FSS_Universal.InfJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
         end)
         table.insert(getgenv().FSS_Universal.Connections, connection)
-    else
-        -- Logic pemutusan koneksi ada di sistem Unload nanti
     end
 end)
 
--- Noclip (Stepped Event)
 PlayerTab:Toggle("Noclip", false, function(state)
     getgenv().FSS_Universal.Noclip = state
     if state then
         local connection = RunService.Stepped:Connect(function()
             if getgenv().FSS_Universal.Noclip and LocalPlayer.Character then
                 for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
                 end
             end
         end)
@@ -129,7 +114,7 @@ VisualTab:Toggle("Player ESP", false, function(state)
             local hl = Instance.new("Highlight")
             hl.Name = "Highlight_FSS"
             hl.Adornee = char
-            hl.FillColor = Color3.fromRGB(0, 255, 136) -- Warna Tema FSSHUB
+            hl.FillColor = Color3.fromRGB(140, 80, 255) -- Warna UNGU FSSHUB (Updated)
             hl.OutlineColor = Color3.fromRGB(255, 255, 255)
             hl.FillTransparency = 0.5
             hl.OutlineTransparency = 0
@@ -144,7 +129,6 @@ VisualTab:Toggle("Player ESP", false, function(state)
         for _, p in ipairs(Players:GetPlayers()) do AddESP(p) end
         Players.PlayerAdded:Connect(AddESP)
     else
-        -- Hapus ESP jika dimatikan
         for _, p in ipairs(Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("Highlight_FSS") then
                 p.Character.Highlight_FSS:Destroy()
@@ -153,7 +137,7 @@ VisualTab:Toggle("Player ESP", false, function(state)
     end
 end)
 
--- [TAB 3: WORLD & UTILITY]
+-- [TAB 3: WORLD]
 local WorldTab = Window:Section("World")
 
 WorldTab:Toggle("Fullbright", false, function(state)
@@ -169,15 +153,15 @@ WorldTab:Toggle("Fullbright", false, function(state)
             end
         end)
     else
-        Lighting.GlobalShadows = true -- Reset simple
+        Lighting.GlobalShadows = true
     end
 end)
 
 -- [TAB 4: SETTINGS]
 local SettingsTab = Window:Section("Settings")
 
-SettingsTab:Button("Unload & Clean Up", function()
-    -- Matikan semua flag global
+SettingsTab:Button("Unload & Cleanup", function()
+    -- Disable Flags
     getgenv().FSS_Universal.SpeedEnabled = false
     getgenv().FSS_Universal.JumpEnabled = false
     getgenv().FSS_Universal.InfJump = false
@@ -185,12 +169,12 @@ SettingsTab:Button("Unload & Clean Up", function()
     getgenv().FSS_Universal.ESP = false
     getgenv().FSS_Universal.Fullbright = false
     
-    -- Putuskan semua koneksi event
+    -- Clear Connections
     for _, conn in pairs(getgenv().FSS_Universal.Connections) do
         if conn then conn:Disconnect() end
     end
     getgenv().FSS_Universal.Connections = {}
     
-    -- Hapus GUI
+    -- Destroy GUI
     Window:Destroy()
 end)
