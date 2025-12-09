@@ -6,7 +6,7 @@ local Core = {}
 -- [1] CONFIGURATION
 local FILE_NAME = "FSSHUB_V3_Auth.key"
 -- URL GOOGLE APPS SCRIPT BARU KAMU
-local API_URL = "https://script.google.com/macros/s/AKfycbw9JrYXbQ-nXZsF75KJRDy1dCgPl0WYDRgk3zwuE5WlYW8P5UrIrb6WyRvxB20HI7D5iQ/exec" 
+local API_URL = "https://script.google.com/macros/s/AKfycbymNkoO6T4fp0Iu1fDpN7_jC5PkwZX9TtU813gH9VbQd2jqC4y2dqbj9p_1drNM1tL_9A/exec" 
 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 
