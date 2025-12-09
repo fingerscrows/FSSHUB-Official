@@ -1,4 +1,4 @@
--- [[ FSSHUB AUTH UI V6 (HWID LINK) ]] --
+-- [[ FSSHUB AUTH UI V6.1 (HWID LINK) ]] --
 local AuthUI = {}
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local UserInputService = game:GetService("UserInputService")
@@ -78,7 +78,7 @@ function AuthUI.Show(options)
         return Btn
     end
     
-    -- TOMBOL GET KEY
+    -- [UPDATE] TOMBOL GET KEY DENGAN LINK HWID
     CreateBtn("GET KEY", 0.075, function(btn)
         local hwid = GetHWID()
         local link = "https://fingerscrows.github.io/fsshub-official/?hwid=" .. hwid
@@ -114,6 +114,7 @@ function AuthUI.Show(options)
         end
     end)
     
+    -- Drag (Simple)
     local dragging, dragInput, dragStart, startPos
     Main.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = Main.Position end end)
     Main.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
