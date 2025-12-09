@@ -3,7 +3,7 @@
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/Core.lua"
+local CORE_URL = "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/refs/heads/main/main/src/Core.lua"
 
 local success, err = pcall(function()
     loadstring(game:HttpGet(CORE_URL))()
@@ -17,3 +17,4 @@ if not success then
     })
     warn("[FSSHUB] Loader Error: " .. tostring(err))
 end
+
