@@ -70,13 +70,15 @@ function Core.LoadGame()
     task.spawn(function() loadstring(game:HttpGet(url))() end)
 end
 
+-- [UPDATE BAGIAN Core.Init] --
 function Core.Init()
     -- Cek Key Tersimpan
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
         if result.valid then
-            Notify("WELCOME BACK", "Key Active. " .. (result.info or ""))
+            -- Tampilkan notifikasi status saat auto-login
+            Notify("WELCOME BACK", (result.info == "Premium User" and "👑 PREMIUM MEMBER" or "⏳ " .. (result.info or "Active")))
             Core.LoadGame()
             return
         end
@@ -91,11 +93,11 @@ function Core.Init()
                 local result = Core.ValidateKey(key)
                 if result.valid then
                     writefile(FILE_NAME, key)
-                    Notify("LOGIN SUCCESS", "Expires in: " .. (result.info or "Unknown"))
                     Core.LoadGame()
-                    return true
+                    -- RETURN DATA LENGKAP KE UI
+                    return {success = true, info = result.info} 
                 end
-                return false
+                return {success = false}
             end
         })
     end
