@@ -28,18 +28,18 @@
 
     <script>
         // [[ KONFIGURASI BARU ]]
-        // URL GAS Terbaru Anda
+        // Menggunakan URL GAS Terbaru (TGX0mz_)
         const GAS_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec"; 
         const TOKEN = "SAYA_SUKA_FSSHUB_GANTENG"; 
 
         async function init() {
-            // Ambil HWID dari URL (dikirim oleh script/work.ink)
             const params = new URLSearchParams(window.location.search);
             const hwid = params.get('hwid');
 
             if (!hwid) {
                 document.getElementById("key").value = "ERROR: NO HWID";
                 document.getElementById("status").innerText = "Please verify via the script link!";
+                document.getElementById("status").style.color = "#ff5555";
                 return;
             }
 
