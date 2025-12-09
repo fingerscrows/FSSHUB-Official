@@ -1,11 +1,11 @@
--- [[ FSSHUB CORE SYSTEM V3.1 (STABLE) ]] --
--- Update: New API Endpoint & JSON Safety Check
+-- [[ FSSHUB CORE SYSTEM V3.2 (ANTI-CRASH) ]] --
+-- Update: Fixed JSON Crash & Added Debugger
 
 local Core = {}
 
 -- [1] CONFIGURATION
 local FILE_NAME = "FSSHUB_V3_Auth.key"
--- URL GOOGLE APPS SCRIPT BARU KAMU
+-- MASUKKAN URL GOOGLE APPS SCRIPT BARU DARI LANGKAH 1 DI SINI:
 local API_URL = "https://script.google.com/macros/s/AKfycbymNkoO6T4fp0Iu1fDpN7_jC5PkwZX9TtU813gH9VbQd2jqC4y2dqbj9p_1drNM1tL_9A/exec" 
 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
@@ -16,16 +16,13 @@ local MODULES = {
 }
 
 local GAME_DB = {
-    -- ID Game Survive Wave Z
     ["92371631484540"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua",
     ["9168386959"] = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
 }
 
--- SERVICES
 local StarterGui = game:GetService("StarterGui")
 local HttpService = game:GetService("HttpService")
 
--- [2] UTILITIES
 local function Notify(title, text, duration)
     pcall(function()
         StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 5})
@@ -39,88 +36,82 @@ local function SafeLoad(url, name)
         if s and res and #res > 0 then content = res; success = true; break end
         task.wait(1)
     end
-    
-    if not success then
-        Notify("Connection Error", "Failed to load " .. name, 10)
-        return nil
-    end
-    
+    if not success then return nil end
     local func, err = loadstring(content)
-    if not func then
-        Notify("Syntax Error", name .. ": " .. tostring(err), 10)
-        return nil
-    end
+    if not func then return nil end
     return func
 end
 
--- [IMPROVED] SERVER-SIDE CHECK
+-- [SERVER VALIDATION - ANTI CRASH]
 function Core.ValidateKey(keyInput)
     if not keyInput or #keyInput < 5 then return false end
     
+    -- Request ke Google
     local success, response = pcall(function()
-        -- Mengirim Key ke Google untuk dicek (tambah nocache agar tidak nyangkut data lama)
-        return game:HttpGet(API_URL .. "?key=" .. keyInput .. "&nocache=" .. math.random())
+        return game:HttpGet(API_URL .. "?key=" .. keyInput .. "&nocache=" .. math.random(1, 10000))
     end)
     
     if success then
-        -- Coba decode JSON dengan aman
+        -- Coba baca sebagai JSON dengan pcall agar tidak crash
         local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(response) end)
         
         if decodeSuccess and data then
+            -- Jika sukses baca JSON
             if data.status == "success" then
                 return true
             end
         else
-            -- Debugging jika respon bukan JSON (biasanya HTML error dari Google)
-            warn("[FSSHUB DEBUG] Server Response Invalid:")
-            warn(string.sub(response, 1, 100))
+            -- JIKA GAGAL BACA JSON (Berarti Permission Google Salah / HTML Error)
+            warn("------------------------------------------------")
+            warn("[FSSHUB DEBUG] CRITICAL ERROR: Server sent HTML instead of JSON!")
+            warn("RESPONSE DARI GOOGLE: " .. string.sub(response, 1, 200)) -- Lihat apa isi errornya
+            warn("SOLUSI: Pastikan Deployment Google Apps Script diatur ke 'ANYONE'!")
+            warn("------------------------------------------------")
         end
+    else
+        warn("[FSSHUB DEBUG] Connection Failed: " .. tostring(response))
     end
+    
     return false
 end
 
--- [3] MAIN LOGIC
 function Core.LoadGame()
     local id = tostring(game.PlaceId)
     local gid = tostring(game.GameId)
-    
     local specificScript = GAME_DB[id] or GAME_DB[gid]
     local url = specificScript or MODULES.Universal
     local scriptType = specificScript and "Game Module" or "Universal Module"
     
     Notify("AUTHENTICATED", "Welcome! Loading " .. scriptType .. "...", 4)
-    
     local gameScriptFunc = SafeLoad(url, scriptType)
-    if gameScriptFunc then 
-        task.spawn(gameScriptFunc) 
-    end
+    if gameScriptFunc then task.spawn(gameScriptFunc) end
 end
 
 function Core.Init()
-    -- Cek Key yang tersimpan
+    -- Cek file yang tersimpan
     if isfile and isfile(FILE_NAME) then
         local savedKey = string.gsub(readfile(FILE_NAME), "%s+", "")
-        -- Validasi ulang ke server
         if Core.ValidateKey(savedKey) then
             Core.LoadGame()
             return
         end
     end
     
-    -- Load Auth UI
+    -- Load UI
     local authLoader = SafeLoad(MODULES.AuthUI, "Auth UI")
     if authLoader then
         local AuthModule = authLoader()
         if AuthModule and AuthModule.Show then
             AuthModule.Show({
-                ValidKey = nil, -- Validasi via server callback
+                ValidKey = nil,
                 OnSuccess = function(keyInput)
+                    -- UI memanggil fungsi ini dan MENUNGGU return true/false
                     if Core.ValidateKey(keyInput) then
                         if writefile then writefile(FILE_NAME, keyInput) end
                         Core.LoadGame()
-                        return true -- Beritahu UI login sukses
+                        return true -- Kirim sinyal SUKSES ke UI
                     else
-                        return false -- Beritahu UI login gagal
+                        return false -- Kirim sinyal GAGAL ke UI
                     end
                 end
             })
