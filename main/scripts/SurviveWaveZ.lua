@@ -182,3 +182,5 @@ SettingsTab:Button("Unload Script", function()
     getgenv().FSS_WaveZ.Connections = {}
     Window:Destroy()
 end)
+
+Library:Init()
