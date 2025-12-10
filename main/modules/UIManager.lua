@@ -63,17 +63,23 @@ function UIManager.Build(GameConfig, AuthData)
     end
     
     -- [[ SETTINGS ]] --
+   -- [[ BAGIAN SETTINGS DI UIMANAGER.LUA ]] --
+    
     local SettingsTab = Window:Section("Settings", "10888332462")
     
+    -- [NEW] Toggle Watermark
+    SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
+        Library:ToggleWatermark(state)
+    end)
+
     SettingsTab:Keybind("Toggle Menu", Enum.KeyCode.RightControl, function()
-        -- [FIXED LOGIC] Langsung cari MainFrame di dalam ScreenGui (Library.base)
-        if Library.base then 
-            local main = Library.base:FindFirstChild("MainFrame")
-            if main then 
-                main.Visible = not main.Visible 
-            end
+        if Library.base and Library.base:FindFirstChild("FSSHUB_V10") then 
+            local main = Library.base.FSSHUB_V10:FindFirstChild("MainFrame")
+            if main then main.Visible = not main.Visible end
         end
     end)
+    
+    -- ... (Sisa kode tombol Unload tetap sama)
     
     SettingsTab:Button("Unload Script", function()
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
