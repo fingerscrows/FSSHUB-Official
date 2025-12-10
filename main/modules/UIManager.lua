@@ -1,11 +1,11 @@
--- [[ FSSHUB: UI MANAGER V2.2 (FIXED PATH) ]] --
+-- [[ FSSHUB: UI MANAGER V2.3 (FIXED KEYBIND) ]] --
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 local success, Library = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
 
 if not success or not Library then 
-    warn("FSSHUB: Library failed to load! Check FSSHUB_Lib.lua for errors.") 
+    warn("FSSHUB: Library failed to load!") 
     return UIManager 
 end
 
@@ -53,7 +53,10 @@ function UIManager.Build(GameConfig, AuthData)
             if element.Type == "Toggle" then
                 local t = Tab:Toggle(element.Title, element.Default, element.Callback)
                 if element.Keybind then t.SetKeybind(element.Keybind) end
-            elseif element.Type == "Button" then Tab:Button(element.Title, element.Callback)
+            elseif element.Type == "Button" then 
+                local b = Tab:Button(element.Title, element.Callback)
+                -- [OPTIONAL] Jika Button punya keybind di config
+                if element.Keybind then b.SetKeybind(element.Keybind) end
             elseif element.Type == "Slider" then Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
             elseif element.Type == "Dropdown" then Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
             elseif element.Type == "Keybind" then Tab:Keybind(element.Title, element.Default, element.Callback)
@@ -63,23 +66,20 @@ function UIManager.Build(GameConfig, AuthData)
     end
     
     -- [[ SETTINGS ]] --
-   -- [[ BAGIAN SETTINGS DI UIMANAGER.LUA ]] --
-    
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- [NEW] Toggle Watermark
     SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
         Library:ToggleWatermark(state)
     end)
 
     SettingsTab:Keybind("Toggle Menu", Enum.KeyCode.RightControl, function()
-        if Library.base and Library.base:FindFirstChild("FSSHUB_V10") then 
-            local main = Library.base.FSSHUB_V10:FindFirstChild("MainFrame")
+        -- [FIXED] Mencari MainFrame dengan benar di dalam FSSHUB_V10
+        if Library.base then 
+            -- Library.base adalah ScreenGui (FSSHUB_V10)
+            local main = Library.base:FindFirstChild("MainFrame")
             if main then main.Visible = not main.Visible end
         end
     end)
-    
-    -- ... (Sisa kode tombol Unload tetap sama)
     
     SettingsTab:Button("Unload Script", function()
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
