@@ -5,7 +5,7 @@ local UIManager = {}
 
 -- 1. Load Library Visual (V10.5 Premium)
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
-local success, Library = pcall(function() return loadstring(game:HttpGet(LIB_URL))() end)
+local success, Library = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tick()))() end)
 
 if not success or not Library then 
     warn("FSSHUB: Library failed to load!") 
