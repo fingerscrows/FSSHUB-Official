@@ -1,5 +1,5 @@
--- [[ FSSHUB: SURVIVE WAVE Z (V2.0 PRO) ]] --
--- Rebranded: Dark Purple Theme & Optimized Loop
+-- [[ FSSHUB: SURVIVE WAVE Z (REMASTERED V8.0) ]] --
+-- Updated for Optimized Library Structure
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -10,11 +10,14 @@ local RunService = game:GetService("RunService")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Load Library (New Theme)
+-- Load Library
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 local Library = loadstring(game:HttpGet(LIB_URL))()
 
 if not Library then return end
+
+-- [[ UPDATE LOGIC: INIT FIRST ]] --
+Library:Init() 
 
 local Window = Library:Window("WAVE Z | PRO")
 
@@ -28,38 +31,32 @@ getgenv().FSS_WaveZ = {
 -- [TAB 1: AUTO FARM]
 local FarmTab = Window:Section("Auto Farm")
 
--- [OPTIMIZED AUTO FARM]
 FarmTab:Toggle("Enable Auto Farm", false, function(state)
     getgenv().FSS_WaveZ.AutoFarm = state
     
     if state then
-        -- Loop Cepat (Hanya Teleport target yang sudah ditemukan)
         local conn = RunService.Heartbeat:Connect(function()
             if not getgenv().FSS_WaveZ.AutoFarm then return end
             
             local char = LocalPlayer.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Ambil folder zombie sekali saja di luar loop jika memungkinkan, atau cek keberadaannya
             local zFolder = Workspace:FindFirstChild("ServerZombies")
             if not zFolder then return end
 
             local myRoot = char.HumanoidRootPart
             local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * getgenv().FSS_WaveZ.BringDist)
 
-            -- OPTIMASI: Loop ini masih perlu, tapi kita pastikan filter seringan mungkin
             for _, z in ipairs(zFolder:GetChildren()) do
-                if z:GetAttribute("FSS_Target") then -- Hanya proses yg sudah ditandai (Opsional) atau proses semua tapi dengan cek ringan
+                if z:GetAttribute("FSS_Target") or true then -- Logic tetap dipertahankan
                     local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
                     local zHum = z:FindFirstChild("Humanoid")
                     
                     if zRoot and zHum and zHum.Health > 0 then
-                        -- Jarak cek (Sederhana)
                         if (zRoot.Position - myRoot.Position).Magnitude < 300 then
                             zRoot.CFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(-90), 0, 0)
                             zRoot.AssemblyLinearVelocity = Vector3.zero
                             
-                            -- Noclip Zombie (Sekali saja set attribute biar gak spam property change)
                             if not z:GetAttribute("NoCol") then
                                 for _, p in ipairs(z:GetChildren()) do 
                                     if p:IsA("BasePart") then p.CanCollide = false end 
@@ -71,13 +68,10 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
                 end
             end
             
-            -- Auto Attack (Tetap di Heartbeat biar kenceng)
             local tool = char:FindFirstChildOfClass("Tool")
             if tool then tool:Activate() end
         end)
         table.insert(getgenv().FSS_WaveZ.Connections, conn)
-    else
-        -- Cleanup saat dimatikan
     end
 end)
 
@@ -145,13 +139,10 @@ VisTab:Toggle("Zombie ESP", false, function(state)
                     for _, z in ipairs(zFolder:GetChildren()) do
                         if z:FindFirstChild("Head") and not z:FindFirstChild("FSS_ESP") then
                             local h = Instance.new("Highlight")
-                            h.Name = "FSS_ESP"
-                            h.Adornee = z
-                            -- FSSHUB Purple Accent for Zombies
+                            h.Name = "FSS_ESP"; h.Adornee = z
                             h.FillColor = Color3.fromRGB(140, 80, 255) 
                             h.OutlineColor = Color3.fromRGB(255, 255, 255)
-                            h.FillTransparency = 0.6
-                            h.OutlineTransparency = 0
+                            h.FillTransparency = 0.6; h.OutlineTransparency = 0
                             h.Parent = z
                         end
                     end
@@ -180,7 +171,8 @@ SettingsTab:Button("Unload Script", function()
         if c then c:Disconnect() end
     end
     getgenv().FSS_WaveZ.Connections = {}
-    Window:Destroy()
+    if Library.base then Library.base:Destroy() end
 end)
 
-Library:Init()
+-- Init Success Notification
+Library:Notify("FSSHUB", "Wave Z Module Loaded", 3)
