@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V11.6 (FINAL FIX - NO TYPO) ]] --
--- Fix: BackgroundColor3 Typo in Watermark & Keybind Logic
+-- [[ FSSHUB LIBRARY: V11.7 (GHOST FIX & CLICK FIX) ]] --
+-- Fix: Toggle Click Area Full & Mencegah Keybind Ganda (Ghost Connection)
 
 local library = {
     flags = {}, 
@@ -82,7 +82,7 @@ function library:Watermark(text)
     local wm = Create("Frame", {
         Name = "FSS_Watermark",
         Parent = self.base, 
-        BackgroundColor3 = library.theme.Main, -- [FIXED] Sebelumnya salah ketik BackgroundColor
+        BackgroundColor3 = library.theme.Main, 
         Size = UDim2.new(0, 0, 0, 26), 
         AnchorPoint = Vector2.new(1, 0), 
         Position = UDim2.new(0.99, 0, 0.01, 0), 
@@ -129,8 +129,16 @@ function library:Init()
     local gui = Create("ScreenGui", {Name = "FSSHUB_V10", Parent = self.base, ResetOnSpawn = false, IgnoreGuiInset = true})
     self.base = gui
     
-    -- [[ GLOBAL INPUT HANDLER ]]
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    -- [[ CLEANUP GHOST CONNECTIONS ]] --
+    -- Kita cek apakah ada koneksi lama di Global Environment, jika ada kita putuskan
+    if getgenv().FSS_InputConnection then
+        getgenv().FSS_InputConnection:Disconnect()
+        getgenv().FSS_InputConnection = nil
+    end
+
+    -- [[ GLOBAL INPUT HANDLER ]] --
+    -- Simpan koneksi ke Global Variable agar bisa di-disconnect nanti
+    getgenv().FSS_InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode ~= Enum.KeyCode.Unknown then
             if library.keybinds[input.KeyCode] then
                 for _, bindCallback in ipairs(library.keybinds[input.KeyCode]) do
@@ -269,7 +277,6 @@ function library:Window(title)
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true})
         end
 
-        -- [TOGGLE FIXED: Clean Old Binds]
         function tab:Toggle(text, default, callback)
             local toggled = default or false
             local boundKey = nil 
@@ -287,8 +294,10 @@ function library:Window(title)
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
             
-            local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -40, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
+            -- [FIX CLICK FULL WIDTH] Tombol Klik memenuhi seluruh frame
+            local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
             
+            -- [BIND BTN] ZIndex lebih tinggi (10) agar tetap bisa diklik
             local BindBtn = Create("TextButton", {
                 Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
                 TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9),
