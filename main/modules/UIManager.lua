@@ -66,11 +66,27 @@ function UIManager.Build(GameConfig, AuthData)
     end
     
     -- [[ SETTINGS ]] --
+   -- [[ BAGIAN SETTINGS DI UIMANAGER.LUA ]] --
+    
     local SettingsTab = Window:Section("Settings", "10888332462")
     
     SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
         Library:ToggleWatermark(state)
     end)
+    
+    -- [FITUR BARU] Tombol Buka Debugger
+    SettingsTab:Button("Open Debug Console", function()
+        local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
+        -- Load Module secara realtime
+        local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
+        if s and m then
+            m.Show() -- Panggil fungsi Show dari modul
+        else
+            game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Failed to load Debugger"})
+        end
+    end)
+
+    -- ... (Sisa kode Keybind dan Unload tetap sama)
 
     SettingsTab:Keybind("Toggle Menu", Enum.KeyCode.RightControl, function()
         -- [FIXED] Mencari MainFrame dengan benar di dalam FSSHUB_V10
