@@ -274,3 +274,5 @@ SettingsTab:Button("Unload & Cleanup", function()
     getgenv().FSS_Universal.Connections = {}
     Window:Destroy()
 end)
+
+Library:Init()
