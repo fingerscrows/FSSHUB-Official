@@ -1,5 +1,5 @@
--- [[ FSSHUB: UNIVERSAL MODULE (V2.6) ]] --
--- Changelog: Added Server Hop, Rejoin, Improved ESP (Name+Dist)
+-- [[ FSSHUB: UNIVERSAL MODULE (V2.7) ]] --
+-- Changelog: Optimized Speed/Jump Loops (Anti-Spam Property)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -18,7 +18,7 @@ local Library = loadstring(game:HttpGet(LIB_URL))()
 
 if not Library then return end
 
-local Window = Library:Window("FSS HUB | UNIVERSAL V2.6")
+local Window = Library:Window("FSS HUB | UNIVERSAL V2.7")
 
 -- Global Config
 getgenv().FSS_Universal = {
@@ -34,10 +34,15 @@ PlayerTab:Toggle("Enable Speed", false, function(state)
     if state then
         task.spawn(function()
             while getgenv().FSS_Universal.SpeedEnabled do
-                task.wait()
+                task.wait() -- Tunggu 1 frame
                 pcall(function()
                     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        LocalPlayer.Character.Humanoid.WalkSpeed = getgenv().FSS_Universal.Speed
+                        local hum = LocalPlayer.Character.Humanoid
+                        local target = getgenv().FSS_Universal.Speed
+                        -- [OPTIMASI] Hanya ubah jika nilainya beda (Mencegah Spam Network)
+                        if hum.WalkSpeed ~= target then
+                            hum.WalkSpeed = target
+                        end
                     end
                 end)
             end
@@ -59,8 +64,14 @@ PlayerTab:Toggle("Enable Jump", false, function(state)
                 task.wait()
                 pcall(function()
                     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        LocalPlayer.Character.Humanoid.UseJumpPower = true
-                        LocalPlayer.Character.Humanoid.JumpPower = getgenv().FSS_Universal.Jump
+                        local hum = LocalPlayer.Character.Humanoid
+                        local target = getgenv().FSS_Universal.Jump
+                        
+                        hum.UseJumpPower = true
+                        -- [OPTIMASI] Hanya ubah jika nilainya beda
+                        if hum.JumpPower ~= target then
+                            hum.JumpPower = target
+                        end
                     end
                 end)
             end
