@@ -1,15 +1,11 @@
--- [[ FSSHUB CORE V9.6 (AUTH DATA PASSING) ]] --
--- Update: Menyimpan data login untuk ditampilkan di Profil User
-
+-- [[ FSSHUB CORE V9.7 (SYNC FIX) ]] --
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
-Core.AuthData = nil -- Variabel baru untuk menyimpan status user
+Core.AuthData = nil 
 
--- KONFIGURASI
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 
--- Database ID Game
 local GAME_DB = {
     [92371631484540] = "main/scripts/SurviveWaveZ.lua",
     [9168386959] = "main/scripts/SurviveWaveZ.lua"
@@ -20,7 +16,6 @@ local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
--- Utility: Load URL dengan Anti-Cache
 local function LoadUrl(path)
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(math.random(1, 100000)))
 end
@@ -34,10 +29,9 @@ local function GetHWID()
     return s and id or "UNKNOWN_HWID"
 end
 
--- Validasi Key & Simpan Data Auth
 function Core.ValidateKey(input)
     if not input or #input < 5 then return {valid=false} end
-    input = string.gsub(input, "^%s*(.-)%s*$", "%1") -- Trim spasi
+    input = string.gsub(input, "^%s*(.-)%s*$", "%1")
     
     local hwid = GetHWID()
     local reqUrl = API_URL .. "?a=verify&k=" .. input .. "&hwid=" .. hwid .. "&nocache=" .. math.random(1, 10000)
@@ -48,12 +42,20 @@ function Core.ValidateKey(input)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data and data.status == "success" then
             
-            -- [UPDATE PENTING] Simpan Data Auth untuk UI Profil
+            -- [FIX ASINKRON]
+            -- Pastikan expiry dibaca sebagai angka.
+            -- Jika server tidak kirim expiry, set ke 0 (Bukan +24 jam palsu) agar ketahuan.
+            local serverExpiry = tonumber(data.expiry) or 0
+            
             Core.AuthData = {
                 Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
-                Expiry = data.expiry or (os.time() + 86400), -- Default 24 jam jika API tidak kirim expiry
+                Expiry = serverExpiry, 
                 Key = input
             }
+            
+            -- Debugging ke Console (Tekan F9 untuk lihat)
+            print("[FSSHUB DEBUG] Server Expiry Raw:", data.expiry)
+            print("[FSSHUB DEBUG] Client Time (OS):", os.time())
             
             return {valid=true, info=data.info} 
         end
@@ -61,66 +63,36 @@ function Core.ValidateKey(input)
     return {valid=false}
 end
 
--- Logika Loading Game
 function Core.LoadGame()
-    Notify("SYSTEM", "Initializing Engine...")
-
-    -- 1. Load UIManager (Builder)
-    local successManager, ManagerLib = pcall(function() 
-        return loadstring(LoadUrl("main/modules/UIManager.lua"))() 
-    end)
+    Notify("SYSTEM", "Syncing & Loading...")
     
-    if not successManager or not ManagerLib then 
-        Notify("FATAL ERROR", "Failed to load UI Manager") 
-        return 
-    end
+    local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
+    if not successManager or not ManagerLib then Notify("FATAL ERROR", "Failed to load UI Manager") return end
 
-    -- 2. Tentukan Script Game berdasarkan Place ID
     local placeId = game.PlaceId
     local scriptPath = GAME_DB[placeId] or DEFAULT_GAME
+    local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
     
-    -- 3. Load Data Game
-    local successData, GameData = pcall(function() 
-        return loadstring(LoadUrl(scriptPath))() 
-    end)
-    
-    -- Validasi Data Game
     if not successData or type(GameData) ~= "table" then
-        Notify("WARNING", "Game Script Update Required. Loading Universal...")
-        
-        -- Fallback ke Universal jika script khusus gagal
-        local successUniv, UnivData = pcall(function() 
-            return loadstring(LoadUrl(DEFAULT_GAME))() 
-        end)
-        
-        if successUniv and type(UnivData) == "table" then
-            GameData = UnivData
-        else
-            Notify("FATAL ERROR", "Universal Script also failed!")
-            return
-        end
+        Notify("WARNING", "Game Script Missing. Loading Universal...")
+        local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
+        if successUniv then GameData = UnivData else Notify("FATAL ERROR", "Universal Script Failed!") return end
     end
 
-    -- 4. Rakit UI (Kirim Data Game DAN Data Auth)
-    -- Disini kita mengirim Core.AuthData agar UIManager bisa membuat Tab Profil
     ManagerLib.Build(GameData, Core.AuthData)
 end
 
 function Core.Init()
-    -- Cek Key Tersimpan (Auto-Login)
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
         if result.valid then
-            local statusMsg = (result.info and (string.find(result.info, "Premium") or string.find(result.info, "Unlimited"))) 
-                              and "👑 PREMIUM MEMBER" or "⏳ ACTIVE USER"
-            Notify("WELCOME BACK", statusMsg)
+            Notify("WELCOME BACK", Core.AuthData.Type .. " User")
             Core.LoadGame()
             return
         end
     end
     
-    -- Jika belum login, Load UI Auth
     local success, AuthUI = pcall(function() return loadstring(LoadUrl("main/modules/AuthUI.lua"))() end)
     if success and AuthUI then
         AuthUI.Show({
