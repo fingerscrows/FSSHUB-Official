@@ -1,4 +1,5 @@
--- [[ FSSHUB: UI MANAGER V2.3 (FIXED KEYBIND) ]] --
+-- [[ FSSHUB: UI MANAGER V2.4 (SMART PROFILE) ]] --
+-- Fitur: Menampilkan Status Dukungan Script (Supported/Universal)
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -13,20 +14,41 @@ Library:Init()
 
 function UIManager.Build(GameConfig, AuthData)
     local userStatus = (AuthData and AuthData.Type) or "Free"
+    -- Watermark tetap menampilkan Nama Game Asli (karena GameConfig.Name sudah di-override Core)
     Library:Watermark("FSSHUB " .. userStatus .. " | " .. GameConfig.Name)
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name))
     
     -- [[ PROFILE TAB ]] --
     local ProfileTab = Window:Section("Profile", "10888331510")
+    
     if AuthData then
-        ProfileTab:Paragraph("User Information", "License Type: " .. AuthData.Type .. "\nGame: " .. GameConfig.Name)
+        -- [LOGIKA STATUS SCRIPT]
+        local scriptStatusText = "✅ Official Script Loaded"
+        local gameNameText = GameConfig.Name
+        
+        if AuthData.IsUniversal then
+            scriptStatusText = "⚠️ Script Not Supported (Universal Mode)"
+            -- Tambahkan info ini agar user sadar
+        end
+
+        ProfileTab:Paragraph("Game Information", 
+            "Current Game: " .. gameNameText .. "\n" ..
+            "Status: " .. scriptStatusText
+        )
+        
+        ProfileTab:Paragraph("User Information", 
+            "License Type: " .. AuthData.Type .. "\n" ..
+            "Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 10) .. "..." or "Hidden")
+        )
+
+        -- Expiry Countdown
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         task.spawn(function()
             while true do
                 local currentTime = os.time()
                 local timeLeft = AuthData.Expiry - currentTime
                 if AuthData.Expiry > 9000000000 then
-                    TimerLabel.Text = "Status: LIFETIME / UNLIMITED"
+                    TimerLabel.Text = "Expiry: LIFETIME / UNLIMITED"
                     break
                 elseif timeLeft > 0 then
                     local d = math.floor(timeLeft / 86400)
@@ -43,6 +65,7 @@ function UIManager.Build(GameConfig, AuthData)
     else
         ProfileTab:Paragraph("Status", "Developer Mode / No Auth Data")
     end
+    
     ProfileTab:Paragraph("Quick Guide", "• Right Ctrl: Hide/Show Menu\n• Use [Settings] tab to Unload Script")
     ProfileTab:Label("Credits: FingersCrows & FSSHUB Team")
 
@@ -55,7 +78,6 @@ function UIManager.Build(GameConfig, AuthData)
                 if element.Keybind then t.SetKeybind(element.Keybind) end
             elseif element.Type == "Button" then 
                 local b = Tab:Button(element.Title, element.Callback)
-                -- [OPTIONAL] Jika Button punya keybind di config
                 if element.Keybind then b.SetKeybind(element.Keybind) end
             elseif element.Type == "Slider" then Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
             elseif element.Type == "Dropdown" then Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
@@ -66,32 +88,22 @@ function UIManager.Build(GameConfig, AuthData)
     end
     
     -- [[ SETTINGS ]] --
-   -- [[ BAGIAN SETTINGS DI UIMANAGER.LUA ]] --
-    
     local SettingsTab = Window:Section("Settings", "10888332462")
     
     SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
         Library:ToggleWatermark(state)
     end)
-    
-    -- [FITUR BARU] Tombol Buka Debugger
-    SettingsTab:Button("Open Debug Console", function()
-        local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
-        -- Load Module secara realtime
-        local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
-        if s and m then
-            m.Show() -- Panggil fungsi Show dari modul
-        else
-            game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Failed to load Debugger"})
-        end
-    end)
 
-    -- ... (Sisa kode Keybind dan Unload tetap sama)
+    if AuthData and AuthData.IsDev then
+        SettingsTab:Button("Open Debug Console [DEV]", function()
+            local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
+            local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
+            if s and m then m.Show() end
+        end)
+    end
 
     SettingsTab:Keybind("Toggle Menu", Enum.KeyCode.RightControl, function()
-        -- [FIXED] Mencari MainFrame dengan benar di dalam FSSHUB_V10
         if Library.base then 
-            -- Library.base adalah ScreenGui (FSSHUB_V10)
             local main = Library.base:FindFirstChild("MainFrame")
             if main then main.Visible = not main.Visible end
         end
