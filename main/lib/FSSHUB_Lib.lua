@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V10.5 (PREMIUM + TEXT WIDGETS) ]] --
--- Fitur: Keybind, Icons, Watermark, Immediate Render, Label, Paragraph
+-- [[ FSSHUB LIBRARY: V11.0 (UNIVERSAL KEYBIND SUPPORT) ]] --
+-- Changelog: Menambahkan dukungan Keybind untuk Button & Perbaikan UI
 
 local library = {
     flags = {}, 
@@ -271,12 +271,23 @@ function library:Window(title)
         function tab:Button(text, callback)
             local Frame = Create("TextButton", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 34), Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, AutoButtonColor = false})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-            Frame.MouseButton1Click:Connect(function()
+            
+            local function DoClick()
                 TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play()
                 task.wait(0.1)
                 TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemBg}):Play()
                 callback()
-            end)
+            end
+            
+            Frame.MouseButton1Click:Connect(DoClick)
+            
+            -- [NEW] Return SetKeybind untuk Button
+            return {
+                SetKeybind = function(key)
+                    if not library.keybinds[key] then library.keybinds[key] = {} end
+                    table.insert(library.keybinds[key], DoClick)
+                end
+            }
         end
 
         function tab:Keybind(text, defaultKey, callback)
