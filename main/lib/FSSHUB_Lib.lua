@@ -1,5 +1,5 @@
 -- [[ FSSHUB LIBRARY: V10 (PREMIUM EDITION) ]] --
--- Fitur Baru: Keybind System, Tab Icons, & Watermark Overlay
+-- Fitur: Keybind System, Tab Icons, Watermark, & Immediate Render
 
 local library = {
     flags = {}, 
@@ -63,8 +63,11 @@ end
 -- [[ WATERMARK ]] --
 function library:Watermark(text)
     if not self.base then return end
+    if self.base:FindFirstChild("FSS_Watermark") then self.base.FSS_Watermark:Destroy() end
+
     local wm = Create("Frame", {
-        Parent = self.base, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 0, 0, 26), -- Auto size nanti
+        Name = "FSS_Watermark",
+        Parent = self.base, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 0, 0, 26), 
         Position = UDim2.new(0.01, 0, 0.01, 0), BorderSizePixel = 0
     })
     Create("UICorner", {Parent = wm, CornerRadius = UDim.new(0, 4)})
@@ -99,6 +102,7 @@ function library:Init()
         else self.base = Players.LocalPlayer:WaitForChild("PlayerGui") end
     end)
     if not success or not self.base then self.base = Players.LocalPlayer:WaitForChild("PlayerGui") end
+    
     if self.base:FindFirstChild("FSSHUB_V10") then self.base.FSSHUB_V10:Destroy() end
     local gui = Create("ScreenGui", {Name = "FSSHUB_V10", Parent = self.base, ResetOnSpawn = false, IgnoreGuiInset = true})
     self.base = gui
@@ -107,10 +111,26 @@ function library:Init()
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and library.keybinds[input.KeyCode] then
             for _, bind in ipairs(library.keybinds[input.KeyCode]) do
-                bind() -- Execute callback
+                pcall(bind) -- Execute callback safely
             end
         end
     end)
+
+    -- Mobile Toggle
+    if UserInputService.TouchEnabled then
+        local ToggleFrame = Create("Frame", {
+            Parent = gui, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 40, 0, 40),
+            Position = UDim2.new(0, 20, 0.5, -20)
+        })
+        Create("UICorner", {Parent = ToggleFrame, CornerRadius = UDim.new(0, 8)})
+        Create("UIStroke", {Parent = ToggleFrame, Color = library.theme.Accent, Thickness = 2})
+        local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", TextColor3 = library.theme.Accent, Font = Enum.Font.GothamBlack})
+        Btn.MouseButton1Click:Connect(function() 
+            if gui:FindFirstChild("MainFrame") then
+                gui.MainFrame.Visible = not gui.MainFrame.Visible
+            end
+        end)
+    end
 
     return gui
 end
@@ -120,7 +140,7 @@ function library:Window(title)
     if not self.base then self:Init() end
     
     local MainFrame = Create("Frame", {
-        Name = "MainFrame", Parent = self.base, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 550, 0, 350), -- Lebih lebar dikit
+        Name = "MainFrame", Parent = self.base, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 550, 0, 350), 
         Position = UDim2.new(0.5, -275, 0.5, -175), BorderSizePixel = 0
     })
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
@@ -129,7 +149,7 @@ function library:Window(title)
     -- Header
     local Header = Create("Frame", {Parent = MainFrame, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 45)})
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
-    Create("Frame", {Parent = Header, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel=0}) -- Filler
+    Create("Frame", {Parent = Header, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel=0}) 
     
     Create("TextLabel", {
         Parent = Header, Text = title, Font = Enum.Font.GothamBold, TextColor3 = library.theme.Accent,
@@ -156,7 +176,7 @@ function library:Window(title)
     local window = {tabs = {}}
     local firstTab = true
 
-    function window:Section(name, iconId) -- Added iconId parameter
+    function window:Section(name, iconId) 
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 2, ScrollBarImageColor3 = library.theme.Accent, Visible = false
@@ -164,16 +184,16 @@ function library:Window(title)
         Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
         
-        -- Tab Button Container
+        -- Tab Button
         local TabBtn = Create("TextButton", {
             Parent = Sidebar, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false
         })
         
-        -- Icon Logic
         local textOffset = 0
+        local IconImg
         if iconId then
             textOffset = 25
-            Create("ImageLabel", {
+            IconImg = Create("ImageLabel", {
                 Parent = TabBtn, Image = "rbxassetid://" .. iconId, BackgroundTransparency = 1,
                 Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 5, 0.5, -9), ImageColor3 = library.theme.TextDim
             })
@@ -191,7 +211,7 @@ function library:Window(title)
         })
         Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(0, 2)})
 
-        local tabObj = {page = Page, btn = TabBtn, label = TabLabel, indicator = Indicator, icon = TabBtn:FindFirstChild("ImageLabel")}
+        local tabObj = {page = Page, btn = TabBtn, label = TabLabel, indicator = Indicator, icon = IconImg}
         table.insert(window.tabs, tabObj)
 
         TabBtn.MouseButton1Click:Connect(function()
@@ -230,20 +250,20 @@ function library:Window(title)
             
             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = ""})
             
-            local function UpdateToggle()
-                toggled = not toggled
+            local function UpdateToggle(val)
+                if val ~= nil then toggled = val else toggled = not toggled end
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)}):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
                 callback(toggled)
             end
             
-            Btn.MouseButton1Click:Connect(UpdateToggle)
+            Btn.MouseButton1Click:Connect(function() UpdateToggle() end)
+            if default then UpdateToggle(true) end
             
-            -- Function untuk Keybind
             return {
                 SetKeybind = function(key)
                     if not library.keybinds[key] then library.keybinds[key] = {} end
-                    table.insert(library.keybinds[key], UpdateToggle)
+                    table.insert(library.keybinds[key], function() UpdateToggle() end)
                 end
             }
         end
@@ -260,7 +280,7 @@ function library:Window(title)
         end
 
         function tab:Keybind(text, defaultKey, callback)
-            local key = defaultKey or Enum.KeyCode.F
+            local key = defaultKey or Enum.KeyCode.RightControl
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
@@ -273,30 +293,21 @@ function library:Window(title)
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             
             local binding = false
-            
-            BindBtn.MouseButton1Click:Connect(function()
-                binding = true
-                BindBtn.Text = "..."
-                BindBtn.TextColor3 = library.theme.Accent
-            end)
+            BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             
             UserInputService.InputBegan:Connect(function(input)
                 if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-                    binding = false
-                    key = input.KeyCode
-                    BindBtn.Text = key.Name
-                    BindBtn.TextColor3 = library.theme.TextDim
-                    
-                    -- Register Keybind
+                    binding = false; key = input.KeyCode; BindBtn.Text = key.Name; BindBtn.TextColor3 = library.theme.TextDim
                     if not library.keybinds[key] then library.keybinds[key] = {} end
                     table.insert(library.keybinds[key], callback)
-                elseif not binding and input.KeyCode == key then
-                    callback()
                 end
             end)
+            
+            -- Init default
+            if not library.keybinds[key] then library.keybinds[key] = {} end
+            table.insert(library.keybinds[key], callback)
         end
         
-        -- (Slider & Dropdown logic tetap sama, disederhanakan untuk brevity tapi tetap ada di full code)
         function tab:Slider(text, min, max, default, callback)
              local val = default or min
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 48)})
@@ -323,7 +334,6 @@ function library:Window(title)
         end
 
         function tab:Dropdown(text, options, default, callback)
-             -- Logic Dropdown sama seperti V9
              local isDropped = false
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
