@@ -1,9 +1,8 @@
--- [[ FSSHUB: UNIVERSAL MODULE (REMASTERED V8.0) ]] --
--- Updated for Optimized Library Structure
+-- [[ FSSHUB: UNIVERSAL MODULE (PREMIUM V10) ]] --
+-- Updated: Icons, Watermark, & Keybinds
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -23,8 +22,9 @@ if not success or not Library then
     return 
 end
 
--- [[ UPDATE LOGIC: INIT FIRST ]] --
-Library:Init() -- Render GUI Base terlebih dahulu
+-- Init GUI & Watermark
+Library:Init()
+Library:Watermark("FSSHUB Premium | Universal V2.8")
 
 local Window = Library:Window("FSS HUB | UNIVERSAL")
 
@@ -35,9 +35,9 @@ getgenv().FSS_Universal = {
 }
 
 -- [TAB 1: LOCAL PLAYER]
-local PlayerTab = Window:Section("Local Player")
+local PlayerTab = Window:Section("Local Player", "10888331510") -- Icon User
 
-PlayerTab:Toggle("Enable Speed", false, function(state)
+local speedToggle = PlayerTab:Toggle("Enable Speed", false, function(state)
     getgenv().FSS_Universal.SpeedEnabled = state
     if state then
         task.spawn(function()
@@ -57,6 +57,7 @@ PlayerTab:Toggle("Enable Speed", false, function(state)
         pcall(function() LocalPlayer.Character.Humanoid.WalkSpeed = 16 end)
     end
 end)
+speedToggle.SetKeybind(Enum.KeyCode.V) -- Shortcut V
 
 PlayerTab:Slider("WalkSpeed Value", 16, 300, 16, function(value)
     getgenv().FSS_Universal.Speed = value
@@ -115,7 +116,7 @@ PlayerTab:Toggle("Noclip", false, function(state)
 end)
 
 -- [TAB 2: VISUALS]
-local VisualTab = Window:Section("Visuals")
+local VisualTab = Window:Section("Visuals", "10888332158") -- Icon Eye
 
 local function CreateBillboard(char, name)
     if char:FindFirstChild("FSS_Info") then char.FSS_Info:Destroy() end
@@ -190,7 +191,7 @@ VisualTab:Toggle("Show Names & Dist", false, function(state)
 end)
 
 -- [TAB 3: WORLD]
-local WorldTab = Window:Section("World")
+local WorldTab = Window:Section("World", "10888332462") -- Icon Gear/World
 
 WorldTab:Toggle("Fullbright", false, function(state)
     getgenv().FSS_Universal.Fullbright = state
@@ -207,7 +208,7 @@ WorldTab:Toggle("Fullbright", false, function(state)
 end)
 
 -- [TAB 4: MISC]
-local MiscTab = Window:Section("Misc")
+local MiscTab = Window:Section("Misc", "10888332462") -- Reuse Gear Icon
 
 MiscTab:Button("Server Hop", function()
     local PlaceId = game.PlaceId
@@ -229,17 +230,22 @@ MiscTab:Button("Rejoin Server", function()
     TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
 end)
 
+MiscTab:Keybind("Toggle GUI", Enum.KeyCode.RightControl, function()
+    if Library.base then 
+        local main = Library.base:FindFirstChild("FSSHUB_V10"):FindFirstChild("MainFrame")
+        if main then main.Visible = not main.Visible end
+    end
+end)
+
 -- [SETTINGS]
-local SettingsTab = Window:Section("Settings")
+local SettingsTab = Window:Section("Settings", "10888332462")
 SettingsTab:Button("Unload & Cleanup", function()
-    getgenv().FSS_Universal = {} -- Clear Config
+    getgenv().FSS_Universal = {} 
     for _, conn in pairs(getgenv().FSS_Universal.Connections or {}) do
         if conn then conn:Disconnect() end
     end
     Library:Notify("FSSHUB", "Script Unloaded", 3)
-    Window:Destroy() -- Fungsi destroy asumsi ada di lib kamu (di versi 8.0 saya hapus loop rainbow jadi aman)
     if Library.base then Library.base:Destroy() end
 end)
 
--- Notification Bahwa Script Siap
 Library:Notify("FSSHUB", "Universal Module Loaded", 3)
