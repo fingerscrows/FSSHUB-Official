@@ -45,14 +45,23 @@ local function update(input)
 	dragObject:TweenPosition(UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, yPos), "Out", "Quint", 0.15, true)
 end
  
--- Rainbow Logic (Optimized)
+-- [FIXED RAINBOW LOGIC]
 local chromaColor
 local rainbowTime = 5
+library.toClose = false -- Flag baru untuk mematikan loop
+
 task.spawn(function()
-	while task.wait() do
-		chromaColor = Color3.fromHSV(tick() % rainbowTime / rainbowTime, 1, 1)
-	end
+    while not library.toClose do -- Cek flag ini
+        task.wait()
+        chromaColor = Color3.fromHSV(tick() % rainbowTime / rainbowTime, 1, 1)
+    end
 end)
+
+-- Tambahkan fungsi Destroy untuk membersihkan loop
+function library:Destroy()
+    library.toClose = true -- Matikan loop rainbow
+    if library.base then library.base:Destroy() end
+end
 
 function library:Create(class, properties)
 	properties = typeof(properties) == "table" and properties or {}
