@@ -1,5 +1,5 @@
--- [[ FSSHUB CORE V11.0 (CLOUD LOAD SYSTEM) ]] --
--- Fitur: Menerima instruksi script dari server database (Sheet GameList)
+-- [[ FSSHUB CORE V11.2 (SMART NAMING) ]] --
+-- Fitur: Override Nama Menu dengan Nama Game Asli & Status Deteksi
 
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
@@ -8,7 +8,7 @@ Core.AuthData = nil
 -- KONFIGURASI
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
-local DEFAULT_GAME = "main/scripts/Universal.lua" -- Fallback jika ID tidak ada di Database
+local DEFAULT_GAME = "main/scripts/Universal.lua" 
 
 -- Services
 local HttpService = game:GetService("HttpService")
@@ -21,14 +21,11 @@ local function GetGameName()
     local success, info = pcall(function()
         return MarketplaceService:GetProductInfo(game.PlaceId)
     end)
-    if success and info then
-        return info.Name
-    end
+    if success and info then return info.Name end
     return "Unknown Game"
 end
 
 local function LoadUrl(path)
-    -- Anti-Cache
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(math.random(1, 100000)))
 end
 
@@ -41,7 +38,7 @@ local function GetHWID()
     return s and id or "UNKNOWN_HWID"
 end
 
--- Validasi Key & Minta Script ke Server
+-- Validasi Key
 function Core.ValidateKey(input)
     if not input or #input < 5 then return {valid=false} end
     input = string.gsub(input, "^%s*(.-)%s*$", "%1")
@@ -53,7 +50,6 @@ function Core.ValidateKey(input)
     local gameName = GetGameName()
     local encodedName = HttpService:UrlEncode(gameName)
     
-    -- Kirim PID & GID ke Server GAS V11.0
     local reqUrl = API_URL .. "?a=verify&k=" .. input .. "&hwid=" .. hwid .. "&pid=" .. pid .. "&gid=" .. gid .. "&jid=" .. jid .. "&gn=" .. encodedName .. "&nocache=" .. math.random(1, 10000)
     
     local success, res = pcall(function() return game:HttpGet(reqUrl) end)
@@ -62,23 +58,19 @@ function Core.ValidateKey(input)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data and data.status == "success" then
             
-            -- Konversi Expiry (Fix V9.8)
             local rawExpiry = tonumber(data.expiry) or 0
             if rawExpiry > 9999999999 then rawExpiry = math.floor(rawExpiry / 1000) end
             
-            -- Cek apakah server mengirimkan target script
-            if data.script then
-                print("[FSSHUB CLOUD] Server Found Script: " .. data.script)
-            else
-                print("[FSSHUB CLOUD] No script in DB, using Universal.")
-            end
+            -- Cek Status Dev
+            local isDeveloper = data.message and string.find(data.message, "Dev") ~= nil
 
             Core.AuthData = {
                 Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
                 Expiry = rawExpiry, 
                 Key = input,
-                GameName = gameName,
-                TargetScript = data.script -- Menyimpan instruksi server
+                GameName = gameName, 
+                TargetScript = data.script, -- Script khusus dari Cloud
+                IsDev = isDeveloper
             }
             
             return {valid=true, info=data.info} 
@@ -88,36 +80,48 @@ function Core.ValidateKey(input)
 end
 
 function Core.LoadGame()
-    Notify("SYSTEM", "Fetching Cloud Data...")
+    Notify("SYSTEM", "Checking Database...")
     
-    -- 1. Load UIManager
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     if not successManager or not ManagerLib then Notify("FATAL ERROR", "Failed to load UI Manager") return end
 
-    -- 2. LOGIKA CLOUD LOAD (Core V11)
-    -- Jika server memberikan TargetScript, pakai itu. Jika tidak, pakai Default.
+    -- [LOGIKA PENENTUAN SCRIPT]
     local scriptPath = DEFAULT_GAME
+    local isUniversal = true -- Default anggap Universal
+    
+    -- Jika Server memberikan script khusus, pakai itu
     if Core.AuthData and Core.AuthData.TargetScript then
         scriptPath = Core.AuthData.TargetScript
+        isUniversal = false -- Tandai sebagai script resmi/support
     end
     
-    print("[FSSHUB] Loading Module: " .. scriptPath)
+    -- Simpan status ke AuthData agar UIManager tau
+    Core.AuthData.IsUniversal = isUniversal
+    
+    print("[FSSHUB] Module: " .. scriptPath .. " | Mode: " .. (isUniversal and "Universal" or "Official"))
 
+    -- Load Data Game
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
     
     if not successData or type(GameData) ~= "table" then
-        Notify("WARNING", "Module Failed. Loading Universal...")
-        -- Fallback ke Universal jika script target error
+        Notify("WARNING", "Module Error. Loading Universal...")
         local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
-        if successUniv then GameData = UnivData else Notify("FATAL ERROR", "Universal Script Failed!") return end
+        if successUniv then 
+            GameData = UnivData 
+            Core.AuthData.IsUniversal = true -- Fallback jadi Universal
+        else 
+            Notify("FATAL ERROR", "Universal Script Failed!") 
+            return 
+        end
     end
     
-    -- Override Nama Game agar sesuai nama asli (bukan hardcoded di file)
+    -- [OVERRIDE NAMA MENU]
+    -- Selalu gunakan Nama Game Asli sebagai Judul Menu (Request User)
+    -- Jadi tidak akan pernah muncul tulisan "Universal V3.1" di header
     if Core.AuthData and Core.AuthData.GameName then
         GameData.Name = Core.AuthData.GameName
     end
 
-    -- 3. Build UI
     ManagerLib.Build(GameData, Core.AuthData)
 end
 
