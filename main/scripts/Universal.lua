@@ -12,13 +12,24 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
--- Load Library
+-- Load Library (Safety Check Added)
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
-local Library = loadstring(game:HttpGet(LIB_URL))()
+local success, Library = pcall(function()
+    return loadstring(game:HttpGet(LIB_URL))()
+end)
 
-if not Library then return end
+-- Validasi jika Library gagal dimuat
+if not success or not Library then 
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "FSSHUB Error",
+        Text = "Library failed to load. Check connection/executor.",
+        Duration = 5
+    })
+    warn("[FSSHUB] Critical Error: Library load failed.")
+    return 
+end
 
-local Window = Library:Window("FSS HUB | UNIVERSAL V2.7")
+local Window = Library:Window("FSS HUB | UNIVERSAL V2.8")
 
 -- Global Config
 getgenv().FSS_Universal = {
