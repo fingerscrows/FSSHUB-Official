@@ -1,17 +1,36 @@
--- [[ FSSHUB LOADER V8 (Modular Architecture) ]] --
+-- [[ FSSHUB LOADER V9.1 (SECURE MODULAR) ]] --
+-- Flow: Loader -> Core (Auth) -> UIManager (Builder)
 
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+-- Anti-Cache dengan ?v=random
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
+local CORE_URL = BASE_URL .. "main/src/Core.lua?v=" .. tostring(math.random(1, 10000))
 
--- 1. Load UIManager (The Builder)
-local ManagerFunc = game:HttpGet(BASE_URL .. "main/modules/UIManager.lua") -- Simpan UIManager di folder modules
-local UIManager = loadstring(ManagerFunc)()
+local function Boot()
+    local success, result = pcall(function()
+        return game:HttpGet(CORE_URL)
+    end)
 
--- 2. Tentukan Game Script mana yang dipakai
-local GameScriptUrl = BASE_URL .. "main/scripts/Universal.lua" -- Logic deteksi game ID ada disini
+    if not success then
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "FSSHUB Boot Failure",
+            Text = "Could not reach servers. Check connection.",
+            Duration = 5
+        })
+        return
+    end
 
--- 3. Load Data Game
-local GameDataFunc = game:HttpGet(GameScriptUrl)
-local GameData = loadstring(GameDataFunc)()
+    local coreFunc, err = loadstring(result)
+    if not coreFunc then
+        warn("[FSSHUB] Core Syntax Error:", err)
+        return
+    end
 
--- 4. BUILD UI!
-UIManager.Build(GameData)
+    local CoreModule = coreFunc()
+    if CoreModule and CoreModule.Init then
+        CoreModule.Init()
+    end
+end
+
+task.spawn(Boot)
