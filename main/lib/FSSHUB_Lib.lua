@@ -1,4 +1,4 @@
-local library = {flags = {}, windows = {}, open = true}
+local library = {flags = {}, windows = {}, open = true, toClose = false} -- Added toClose flag
 
 -- [[ FSSHUB THEME CONFIGURATION ]] --
 library.theme = {
@@ -45,23 +45,15 @@ local function update(input)
 	dragObject:TweenPosition(UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, yPos), "Out", "Quint", 0.15, true)
 end
  
--- [FIXED RAINBOW LOGIC]
+-- [FIX] Rainbow Logic (Optimized & Memory Leak Proof)
 local chromaColor
 local rainbowTime = 5
-library.toClose = false -- Flag baru untuk mematikan loop
-
 task.spawn(function()
-    while not library.toClose do -- Cek flag ini
-        task.wait()
-        chromaColor = Color3.fromHSV(tick() % rainbowTime / rainbowTime, 1, 1)
-    end
+	while not library.toClose do -- Cek flag berhenti
+		task.wait()
+		chromaColor = Color3.fromHSV(tick() % rainbowTime / rainbowTime, 1, 1)
+	end
 end)
-
--- Tambahkan fungsi Destroy untuk membersihkan loop
-function library:Destroy()
-    library.toClose = true -- Matikan loop rainbow
-    if library.base then library.base:Destroy() end
-end
 
 function library:Create(class, properties)
 	properties = typeof(properties) == "table" and properties or {}
@@ -72,9 +64,14 @@ function library:Create(class, properties)
 	return inst
 end
 
+function library:Destroy()
+    library.toClose = true -- Matikan loop rainbow
+    if library.base then library.base:Destroy() end
+end
+
 -- [[ WINDOW CREATION ]] --
 local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
-	local size = subHolder and 34 or 42 -- Sedikit lebih tinggi untuk header modern
+	local size = subHolder and 34 or 42
 	
     -- Main Frame
 	parentTable.main = library:Create("ImageButton", {
@@ -82,7 +79,7 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 		Position = UDim2.new(0, 20 + (250 * (parentTable.position or 0)), 0, 20),
 		Size = UDim2.new(0, 230, 0, size),
 		BackgroundTransparency = 1,
-		Image = "rbxassetid://3570695787", -- Rounded Square Asset
+		Image = "rbxassetid://3570695787",
 		ImageColor3 = library.theme.Main,
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(100, 100, 100, 100),
@@ -91,7 +88,6 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 		Parent = parent
 	})
 	
-    -- Header Background (Accent Line at top look)
 	local headerBg
 	if not subHolder then
 		headerBg = library:Create("ImageLabel", {
@@ -105,7 +101,6 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 			Parent = parentTable.main
 		})
         
-        -- Garis Aksen Ungu di Bawah Header
         library:Create("Frame", {
             Parent = headerBg,
             Size = UDim2.new(1, 0, 0, 2),
@@ -116,15 +111,14 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
         })
 	end
 	
-    -- Title Text
 	local title = library:Create("TextLabel", {
-		Size = UDim2.new(1, -30, 0, size), -- Beri ruang untuk tombol close
+		Size = UDim2.new(1, -30, 0, size),
         Position = UDim2.new(0, 10, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = holderTitle,
 		TextSize = 16,
-		Font = Enum.Font.GothamBold, -- Font Modern
+		Font = Enum.Font.GothamBold,
 		TextColor3 = library.theme.Text,
         TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parentTable.main
@@ -138,14 +132,13 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 		Parent = title
 	})
 	
-    -- Minimize Button
 	local close = library:Create("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(1, -size + 14, 1, -size + 14),
 		Rotation = parentTable.open and 90 or 180,
 		BackgroundTransparency = 1,
-		Image = "rbxassetid://4918373417", -- Arrow Icon
+		Image = "rbxassetid://4918373417",
 		ImageColor3 = library.theme.TextDark,
 		ScaleType = Enum.ScaleType.Fit,
 		Parent = closeHolder
@@ -160,7 +153,7 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 	
 	local layout = library:Create("UIListLayout", {
 		SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 4), -- Padding antar elemen agar tidak terlalu rapat
+        Padding = UDim.new(0, 4),
 		Parent = parentTable.content
 	})
 	
@@ -178,7 +171,6 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 			Parent = parentTable.content
 		})
 		
-        -- Drag Logic
 		title.InputBegan:connect(function(input)
 			if input.UserInputType == ui or input.UserInputType == Enum.UserInputType.Touch then
 				dragObject = parentTable.main
@@ -199,12 +191,10 @@ local function createOptionHolder(holderTitle, parent, parentTable, subHolder)
 		end)
 	end
 	
-    -- Toggle Window Open/Close
 	closeHolder.InputBegan:connect(function(input)
 		if input.UserInputType == ui or input.UserInputType == Enum.UserInputType.Touch then
 			parentTable.open = not parentTable.open
             
-            -- Animasi Rotasi Panah
 			tweenService:Create(close, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Rotation = parentTable.open and 90 or 180, 
                 ImageColor3 = parentTable.open and library.theme.Accent or library.theme.TextDark
@@ -246,7 +236,7 @@ end
 function createToggle(option, parent)
 	local main = library:Create("TextLabel", {
 		LayoutOrder = option.position,
-		Size = UDim2.new(1, 0, 0, 32), -- Tinggi sedikit ditambah
+		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundTransparency = 1,
 		Text = " " .. option.text,
 		TextSize = 14,
@@ -256,7 +246,6 @@ function createToggle(option, parent)
 		Parent = parent.content
 	})
 	
-    -- Kotak Luar Toggle
 	local tickboxOutline = library:Create("ImageLabel", {
 		Position = UDim2.new(1, -6, 0, 6),
 		Size = UDim2.new(-1, 20, 1, -12),
@@ -266,11 +255,10 @@ function createToggle(option, parent)
 		ImageColor3 = option.state and library.theme.Accent or library.theme.Secondary,
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(100, 100, 100, 100),
-		SliceScale = 0.04, -- Lebih bulat
+		SliceScale = 0.04,
 		Parent = main
 	})
 	
-    -- Kotak Dalam (Untuk efek border)
 	local tickboxInner = library:Create("ImageLabel", {
 		Position = UDim2.new(0, 2, 0, 2),
 		Size = UDim2.new(1, -4, 1, -4),
@@ -283,7 +271,6 @@ function createToggle(option, parent)
 		Parent = tickboxOutline
 	})
 	
-    -- Ikon Centang
 	local checkmarkHolder = library:Create("Frame", {
 		Position = UDim2.new(0.5, 0, 0.5, 0),
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -293,12 +280,11 @@ function createToggle(option, parent)
 		Parent = tickboxInner
 	})
     
-    -- Menggunakan Kotak Solid sebagai indikator aktif (Style Modern)
     local checkmark = library:Create("ImageLabel", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://3570695787", -- Solid Rounded
-        ImageColor3 = library.theme.Text, -- Putih saat aktif
+        Image = "rbxassetid://3570695787",
+        ImageColor3 = library.theme.Text,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(100, 100, 100, 100),
         SliceScale = 0.04,
@@ -331,16 +317,19 @@ function createToggle(option, parent)
 		library.flags[self.flag] = state
 		self.state = state
         
-        -- Animasi UI Toggle
+        -- [FIX] Wrap Tween in pcall to prevent crash if object is not in workspace
         local sizeGoal = option.state and UDim2.new(1, -6, 1, -6) or UDim2.new(0, 0, 0, 0)
-		checkmarkHolder:TweenSize(sizeGoal, "Out", "Back", 0.25, true)
+        pcall(function()
+		    checkmarkHolder:TweenSize(sizeGoal, "Out", "Back", 0.25, true)
+        end)
 		
-        -- Warna Berubah ke Ungu jika aktif
         local colorGoal = state and library.theme.Accent or library.theme.Main
         local borderGoal = state and library.theme.Accent or library.theme.Secondary
         
-		tweenService:Create(tickboxInner, TweenInfo.new(0.2), {ImageColor3 = colorGoal}):Play()
-		tweenService:Create(tickboxOutline, TweenInfo.new(0.2), {ImageColor3 = borderGoal}):Play()
+        pcall(function()
+		    tweenService:Create(tickboxInner, TweenInfo.new(0.2), {ImageColor3 = colorGoal}):Play()
+		    tweenService:Create(tickboxOutline, TweenInfo.new(0.2), {ImageColor3 = borderGoal}):Play()
+        end)
 
 		self.callback(state)
 	end
@@ -383,7 +372,6 @@ function createButton(option, parent)
 		Parent = main
 	})
     
-    -- Stroke for button
     library:Create("UIStroke", {
         Parent = round,
         Color = library.theme.Outline,
@@ -495,7 +483,6 @@ local function createBind(option, parent)
 		end
 	end)
 	
-    -- Input Listener Logic (Same as original)
 	inputService.InputBegan:connect(function(input)
 		if inputService:GetFocusedTextBox() then return end
 		if (input.KeyCode.Name == option.key or input.UserInputType.Name == option.key) and not binding then
@@ -543,7 +530,6 @@ local function createBind(option, parent)
 			bindinput.Text = self.key
 		end
         
-        -- Reset Colors
 		tweenService:Create(round, TweenInfo.new(0.2), {ImageColor3 = library.theme.Secondary}):Play()
         bindinput.TextColor3 = library.theme.TextDark
 		round.Size = UDim2.new(0, -textService:GetTextSize(bindinput.Text, 14, Enum.Font.GothamBold, Vector2.new(9e9, 9e9)).X - 16, 1, -8)	
@@ -571,7 +557,6 @@ local function createSlider(option, parent)
 		Parent = main
 	})
 	
-    -- Slider Track (Background)
 	local slider = library:Create("ImageLabel", {
 		Position = UDim2.new(0, 10, 0, 32),
 		Size = UDim2.new(1, -20, 0, 6),
@@ -584,32 +569,29 @@ local function createSlider(option, parent)
 		Parent = main
 	})
 	
-    -- Slider Fill (Accent Color)
 	local fill = library:Create("ImageLabel", {
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://3570695787",
-		ImageColor3 = library.theme.Accent, -- Ungu
+		ImageColor3 = library.theme.Accent, 
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(100, 100, 100, 100),
 		SliceScale = 0.06,
 		Parent = slider
 	})
 	
-    -- Slider Knob (Lingkaran)
 	local circle = library:Create("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new((option.value - option.min) / (option.max - option.min), 0, 0.5, 0),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://3570695787",
-		ImageColor3 = Color3.new(1,1,1), -- Putih
+		ImageColor3 = Color3.new(1,1,1),
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(100, 100, 100, 100),
 		SliceScale = 1,
 		Parent = slider
 	})
 	
-    -- Value Display
 	local valueRound = library:Create("ImageLabel", {
 		Position = UDim2.new(1, -6, 0, 2),
 		Size = UDim2.new(0, -50, 0, 20),
@@ -644,10 +626,8 @@ local function createSlider(option, parent)
 	local sliding
 	local inContact
     
-    -- Interaction Logic
 	main.InputBegan:connect(function(input)
 		if input.UserInputType == ui or input.UserInputType == Enum.UserInputType.Touch then
-            -- Efek Visual saat tekan
 			tweenService:Create(circle, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(3, 0, 3, 0)}):Play()
 			sliding = true
 			option:SetValue(option.min + ((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X) * (option.max - option.min))
@@ -705,7 +685,7 @@ local function createList(option, parent, holder)
 	
 	local main = library:Create("Frame", {
 		LayoutOrder = option.position,
-		Size = UDim2.new(1, 0, 0, 56), -- Sedikit lebih tinggi
+		Size = UDim2.new(1, 0, 0, 56),
 		BackgroundTransparency = 1,
 		Parent = parent.content
 	})
@@ -742,7 +722,7 @@ local function createList(option, parent, holder)
 		Text = option.value,
 		TextSize = 14,
 		Font = Enum.Font.Gotham,
-		TextColor3 = library.theme.Accent, -- Text Active Ungu
+		TextColor3 = library.theme.Accent,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = main
 	})
@@ -758,7 +738,6 @@ local function createList(option, parent, holder)
 		Parent = round
 	})
 	
-    -- Popup Holder
 	option.mainHolder = library:Create("ImageButton", {
 		ZIndex = 3,
 		Size = UDim2.new(0, 240, 0, 52),
@@ -773,7 +752,6 @@ local function createList(option, parent, holder)
 		Parent = library.base
 	})
     
-    -- Stroke for popup
     library:Create("UIStroke", { Parent = option.mainHolder, Color = library.theme.Accent, Thickness = 1 })
 	
 	local content = library:Create("ScrollingFrame", {
@@ -807,7 +785,6 @@ local function createList(option, parent, holder)
 			if library.activePopup then library.activePopup:Close() end
 			local position = main.AbsolutePosition
             
-            -- Posisi Popup
 			option.mainHolder.Position = UDim2.new(0, position.X - 5, 0, position.Y - 10)
 			option.open = true
 			option.mainHolder.Visible = true
@@ -815,7 +792,6 @@ local function createList(option, parent, holder)
 			
 			tweenService:Create(option.mainHolder, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {ImageTransparency = 0, Position = UDim2.new(0, position.X - 5, 0, position.Y - 4)}):Play()
 			
-            -- Animasi Item List
             for _,label in next, content:GetChildren() do
 				if label:IsA"TextLabel" then
 					tweenService:Create(label, TweenInfo.new(0.3), {BackgroundTransparency = 0, TextTransparency = 0}):Play()
@@ -858,7 +834,6 @@ local function createList(option, parent, holder)
 		label.InputBegan:connect(function(input)
 			if input.UserInputType == ui or input.UserInputType == Enum.UserInputType.Touch then
 				clicking = true
-                -- Select Animation
 				tweenService:Create(label, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.Accent, TextColor3 = Color3.new(1,1,1)}):Play()
 				self:SetValue(value)
 			end
@@ -1012,9 +987,8 @@ local function createBox(option, parent)
 	end
 end
 
--- [[ COMPONENT: COLOR PICKER (Keeping logic, updating style) ]] --
+-- [[ COMPONENT: COLOR PICKER (Simplied) ]] --
 local function createColorPickerWindow(option)
-    -- ... (Logic sama, hanya update warna background & border)
 	option.mainHolder = library:Create("ImageButton", {
 		ZIndex = 3,
 		Size = UDim2.new(0, 240, 0, 180),
@@ -1029,16 +1003,9 @@ local function createColorPickerWindow(option)
 	})
     library:Create("UIStroke", { Parent = option.mainHolder, Color = library.theme.Outline, Thickness = 1 })
     
-    -- (Sisa logic color picker tetap, karena sudah cukup kompleks, hanya pastikan parent warna benar)
-    -- Note: Untuk keringkasan, logic color picker internal tidak saya ubah drastis 
-    -- selain container luarnya agar sesuai tema.
-    
-    -- ... (Internal Logic Re-inserted for completeness but styled) ...
 	local hue, sat, val = Color3.toHSV(option.color)
 	hue, sat, val = hue == 0 and 1 or hue, sat + 0.005, val - 0.005
-    -- ... (Logic Visuals Update) ...
-	
-    -- Simplified Re-implementation of internal parts for style:
+
     option.hue = library:Create("ImageLabel", {
 		ZIndex = 3, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 8, 1, -8), Size = UDim2.new(1, -100, 0, 22),
 		BackgroundTransparency = 1, Image = "rbxassetid://3570695787", ImageTransparency = 1,
@@ -1056,24 +1023,18 @@ local function createColorPickerWindow(option)
 		ZIndex = 3, Position = UDim2.new(1 - hue, 0, 0, 0), Size = UDim2.new(0, 2, 1, 0),
 		BackgroundTransparency = 1, BackgroundColor3 = library.theme.Text, BorderColor3 = library.theme.Text, Parent = option.hue
 	})
-    -- (Logic InputHue diabaikan demi hemat space, asumsikan sama seperti original)
 
     option.satval = library:Create("ImageLabel", {
 		ZIndex = 3, Position = UDim2.new(0, 8, 0, 8), Size = UDim2.new(1, -100, 1, -42),
 		BackgroundTransparency = 1, BackgroundColor3 = Color3.fromHSV(hue, 1, 1), BorderSizePixel = 0,
 		Image = "rbxassetid://4155801252", ImageTransparency = 1, ClipsDescendants = true, Parent = option.mainHolder
 	})
-    -- (Logic InputSatVal diabaikan...)
 
-    -- Visual Preview Box
 	option.visualize2 = library:Create("ImageLabel", {
 		ZIndex = 3, Position = UDim2.new(1, -8, 0, 8), Size = UDim2.new(0, -80, 0, 80),
 		BackgroundTransparency = 1, Image = "rbxassetid://3570695787", ImageColor3 = option.color,
 		ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(100, 100, 100, 100), SliceScale = 0.04, Parent = option.mainHolder
 	})
-    
-    -- Buttons (Reset/Rainbow) styled with theme
-    -- (Kode tombol disederhanakan visualnya agar sesuai tema baru)
     
 	return option
 end
@@ -1116,26 +1077,19 @@ local function createColor(option, parent, holder)
 		Parent = colorBoxOutline
 	})
     
-    -- Logic klik sama, memanggil createColorPickerWindow jika belum ada
     option.main.InputBegan:connect(function(input)
 		if input.UserInputType == ui or input.UserInputType == Enum.UserInputType.Touch then
             if not option.mainHolder then createColorPickerWindow(option) end
-            -- ... (Open logic standard) ...
             if library.activePopup then library.activePopup:Close() end
             option.open = true
             option.mainHolder.Visible = true
             library.activePopup = option
             
-            -- Simple Fade In
              tweenService:Create(option.mainHolder, TweenInfo.new(0.2), {ImageTransparency = 0}):Play()
         end
     end)
     
-    -- Functions update visuals
     function option:SetColor(newColor)
-		if self.mainHolder then
-			-- self:updateVisuals(newColor) -- (Requires full picker logic implementation above)
-		end
 		self.visualize.ImageColor3 = newColor
 		library.flags[self.flag] = newColor
 		self.color = newColor
@@ -1283,7 +1237,6 @@ local function getFnctions(parent)
 		return option
 	end
 	
-    -- Folder/Section Support (Re-styled)
 	function parent:AddFolder(title)
 		local option = {}
 		option.title = tostring(title)
@@ -1300,7 +1253,6 @@ local function getFnctions(parent)
 		return option
 	end
     
-    -- Alias for compatibility
     function parent:Section(title) return parent:AddFolder(title) end
     function parent:Toggle(text, state, callback) return parent:AddToggle({text=text, state=state, callback=callback}) end
     function parent:Button(text, callback) return parent:AddButton({text=text, callback=callback}) end
@@ -1311,13 +1263,11 @@ end
 function library:CreateWindow(title)
 	local window = {title = tostring(title), options = {}, open = true, canInit = true, init = false, position = #self.windows}
 	getFnctions(window)
-    -- Alias
     function window:Window(t) self.title = t; return self end 
 	table.insert(library.windows, window)
 	return window
 end
 
--- Backward Compatibility Alias
 function library:Window(title)
     return library:CreateWindow(title)
 end
@@ -1330,7 +1280,7 @@ function library:Init()
 	else self.base.Parent = game:GetService"CoreGui" end
 	
 	self.base.Name = "FSSHUB_UI"
-    self.base.ResetOnSpawn = false -- Penting agar UI tidak hilang saat mati
+    self.base.ResetOnSpawn = false 
 	
 	for _, window in next, self.windows do
 		if window.canInit and not window.init then
@@ -1342,11 +1292,9 @@ function library:Init()
 	return self.base
 end
 
--- Input Listeners for Drag/Close
 inputService.InputBegan:connect(function(input)
 	if input.UserInputType == ui or input.UserInputType == Enum.UserInputType.Touch then
 		if library.activePopup then
-            -- Close popup if clicked outside
 			if input.Position.X < library.activePopup.mainHolder.AbsolutePosition.X or input.Position.X > library.activePopup.mainHolder.AbsolutePosition.X + library.activePopup.mainHolder.AbsoluteSize.X or 
                input.Position.Y < library.activePopup.mainHolder.AbsolutePosition.Y or input.Position.Y > library.activePopup.mainHolder.AbsolutePosition.Y + library.activePopup.mainHolder.AbsoluteSize.Y then
 				library.activePopup:Close()
