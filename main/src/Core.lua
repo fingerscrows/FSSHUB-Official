@@ -1,4 +1,6 @@
 -- [[ FSSHUB CORE V9.8 (TIME UNIT FIX) ]] --
+-- Changelog: Konversi otomatis Milidetik ke Detik untuk Expiry Time
+
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
 Core.AuthData = nil 
@@ -17,6 +19,7 @@ local StarterGui = game:GetService("StarterGui")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
 local function LoadUrl(path)
+    -- Anti-Cache token
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(math.random(1, 100000)))
 end
 
@@ -42,10 +45,11 @@ function Core.ValidateKey(input)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data and data.status == "success" then
             
-            -- [FIX: KONVERSI MILIDETIK KE DETIK]
+            -- [FIX UTAMA: KONVERSI WAKTU]
             local rawExpiry = tonumber(data.expiry) or 0
             
-            -- Jika angka terlalu besar (> 10 digit), berarti itu Milidetik. Kita bagi 1000.
+            -- Deteksi apakah formatnya Milidetik (Angka > 10 digit biasanya milidetik)
+            -- Google Apps Script kirim Milidetik, Roblox butuh Detik.
             if rawExpiry > 9999999999 then
                 rawExpiry = math.floor(rawExpiry / 1000)
             end
@@ -65,9 +69,11 @@ end
 function Core.LoadGame()
     Notify("SYSTEM", "Loading Assets...")
     
+    -- Load UIManager
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     if not successManager or not ManagerLib then Notify("FATAL ERROR", "Failed to load UI Manager") return end
 
+    -- Load Game Script
     local placeId = game.PlaceId
     local scriptPath = GAME_DB[placeId] or DEFAULT_GAME
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
@@ -78,6 +84,7 @@ function Core.LoadGame()
         if successUniv then GameData = UnivData else Notify("FATAL ERROR", "Universal Script Failed!") return end
     end
 
+    -- Build UI dengan Data User
     ManagerLib.Build(GameData, Core.AuthData)
 end
 
