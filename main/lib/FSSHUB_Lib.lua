@@ -1,11 +1,11 @@
--- [[ FSSHUB LIBRARY: V11.1 (FIXED INTERACTION) ]] --
--- Fix: Toggle Clickable Area & Global Keybinds
+-- [[ FSSHUB LIBRARY: V11.5 (STABLE INTERACTION) ]] --
+-- Fix: Toggle Click Area, Keybind Cleanup System, & ZIndex Layering
 
 local library = {
     flags = {}, 
     windows = {}, 
     open = true,
-    keybinds = {} 
+    keybinds = {} -- Tabel global untuk menyimpan semua shortcut
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -112,12 +112,12 @@ function library:Init()
     local gui = Create("ScreenGui", {Name = "FSSHUB_V10", Parent = self.base, ResetOnSpawn = false, IgnoreGuiInset = true})
     self.base = gui
     
-    -- [FIX] Global Keybind Handler yang Lebih Kuat
+    -- [[ GLOBAL INPUT HANDLER ]]
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode ~= Enum.KeyCode.Unknown then
             if library.keybinds[input.KeyCode] then
-                for _, bind in ipairs(library.keybinds[input.KeyCode]) do
-                    pcall(bind)
+                for _, bindCallback in ipairs(library.keybinds[input.KeyCode]) do
+                    pcall(bindCallback)
                 end
             end
         end
@@ -138,6 +138,25 @@ function library:Init()
         end)
     end
     return gui
+end
+
+-- [[ HELPER: BIND MANAGER ]] --
+-- Fungsi ini menghapus bind lama sebelum menambah yang baru
+local function UpdateKeybind(oldKey, newKey, callback)
+    if oldKey and library.keybinds[oldKey] then
+        for i, func in ipairs(library.keybinds[oldKey]) do
+            if func == callback then
+                table.remove(library.keybinds[oldKey], i)
+                break
+            end
+        end
+    end
+    
+    if newKey then
+        if not library.keybinds[newKey] then library.keybinds[newKey] = {} end
+        table.insert(library.keybinds[newKey], callback)
+    end
+    return newKey
 end
 
 function library:Window(title)
@@ -236,6 +255,8 @@ function library:Window(title)
 
         local tab = {}
         
+        -- [[ ELEMENTS ]] --
+        
         function tab:Label(text)
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 30)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -252,9 +273,10 @@ function library:Window(title)
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true})
         end
 
+        -- [UPDATED TOGGLE: FULLY CLICKABLE + SMART BIND]
         function tab:Toggle(text, default, callback)
             local toggled = default or false
-            local boundKey = nil
+            local currentBind = nil -- Menyimpan keybind saat ini
 
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -265,21 +287,21 @@ function library:Window(title)
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
             
-            -- [FIX] Button Interaksi Toggle (Transparan dan di atas elemen lain)
+            -- [FIX CLICK AREA] Tombol utama memenuhi frame, tapi ZIndex rendah
             local Btn = Create("TextButton", {
                 Parent = Frame, 
-                Size = UDim2.new(1, -95, 1, 0), -- Sisakan tempat untuk tombol bind
+                Size = UDim2.new(1, 0, 1, 0), 
                 BackgroundTransparency = 1, 
                 Text = "",
-                ZIndex = 5 -- Pastikan di atas text/frame
+                ZIndex = 5 
             })
             
-            -- Bind Button
+            -- [BIND BUTTON] Tombol kecil di kanan, ZIndex tinggi agar bisa diklik terpisah
             local BindBtn = Create("TextButton", {
                 Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
                 TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9),
                 BackgroundColor3 = library.theme.Main,
-                ZIndex = 6
+                ZIndex = 10
             })
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
 
@@ -293,7 +315,7 @@ function library:Window(title)
             Btn.MouseButton1Click:Connect(function() UpdateToggle() end)
             if default then UpdateToggle(true) end
             
-            -- Bind Logic
+            -- Logic Binding dengan Cleanup
             local binding = false
             BindBtn.MouseButton1Click:Connect(function()
                 binding = true
@@ -304,21 +326,18 @@ function library:Window(title)
             UserInputService.InputBegan:Connect(function(input)
                 if binding and input.UserInputType == Enum.UserInputType.Keyboard then
                     binding = false
-                    boundKey = input.KeyCode
-                    BindBtn.Text = boundKey.Name
+                    BindBtn.Text = input.KeyCode.Name
                     BindBtn.TextColor3 = library.theme.TextDim
                     
-                    if not library.keybinds[boundKey] then library.keybinds[boundKey] = {} end
-                    table.insert(library.keybinds[boundKey], function() UpdateToggle() end)
+                    -- Panggil helper untuk update (Hapus lama -> Pasang baru)
+                    currentBind = UpdateKeybind(currentBind, input.KeyCode, function() UpdateToggle() end)
                 end
             end)
             
             return {
                 SetKeybind = function(key)
-                    boundKey = key
                     BindBtn.Text = key.Name
-                    if not library.keybinds[key] then library.keybinds[key] = {} end
-                    table.insert(library.keybinds[key], function() UpdateToggle() end)
+                    currentBind = UpdateKeybind(currentBind, key, function() UpdateToggle() end)
                 end
             }
         end
@@ -333,42 +352,45 @@ function library:Window(title)
                 TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemBg}):Play()
                 callback()
             end
-            
             Frame.MouseButton1Click:Connect(DoClick)
             
+            local currentBind = nil
             return {
                 SetKeybind = function(key)
-                    if not library.keybinds[key] then library.keybinds[key] = {} end
-                    table.insert(library.keybinds[key], DoClick)
+                    currentBind = UpdateKeybind(currentBind, key, DoClick)
                 end
             }
         end
 
         function tab:Keybind(text, defaultKey, callback)
-            local key = defaultKey or Enum.KeyCode.RightControl
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
             
             local BindBtn = Create("TextButton", {
-                Parent = Frame, Text = key.Name, Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
+                Parent = Frame, Text = (defaultKey and defaultKey.Name or "NONE"), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
                 TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12),
                 BackgroundColor3 = library.theme.Main
             })
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             
             local binding = false
+            local currentBind = defaultKey
+            
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             
             UserInputService.InputBegan:Connect(function(input)
                 if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-                    binding = false; key = input.KeyCode; BindBtn.Text = key.Name; BindBtn.TextColor3 = library.theme.TextDim
-                    if not library.keybinds[key] then library.keybinds[key] = {} end
-                    table.insert(library.keybinds[key], callback)
+                    binding = false
+                    BindBtn.Text = input.KeyCode.Name
+                    BindBtn.TextColor3 = library.theme.TextDim
+                    currentBind = UpdateKeybind(currentBind, input.KeyCode, callback)
                 end
             end)
-            if not library.keybinds[key] then library.keybinds[key] = {} end
-            table.insert(library.keybinds[key], callback)
+            
+            if defaultKey then
+                currentBind = UpdateKeybind(nil, defaultKey, callback)
+            end
         end
         
         function tab:Slider(text, min, max, default, callback)
