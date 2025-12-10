@@ -58,15 +58,24 @@ function library:Notify(title, text, duration)
     end)
 end
 
+-- [[ UPDATE BAGIAN WATERMARK DI FSSHUB_LIB.LUA ]] --
+
 function library:Watermark(text)
     if not self.base then return end
     if self.base:FindFirstChild("FSS_Watermark") then self.base.FSS_Watermark:Destroy() end
 
     local wm = Create("Frame", {
         Name = "FSS_Watermark",
-        Parent = self.base, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 0, 0, 26), 
-        Position = UDim2.new(0.01, 0, 0.01, 0), BorderSizePixel = 0
+        Parent = self.base, 
+        BackgroundColor3 = library.theme.Main, 
+        Size = UDim2.new(0, 0, 0, 26), 
+        -- Ubah Posisi ke Kanan Atas (Right Top)
+        AnchorPoint = Vector2.new(1, 0), 
+        Position = UDim2.new(0.99, 0, 0.01, 0), 
+        BorderSizePixel = 0,
+        Visible = true -- Default visible
     })
+    
     Create("UICorner", {Parent = wm, CornerRadius = UDim.new(0, 4)})
     Create("UIStroke", {Parent = wm, Color = library.theme.Accent, Thickness = 1, Transparency = 0.5})
     
@@ -75,8 +84,11 @@ function library:Watermark(text)
         TextSize = 12, Size = UDim2.new(0, 0, 1, 0), Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X
     })
+    
+    -- Initial size update
     wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
     
+    -- FPS Loop
     task.spawn(function()
         while wm.Parent do
             local fps = math.floor(1 / RunService.RenderStepped:Wait())
@@ -85,6 +97,13 @@ function library:Watermark(text)
             task.wait(1)
         end
     end)
+
+    -- Fungsi Helper untuk Toggle Visibility
+    function library:ToggleWatermark(state)
+        if self.base and self.base:FindFirstChild("FSS_Watermark") then
+            self.base.FSS_Watermark.Visible = state
+        end
+    end
 end
 
 function library:Init()
