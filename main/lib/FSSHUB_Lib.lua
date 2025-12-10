@@ -1274,13 +1274,27 @@ end
 
 function library:Init()
 	self.base = self.base or self:Create("ScreenGui")
-	if syn and syn.protect_gui then syn.protect_gui(self.base)
-	elseif get_hidden_gui then get_hidden_gui(self.base)
-	elseif gethui then gethui(self.base)
-	else self.base.Parent = game:GetService"CoreGui" end
-	
-	self.base.Name = "FSSHUB_UI"
+    self.base.Name = "FSSHUB_UI"
     self.base.ResetOnSpawn = false 
+	
+    -- [LOGIKA PARENTING BARU - LEBIH STABIL]
+    local success, err = pcall(function()
+        if gethui then
+            self.base.Parent = gethui() -- Executor modern (Krampus, Solara, dll)
+        elseif syn and syn.protect_gui then 
+            syn.protect_gui(self.base) -- Executor lama (Synapse)
+            self.base.Parent = game:GetService("CoreGui")
+        elseif game:GetService("CoreGui") then
+            self.base.Parent = game:GetService("CoreGui")
+        else
+            self.base.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        end
+    end)
+
+    -- Fallback jika semua gagal (misal di Studio atau executor lemah)
+    if not success then
+        self.base.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    end
 	
 	for _, window in next, self.windows do
 		if window.canInit and not window.init then
