@@ -1,4 +1,4 @@
--- [[ FSSHUB CORE V9.7 (SYNC FIX) ]] --
+-- [[ FSSHUB CORE V9.8 (TIME UNIT FIX) ]] --
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
 Core.AuthData = nil 
@@ -42,20 +42,19 @@ function Core.ValidateKey(input)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data and data.status == "success" then
             
-            -- [FIX ASINKRON]
-            -- Pastikan expiry dibaca sebagai angka.
-            -- Jika server tidak kirim expiry, set ke 0 (Bukan +24 jam palsu) agar ketahuan.
-            local serverExpiry = tonumber(data.expiry) or 0
+            -- [FIX: KONVERSI MILIDETIK KE DETIK]
+            local rawExpiry = tonumber(data.expiry) or 0
+            
+            -- Jika angka terlalu besar (> 10 digit), berarti itu Milidetik. Kita bagi 1000.
+            if rawExpiry > 9999999999 then
+                rawExpiry = math.floor(rawExpiry / 1000)
+            end
             
             Core.AuthData = {
                 Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
-                Expiry = serverExpiry, 
+                Expiry = rawExpiry, 
                 Key = input
             }
-            
-            -- Debugging ke Console (Tekan F9 untuk lihat)
-            print("[FSSHUB DEBUG] Server Expiry Raw:", data.expiry)
-            print("[FSSHUB DEBUG] Client Time (OS):", os.time())
             
             return {valid=true, info=data.info} 
         end
@@ -64,7 +63,7 @@ function Core.ValidateKey(input)
 end
 
 function Core.LoadGame()
-    Notify("SYSTEM", "Syncing & Loading...")
+    Notify("SYSTEM", "Loading Assets...")
     
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     if not successManager or not ManagerLib then Notify("FATAL ERROR", "Failed to load UI Manager") return end
