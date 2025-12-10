@@ -1,9 +1,8 @@
--- [[ FSSHUB: SURVIVE WAVE Z (REMASTERED V8.0) ]] --
--- Updated for Optimized Library Structure
+-- [[ FSSHUB: SURVIVE WAVE Z (PREMIUM V10) ]] --
+-- Updated: Icons, Watermark, & Keybinds
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
--- Services
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -16,8 +15,9 @@ local Library = loadstring(game:HttpGet(LIB_URL))()
 
 if not Library then return end
 
--- [[ UPDATE LOGIC: INIT FIRST ]] --
-Library:Init() 
+-- Init GUI & Watermark
+Library:Init()
+Library:Watermark("FSSHUB Premium | Wave Z V2.0")
 
 local Window = Library:Window("WAVE Z | PRO")
 
@@ -29,7 +29,7 @@ getgenv().FSS_WaveZ = {
 }
 
 -- [TAB 1: AUTO FARM]
-local FarmTab = Window:Section("Auto Farm")
+local FarmTab = Window:Section("Auto Farm", "10888331510") -- User Icon
 
 FarmTab:Toggle("Enable Auto Farm", false, function(state)
     getgenv().FSS_WaveZ.AutoFarm = state
@@ -48,7 +48,7 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
             local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * getgenv().FSS_WaveZ.BringDist)
 
             for _, z in ipairs(zFolder:GetChildren()) do
-                if z:GetAttribute("FSS_Target") or true then -- Logic tetap dipertahankan
+                if z:GetAttribute("FSS_Target") or true then 
                     local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
                     local zHum = z:FindFirstChild("Humanoid")
                     
@@ -88,7 +88,7 @@ FarmTab:Slider("Bring Distance", 5, 20, 8, function(val)
 end)
 
 -- [TAB 2: COMBAT]
-local CombatTab = Window:Section("Combat")
+local CombatTab = Window:Section("Combat", "10888331874") -- Sword Icon
 
 CombatTab:Toggle("Silent Aimbot", false, function(state)
     getgenv().FSS_WaveZ.Aimbot = state
@@ -126,7 +126,7 @@ CombatTab:Toggle("Silent Aimbot", false, function(state)
 end)
 
 -- [TAB 3: VISUALS]
-local VisTab = Window:Section("Visuals")
+local VisTab = Window:Section("Visuals", "10888332158") -- Eye Icon
 
 VisTab:Toggle("Zombie ESP", false, function(state)
     getgenv().FSS_WaveZ.ESP = state
@@ -160,7 +160,14 @@ VisTab:Toggle("Zombie ESP", false, function(state)
 end)
 
 -- [TAB 4: SETTINGS]
-local SettingsTab = Window:Section("Settings")
+local SettingsTab = Window:Section("Settings", "10888332462") -- Gear Icon
+
+SettingsTab:Keybind("Toggle Menu", Enum.KeyCode.RightControl, function()
+    if Library.base then 
+        local main = Library.base:FindFirstChild("FSSHUB_V10"):FindFirstChild("MainFrame")
+        if main then main.Visible = not main.Visible end
+    end
+end)
 
 SettingsTab:Button("Unload Script", function()
     getgenv().FSS_WaveZ.AutoFarm = false
@@ -174,5 +181,4 @@ SettingsTab:Button("Unload Script", function()
     if Library.base then Library.base:Destroy() end
 end)
 
--- Init Success Notification
 Library:Notify("FSSHUB", "Wave Z Module Loaded", 3)
