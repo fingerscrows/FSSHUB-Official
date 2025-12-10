@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V11.6 (FINAL KEYBIND FIX) ]] --
--- Fix: Keybind Cleanup (Hapus bind lama saat diganti)
+-- [[ FSSHUB LIBRARY: V11.6 (FINAL FIX - NO TYPO) ]] --
+-- Fix: BackgroundColor3 Typo in Watermark & Keybind Logic
 
 local library = {
     flags = {}, 
@@ -32,9 +32,7 @@ local function Create(class, props)
 end
 
 -- [[ HELPER: SMART BIND MANAGER ]] --
--- Fungsi ini otomatis menghapus bind lama sebelum menambah yang baru
 local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
-    -- 1. Hapus Keybind Lama (Jika ada)
     if oldKey and tableBinds[oldKey] then
         for i, func in ipairs(tableBinds[oldKey]) do
             if func == callback then
@@ -44,7 +42,6 @@ local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
         end
     end
     
-    -- 2. Pasang Keybind Baru
     if newKey then
         if not tableBinds[newKey] then tableBinds[newKey] = {} end
         table.insert(tableBinds[newKey], callback)
@@ -85,15 +82,13 @@ function library:Watermark(text)
     local wm = Create("Frame", {
         Name = "FSS_Watermark",
         Parent = self.base, 
-        BackgroundColor = library.theme.Main, 
+        BackgroundColor3 = library.theme.Main, -- [FIXED] Sebelumnya salah ketik BackgroundColor
         Size = UDim2.new(0, 0, 0, 26), 
         AnchorPoint = Vector2.new(1, 0), 
         Position = UDim2.new(0.99, 0, 0.01, 0), 
         BorderSizePixel = 0,
         Visible = true
     })
-    -- Fix BackgroundColor typo above (BackgroundColor3)
-    wm.BackgroundColor3 = library.theme.Main
     
     Create("UICorner", {Parent = wm, CornerRadius = UDim.new(0, 4)})
     Create("UIStroke", {Parent = wm, Color = library.theme.Accent, Thickness = 1, Transparency = 0.5})
@@ -278,11 +273,8 @@ function library:Window(title)
         function tab:Toggle(text, default, callback)
             local toggled = default or false
             local boundKey = nil 
-            local toggleAction = function() -- Definisikan fungsi aksi agar bisa direferensikan
+            local toggleAction = function() 
                 toggled = not toggled
-                -- Update Visual (Di handle nanti saat GUI dibuat, tapi callback dipanggil)
-                -- Karena ini dalam loop, kita perlu akses elemen GUI.
-                -- Untuk simplifikasi, kita panggil callback datanya dulu.
                 callback(toggled)
             end
 
@@ -295,14 +287,16 @@ function library:Window(title)
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
             
-            -- [FIX CLICK] Tombol utama (Full Width)
             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -40, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
             
-            -- [FIX BIND] Tombol Bind (Kecil di kanan)
-            local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
+            local BindBtn = Create("TextButton", {
+                Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
+                TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9),
+                BackgroundColor3 = library.theme.Main,
+                ZIndex = 10
+            })
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
 
-            -- Redefine update function with visual
             local function UpdateToggleState()
                 toggled = not toggled
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)}):Play()
@@ -310,19 +304,14 @@ function library:Window(title)
                 callback(toggled)
             end
             
-            -- Perbarui reference toggleAction agar memanggil update visual
             toggleAction = UpdateToggleState
 
             Btn.MouseButton1Click:Connect(function() UpdateToggleState() end)
             if default then 
-                -- Set visual awal tanpa trigger callback (optional, atau trigger)
-                -- Disini kita trigger agar status game sync
-                toggled = true -- Set true dulu agar UpdateToggleState membuatnya false? Tidak, set state awal.
-                toggled = not default -- Hack biar pas dipanggil jadi 'default'
+                toggled = not default 
                 UpdateToggleState()
             end
             
-            -- Logic Binding
             local binding = false
             BindBtn.MouseButton1Click:Connect(function()
                 binding = true
@@ -336,7 +325,6 @@ function library:Window(title)
                     BindBtn.Text = input.KeyCode.Name
                     BindBtn.TextColor3 = library.theme.TextDim
                     
-                    -- [FIX] HAPUS LAMA -> PASANG BARU
                     UpdateKeybind(library.keybinds, boundKey, input.KeyCode, toggleAction)
                     boundKey = input.KeyCode
                 end
@@ -351,7 +339,6 @@ function library:Window(title)
             }
         end
 
-        -- [UPDATED BUTTON]
         function tab:Button(text, callback)
             local Frame = Create("TextButton", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 34), Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, AutoButtonColor = false})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -373,19 +360,21 @@ function library:Window(title)
             }
         end
 
-        -- [UPDATED KEYBIND (STANDALONE)]
         function tab:Keybind(text, defaultKey, callback)
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
             
-            local BindBtn = Create("TextButton", {Parent = Frame, Text = (defaultKey and defaultKey.Name or "NONE"), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), BackgroundColor3 = library.theme.Main})
+            local BindBtn = Create("TextButton", {
+                Parent = Frame, Text = (defaultKey and defaultKey.Name or "NONE"), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
+                TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12),
+                BackgroundColor3 = library.theme.Main
+            })
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             
             local binding = false
             local boundKey = defaultKey
             
-            -- Init Default
             if defaultKey then
                 UpdateKeybind(library.keybinds, nil, defaultKey, callback)
             end
@@ -397,17 +386,64 @@ function library:Window(title)
                     binding = false
                     BindBtn.Text = input.KeyCode.Name
                     BindBtn.TextColor3 = library.theme.TextDim
-                    
-                    -- [FIX] Clean & Update
                     UpdateKeybind(library.keybinds, boundKey, input.KeyCode, callback)
                     boundKey = input.KeyCode
                 end
             end)
         end
         
-        -- Slider & Dropdown (Tidak ada perubahan, pakai yang lama atau copy dari V11.1)
-        function tab:Slider(text, min, max, default, callback) local val = default or min; local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 48)}); Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)}); Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 10), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left}); local ValLbl = Create("TextLabel", {Parent = Frame, Text = tostring(val), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 12, Position = UDim2.new(1, -50, 0, 10), Size = UDim2.new(0, 40, 0, 15), BackgroundTransparency = 1}); local BarBg = Create("Frame", {Parent = Frame, BackgroundColor3 = Color3.fromRGB(20,20,25), Size = UDim2.new(1, -24, 0, 4), Position = UDim2.new(0, 12, 0, 34)}); Create("UICorner", {Parent = BarBg, CornerRadius = UDim.new(1, 0)}); local Fill = Create("Frame", {Parent = BarBg, BackgroundColor3 = library.theme.Accent, Size = UDim2.new((val - min)/(max - min), 0, 1, 0)}); Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)}); local Trigger = Create("TextButton", {Parent = BarBg, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = ""}); local function update(input) local pos = math.clamp((input.Position.X - BarBg.AbsolutePosition.X) / BarBg.AbsoluteSize.X, 0, 1); TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pos, 0, 1, 0)}):Play(); local newVal = math.floor(min + ((max - min) * pos)); ValLbl.Text = tostring(newVal); callback(newVal) end; local dragging = false; Trigger.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=true; update(i) end end); Trigger.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=false end end); UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update(i) end end) end
-        function tab:Dropdown(text, options, default, callback) local isDropped = false; local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true}); Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)}); local Title = Create("TextLabel", {Parent = Frame, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left}); local Icon = Create("TextLabel", {Parent = Frame, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1}); local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""}); Create("UIListLayout", {Parent = Frame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)}); Create("Frame", {Parent = Frame, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1, LayoutOrder = -1}); Btn.MouseButton1Click:Connect(function() isDropped = not isDropped; local height = isDropped and (36 + (#options * 30) + 5) or 36; TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, height)}):Play(); Icon.Text = isDropped and "^" or "v" end); for _, opt in ipairs(options) do local OptBtn = Create("TextButton", {Parent = Frame, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, -10, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false}); Create("UICorner", {Parent = OptBtn, CornerRadius = UDim.new(0, 4)}); OptBtn.MouseButton1Click:Connect(function() isDropped = false; Title.Text = text .. ": " .. opt; callback(opt); TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play(); Icon.Text = "v" end) end end
+        function tab:Slider(text, min, max, default, callback)
+             local val = default or min
+             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 48)})
+             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 10), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+             local ValLbl = Create("TextLabel", {Parent = Frame, Text = tostring(val), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 12, Position = UDim2.new(1, -50, 0, 10), Size = UDim2.new(0, 40, 0, 15), BackgroundTransparency = 1})
+             local BarBg = Create("Frame", {Parent = Frame, BackgroundColor3 = Color3.fromRGB(20,20,25), Size = UDim2.new(1, -24, 0, 4), Position = UDim2.new(0, 12, 0, 34)})
+             Create("UICorner", {Parent = BarBg, CornerRadius = UDim.new(1, 0)})
+             local Fill = Create("Frame", {Parent = BarBg, BackgroundColor3 = library.theme.Accent, Size = UDim2.new((val - min)/(max - min), 0, 1, 0)})
+             Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)})
+             local Trigger = Create("TextButton", {Parent = BarBg, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = ""})
+             
+             local function update(input)
+                 local pos = math.clamp((input.Position.X - BarBg.AbsolutePosition.X) / BarBg.AbsoluteSize.X, 0, 1)
+                 TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pos, 0, 1, 0)}):Play()
+                 local newVal = math.floor(min + ((max - min) * pos))
+                 ValLbl.Text = tostring(newVal)
+                 callback(newVal)
+             end
+             local dragging = false
+             Trigger.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=true; update(i) end end)
+             Trigger.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=false end end)
+             UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update(i) end end)
+        end
+
+        function tab:Dropdown(text, options, default, callback)
+             local isDropped = false
+             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
+             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+             local Title = Create("TextLabel", {Parent = Frame, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+             local Icon = Create("TextLabel", {Parent = Frame, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
+             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""})
+             Create("UIListLayout", {Parent = Frame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
+             Create("Frame", {Parent = Frame, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1, LayoutOrder = -1})
+             
+             Btn.MouseButton1Click:Connect(function()
+                 isDropped = not isDropped
+                 local height = isDropped and (36 + (#options * 30) + 5) or 36
+                 TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, height)}):Play()
+                 Icon.Text = isDropped and "^" or "v"
+             end)
+             
+             for _, opt in ipairs(options) do
+                 local OptBtn = Create("TextButton", {Parent = Frame, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, -10, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false})
+                 Create("UICorner", {Parent = OptBtn, CornerRadius = UDim.new(0, 4)})
+                 OptBtn.MouseButton1Click:Connect(function()
+                     isDropped = false; Title.Text = text .. ": " .. opt; callback(opt)
+                     TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play()
+                     Icon.Text = "v"
+                 end)
+             end
+        end
 
         return tab
     end
