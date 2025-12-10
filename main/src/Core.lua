@@ -1,26 +1,29 @@
--- [[ FSSHUB CORE V8.0 (MODULAR AUTH BRIDGE) ]] --
--- Bertugas: Handle Auth -> Load Data -> Panggil UIManager
+-- [[ FSSHUB CORE V9.5 (FIXED & ANTI-CACHE) ]] --
 
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
 
--- KONFIGURASI SERVER (Pastikan URL ini benar)
+-- KONFIGURASI
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 
--- Services
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
--- Database Game ID (Untuk Modular System)
+-- Database Game ID
 local GAME_DB = {
-    [92371631484540] = BASE_URL .. "main/scripts/SurviveWaveZ.lua",
-    [9168386959] = BASE_URL .. "main/scripts/SurviveWaveZ.lua"
+    [92371631484540] = "main/scripts/SurviveWaveZ.lua",
+    [9168386959] = "main/scripts/SurviveWaveZ.lua"
 }
-local DEFAULT_GAME = BASE_URL .. "main/scripts/Universal.lua"
+local DEFAULT_GAME = "main/scripts/Universal.lua"
 
--- Utility
+-- Utility: Load Url dengan Anti-Cache
+local function LoadUrl(path)
+    local url = BASE_URL .. path .. "?t=" .. tostring(math.random(1, 100000)) -- Anti-Cache Token
+    return game:HttpGet(url)
+end
+
 local function GetHWID()
     local s, id = pcall(function() return RbxAnalyticsService:GetClientId() end)
     return s and id or "UNKNOWN_HWID"
@@ -30,7 +33,7 @@ local function Notify(title, text)
     pcall(function() StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = 5}) end)
 end
 
--- [[ SISTEM VALIDASI ]] --
+-- Validasi Key
 function Core.ValidateKey(input)
     if not input or #input < 5 then return {valid=false} end
     input = string.gsub(input, "^%s*(.-)%s*$", "%1")
@@ -42,47 +45,61 @@ function Core.ValidateKey(input)
     
     if success then
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
-        if ok and data then
-            if data.status == "success" then
-                return {valid=true, info=data.info}
-            end
+        if ok and data and data.status == "success" then
+            return {valid=true, info=data.info}
         end
     end
     return {valid=false}
 end
 
--- [[ LOGIKA LOADING BARU (MODULAR) ]] --
+-- Logika Loading Game
 function Core.LoadGame()
-    Notify("ACCESS GRANTED", "Initializing Modular Engine...")
+    Notify("SYSTEM", "Initializing Engine...")
 
-    -- 1. Tentukan URL Script Game
-    local placeId = game.PlaceId
-    local gameUrl = GAME_DB[placeId] or DEFAULT_GAME
+    -- 1. Load UIManager (Builder)
+    local successManager, ManagerLib = pcall(function() 
+        return loadstring(LoadUrl("main/modules/UIManager.lua"))() 
+    end)
     
-    -- 2. Load UIManager (Builder)
-    local managerUrl = BASE_URL .. "main/modules/UIManager.lua"
-    local successManager, ManagerLib = pcall(function() return loadstring(game:HttpGet(managerUrl))() end)
-    
-    if not successManager then 
-        Notify("ERROR", "Failed to load UI Manager") 
+    if not successManager or not ManagerLib then 
+        Notify("FATAL ERROR", "Failed to load UI Manager") 
         return 
     end
 
-    -- 3. Load Data Game (Config Table)
-    local successData, GameData = pcall(function() return loadstring(game:HttpGet(gameUrl))() end)
+    -- 2. Tentukan Script Game
+    local placeId = game.PlaceId
+    local scriptPath = GAME_DB[placeId] or DEFAULT_GAME
     
+    -- 3. Load Data Game
+    local successData, GameData = pcall(function() 
+        return loadstring(LoadUrl(scriptPath))() 
+    end)
+    
+    -- Validasi Data Game
     if not successData or type(GameData) ~= "table" then
-        Notify("ERROR", "Failed to load Game Data")
-        -- Fallback ke Universal jika game specific error
-        GameData = loadstring(game:HttpGet(DEFAULT_GAME))()
+        warn("[FSSHUB DEBUG] Load Error on: " .. scriptPath)
+        warn("[FSSHUB DEBUG] Data Type: " .. type(GameData))
+        
+        Notify("WARNING", "Game Script Update Required. Loading Universal...")
+        
+        -- Fallback ke Universal
+        local successUniv, UnivData = pcall(function() 
+            return loadstring(LoadUrl(DEFAULT_GAME))() 
+        end)
+        
+        if successUniv and type(UnivData) == "table" then
+            GameData = UnivData
+        else
+            Notify("FATAL ERROR", "Universal Script also failed!")
+            return
+        end
     end
 
-    -- 4. RAKIT UI!
+    -- 4. Rakit UI
     ManagerLib.Build(GameData)
 end
 
 function Core.Init()
-    -- Cek Key Tersimpan (Auto-Login)
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
@@ -95,12 +112,8 @@ function Core.Init()
         end
     end
     
-    -- Jika belum login, Load UI Auth
-    local authUrl = BASE_URL .. "main/modules/AuthUI.lua"
-    local authFunc = loadstring(game:HttpGet(authUrl))
-    
-    if authFunc then
-        local AuthUI = authFunc()
+    local success, AuthUI = pcall(function() return loadstring(LoadUrl("main/modules/AuthUI.lua"))() end)
+    if success and AuthUI then
         AuthUI.Show({
             OnSuccess = function(key)
                 local result = Core.ValidateKey(key)
@@ -113,7 +126,7 @@ function Core.Init()
             end
         })
     else
-        Notify("FATAL ERROR", "Could not load Auth UI")
+        Notify("ERROR", "Auth UI Failed to Load")
     end
 end
 
