@@ -28,41 +28,38 @@ getgenv().FSS_WaveZ = {
 -- [TAB 1: AUTO FARM]
 local FarmTab = Window:Section("Auto Farm")
 
+-- [OPTIMIZED AUTO FARM]
 FarmTab:Toggle("Enable Auto Farm", false, function(state)
     getgenv().FSS_WaveZ.AutoFarm = state
     
     if state then
+        -- Loop Cepat (Hanya Teleport target yang sudah ditemukan)
         local conn = RunService.Heartbeat:Connect(function()
             if not getgenv().FSS_WaveZ.AutoFarm then return end
             
             local char = LocalPlayer.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Safe Health Check
-            local hum = char:FindFirstChild("Humanoid")
-            if getgenv().FSS_WaveZ.SafeHealth and hum and hum.Health < getgenv().FSS_WaveZ.MinHealth then return end
-            
+            -- Ambil folder zombie sekali saja di luar loop jika memungkinkan, atau cek keberadaannya
+            local zFolder = Workspace:FindFirstChild("ServerZombies")
+            if not zFolder then return end
+
             local myRoot = char.HumanoidRootPart
             local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * getgenv().FSS_WaveZ.BringDist)
-            local zFolder = Workspace:FindFirstChild("ServerZombies")
-            
-            if zFolder then
-                for _, z in ipairs(zFolder:GetChildren()) do
+
+            -- OPTIMASI: Loop ini masih perlu, tapi kita pastikan filter seringan mungkin
+            for _, z in ipairs(zFolder:GetChildren()) do
+                if z:GetAttribute("FSS_Target") then -- Hanya proses yg sudah ditandai (Opsional) atau proses semua tapi dengan cek ringan
                     local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
                     local zHum = z:FindFirstChild("Humanoid")
                     
                     if zRoot and zHum and zHum.Health > 0 then
-                        -- Filter Logic
-                        local isBoss = z:GetAttribute("IsBoss") or z.Name:lower():find("boss")
-                        local allow = true
-                        if getgenv().FSS_WaveZ.TargetMode == "Normal Only" and isBoss then allow = false end
-                        if getgenv().FSS_WaveZ.TargetMode == "Boss Only" and not isBoss then allow = false end
-                        
-                        -- Teleport & Freeze
-                        if allow and (zRoot.Position - myRoot.Position).Magnitude < 300 then
+                        -- Jarak cek (Sederhana)
+                        if (zRoot.Position - myRoot.Position).Magnitude < 300 then
                             zRoot.CFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(-90), 0, 0)
                             zRoot.AssemblyLinearVelocity = Vector3.zero
                             
+                            -- Noclip Zombie (Sekali saja set attribute biar gak spam property change)
                             if not z:GetAttribute("NoCol") then
                                 for _, p in ipairs(z:GetChildren()) do 
                                     if p:IsA("BasePart") then p.CanCollide = false end 
@@ -74,15 +71,13 @@ FarmTab:Toggle("Enable Auto Farm", false, function(state)
                 end
             end
             
-            -- Auto Attack
+            -- Auto Attack (Tetap di Heartbeat biar kenceng)
             local tool = char:FindFirstChildOfClass("Tool")
-            if tool then tool:Activate()
-            else
-                local bpTool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
-                if bpTool then bpTool.Parent = char end
-            end
+            if tool then tool:Activate() end
         end)
         table.insert(getgenv().FSS_WaveZ.Connections, conn)
+    else
+        -- Cleanup saat dimatikan
     end
 end)
 
