@@ -1,0 +1,93 @@
+-- [[ FSSHUB: UX SHOWCASE & STRESS TEST ]] --
+-- Script ini dirancang untuk menguji batas kemampuan UI/UX baru (Remastered v8.0)
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+-- 1. Load Library
+-- Pastikan URL ini mengarah ke FSSHUB_Lib.lua yang sudah kamu update (Versi 600 baris / Remastered)
+local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua" 
+local success, Library = pcall(function()
+    return loadstring(game:HttpGet(LIB_URL))()
+end)
+
+if not success or not Library then 
+    game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library gagal dimuat!", Duration = 5})
+    return 
+end
+
+-- 2. Init Library (Wajib di awal untuk versi Remastered agar GUI muncul)
+Library:Init()
+
+-- 3. Buat Window Utama
+local Window = Library:Window("FSSHUB | UX DEMO")
+
+-- [[ TAB 1: WIDGET GALLERY ]] --
+-- Menguji responsivitas elemen dasar
+local TabInteract = Window:Section("Widgets")
+
+TabInteract:Toggle("Test Toggle Animation", false, function(state)
+    -- Feedback visual saat toggle diklik
+    print("Toggle State:", state)
+end)
+
+TabInteract:Button("Test Button Bounce", function()
+    -- Menguji efek 'membal' (bounce) pada tombol
+    Library:Notify("Interaction", "Tombol ditekan! Terasa smooth?", 2)
+end)
+
+TabInteract:Slider("Smooth Slider Test", 0, 100, 50, function(val)
+    -- Menguji kecepatan update slider
+    print("Slider Value:", val)
+end)
+
+TabInteract:Dropdown("Dropdown Animation", {"Option A", "Option B", "Option C", "Very Long Option Name Test"}, "Option A", function(val)
+    -- Menguji animasi expand/collapse dropdown
+    Library:Notify("Selection", "Kamu memilih: " .. val, 2)
+end)
+
+-- [[ TAB 2: NOTIFICATION TEST ]] --
+-- Menguji sistem toast notifikasi baru
+local TabNotif = Window:Section("Notifications")
+
+TabNotif:Button("Send Single Notification", function()
+    Library:Notify("Info", "Ini adalah notifikasi standar.", 3)
+end)
+
+TabNotif:Button("Spam 5 Notifications (Stack Test)", function()
+    -- Menguji apakah notifikasi menumpuk dengan rapi tanpa glitch
+    for i = 1, 5 do
+        task.wait(0.15) -- Delay cepat
+        Library:Notify("Spam #" .. i, "Testing notification stack logic.", 2)
+    end
+end)
+
+TabNotif:Button("Long Text Layout Test", function()
+    -- Menguji apakah UI menyesuaikan tinggi jika teksnya panjang
+    Library:Notify("Layout Test", "Ini adalah teks yang sangat panjang untuk menguji apakah kotak notifikasi dapat melebar secara otomatis tanpa merusak desain UI yang ada.", 5)
+end)
+
+-- [[ TAB 3: DUMMY GAMEPLAY ]] --
+-- Simulasi tampilan menu cheat asli
+local TabCombat = Window:Section("Simulation")
+
+TabCombat:Toggle("Silent Aim (Visual)", true, function(state)
+    if state then Library:Notify("Combat", "Silent Aim Enabled (Fake)", 2) end
+end)
+
+TabCombat:Slider("FOV Radius", 10, 500, 100, function(val) end)
+
+TabCombat:Dropdown("Hitbox Priority", {"Head", "Torso", "Random"}, "Head", function(val) end)
+
+TabCombat:Toggle("Auto Trigger", false, function(state) end)
+
+-- [[ TAB 4: SETTINGS ]] --
+local TabSettings = Window:Section("Settings")
+
+TabSettings:Button("Unload UI", function()
+    Library:Notify("System", "Menghapus UI...", 2)
+    task.wait(1)
+    if Library.base then Library.base:Destroy() end
+end)
+
+-- Notifikasi awal saat script jalan
+Library:Notify("FSSHUB OS", "UX Showcase Loaded. Welcome Admin!", 4)
