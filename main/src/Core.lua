@@ -9,10 +9,12 @@ Core.AuthData = nil
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 
--- Database ID -> Script Path
+-- [[ UPDATE BAGIAN GAME_DB DI CORE.LUA ]] --
+
 local GAME_DB = {
-    [92371631484540] = "main/scripts/SurviveWaveZ.lua",
-    [9168386959] = "main/scripts/SurviveWaveZ.lua"
+    [92371631484540] = "main/scripts/SurviveWaveZ.lua", -- Lobby?
+    [9168386959] = "main/scripts/SurviveWaveZ.lua",
+    [81817974162977] = "main/scripts/SurviveWaveZ.lua"  -- [BARU] Match Place ID
 }
 local DEFAULT_GAME = "main/scripts/Universal.lua"
 
