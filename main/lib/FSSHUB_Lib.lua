@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.1 (UX MASTER) ]] --
--- Features: Bi-Directional Sliders, Hover Dot, Enhanced Hitbox, Mouse Fix, Theme Engine
+-- [[ FSSHUB LIBRARY: V15.2 (STABILITY FIX) ]] --
+-- Changelog: Fixed Toggle state reset on UI rebuild, Improved input handling
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -175,7 +175,6 @@ function library:Window(title)
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = library.theme.Stroke, Thickness = 1})
 
-    -- [MOUSE UNLOCK FIX] Ini membuat kursor tetap muncul di tengah layar
     Create("TextButton", {Parent = MainFrame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(0,0,0,0), Modal = true})
 
     local Header = Create("Frame", {Parent = MainFrame, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 45)})
@@ -262,7 +261,10 @@ function library:Window(title)
         end
 
         function tab:Toggle(text, default, callback)
+            -- FIX: Prioritaskan library.flags jika ada (agar state bertahan saat rebuild UI)
             local toggled = default or false
+            if library.flags[text] ~= nil then toggled = library.flags[text] end
+
             local toggleAction = function() toggled = not toggled; library.flags[text] = toggled; callback(toggled) end
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             AddHover(Frame)
@@ -281,7 +283,15 @@ function library:Window(title)
             local function SetState(val) toggled = val; library.flags[text] = val; UpdateToggleState(); callback(toggled) end
             
             Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
-            if default then SetState(true) else library.flags[text] = false end
+            
+            -- Init State (Memicu callback jika nilai ada di memori/flags)
+            if library.flags[text] ~= nil then 
+                SetState(library.flags[text]) 
+            elseif default then 
+                SetState(true) 
+            else 
+                library.flags[text] = false 
+            end
             
             local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
@@ -293,7 +303,7 @@ function library:Window(title)
                     UpdateKeybind(library.keybinds, boundKey, input.KeyCode, function() SetState(not toggled) end); boundKey = input.KeyCode
                 end
             end)
-            return { Set = Set, SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end); boundKey = key end }
+            return { Set = SetState, SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end); boundKey = key end }
         end
 
         function tab:Button(text, callback)
@@ -316,11 +326,17 @@ function library:Window(title)
             if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             UserInputService.InputBegan:Connect(function(input) if binding and input.UserInputType == Enum.UserInputType.Keyboard then binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim; UpdateKeybind(library.keybinds, boundKey, input.KeyCode, callback); boundKey = input.KeyCode end end)
+            
+            -- FIX: Return object untuk akses eksternal (masa depan)
+            return { SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, callback); boundKey = key end }
         end
         
         function tab:Slider(text, min, max, default, callback)
              local val = default or min
+             -- FIX: Prioritaskan memory flags
+             if library.flags[text] ~= nil then val = library.flags[text] end
              library.flags[text] = val
+
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 48)})
              AddHover(Frame)
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -373,7 +389,11 @@ function library:Window(title)
         end
 
         function tab:Dropdown(text, options, default, callback)
-             local isDropped = false; library.flags[text] = default
+             local isDropped = false; 
+             -- FIX: Prioritaskan memory flags
+             if library.flags[text] ~= nil then default = library.flags[text] end
+             library.flags[text] = default
+             
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
              AddHover(Frame)
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
