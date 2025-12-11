@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.6 (NO AUTO EXEC) ]] --
--- Changelog: Removed queue_on_teleport (Auto-Execute feature)
+-- [[ FSSHUB: UI MANAGER V5.7 (REMOVED AUTO-EXEC) ]] --
+-- Changelog: COMPLETELY removed queue_on_teleport block
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -46,7 +46,7 @@ function UIManager.Build(GameConfig, AuthData)
         return 
     end
 
-    -- [REMOVED] Auto-Execute Logic (queue_on_teleport) has been deleted here.
+    -- [REMOVED] Logic Auto-Execute sudah dihapus sepenuhnya di sini
 
     local statusIcon = "👤"
     if AuthData then
