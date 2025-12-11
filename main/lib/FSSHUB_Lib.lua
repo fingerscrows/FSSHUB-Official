@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V13.0 (ULTIMATE UX) ]] --
--- Features: Bi-Directional Sliders, Hover Dot, Enhanced Hitbox, Mouse Fix
+-- [[ FSSHUB LIBRARY: V14.0 (CONFIG READY) ]] --
+-- Changelog: Added 'Set' methods for all elements, Auto-flag system, Bi-Directional Sliders
 
 local library = {
     flags = {}, 
@@ -168,8 +168,7 @@ function library:Window(title)
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = library.theme.Stroke, Thickness = 1})
 
-    -- [MOUSE UNLOCK FIX]
-    Create("TextButton", {Parent = MainFrame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(0,0,0,0), Modal = true})
+    Create("TextButton", {Parent = MainFrame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(0,0,0,0), Modal = true}) -- Mouse Fix
 
     local Header = Create("Frame", {Parent = MainFrame, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 45)})
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
@@ -207,9 +206,7 @@ function library:Window(title)
         Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
         
-        local TabBtn = Create("TextButton", {
-            Parent = Sidebar, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false
-        })
+        local TabBtn = Create("TextButton", {Parent = Sidebar, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false})
         
         local textOffset = 0
         local IconImg
@@ -272,7 +269,12 @@ function library:Window(title)
 
         function tab:Toggle(text, default, callback)
             local toggled = default or false
-            local toggleAction = function() toggled = not toggled; callback(toggled) end
+            local toggleAction = function() 
+                toggled = not toggled; 
+                library.flags[text] = toggled -- Save Flag
+                callback(toggled) 
+            end
+            
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
@@ -281,23 +283,31 @@ function library:Window(title)
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
-            local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
-            Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
-            local function UpdateToggleState()
+            
+            local function SetState(val)
+                toggled = val
+                library.flags[text] = val
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)}):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
+                callback(toggled)
             end
-            Btn.MouseButton1Click:Connect(function() toggleAction(); UpdateToggleState() end)
-            if default then toggled = true; UpdateToggleState(); callback(true) end
-            local binding = false; local boundKey = nil
+            
+            Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
+            if default then SetState(true) else library.flags[text] = false end
+            
+            -- Keybind Logic
+            local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
+            Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
+            local binding, boundKey = false, nil
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             UserInputService.InputBegan:Connect(function(input)
                 if binding and input.UserInputType == Enum.UserInputType.Keyboard then
                     binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim
-                    UpdateKeybind(library.keybinds, boundKey, input.KeyCode, function() toggleAction(); UpdateToggleState() end); boundKey = input.KeyCode
+                    UpdateKeybind(library.keybinds, boundKey, input.KeyCode, function() SetState(not toggled) end); boundKey = input.KeyCode
                 end
             end)
-            return { SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() toggleAction(); UpdateToggleState() end); boundKey = key end }
+            
+            return { Set = SetState, SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end); boundKey = key end }
         end
 
         function tab:Button(text, callback)
@@ -320,9 +330,10 @@ function library:Window(title)
             UserInputService.InputBegan:Connect(function(input) if binding and input.UserInputType == Enum.UserInputType.Keyboard then binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim; UpdateKeybind(library.keybinds, boundKey, input.KeyCode, callback); boundKey = input.KeyCode end end)
         end
         
-        -- [[ UPDATED SLIDER WITH DOT & CENTER ZERO & EXPANDED HITBOX ]] --
         function tab:Slider(text, min, max, default, callback)
              local val = default or min
+             library.flags[text] = val
+             
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 48)})
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
              Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 10), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
@@ -334,52 +345,38 @@ function library:Window(title)
              local Fill = Create("Frame", {Parent = BarBg, BackgroundColor3 = library.theme.Accent, Size = UDim2.new(0, 0, 1, 0)})
              Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)})
              
-             -- Dot Handle (Hidden by default, shows on hover/drag)
-             local Dot = Create("Frame", {
-                 Parent = BarBg, BackgroundColor3 = library.theme.Text, Size = UDim2.new(0, 10, 0, 10), 
-                 AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), BackgroundTransparency = 1
-             })
+             local Dot = Create("Frame", {Parent = BarBg, BackgroundColor3 = library.theme.Text, Size = UDim2.new(0, 10, 0, 10), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), BackgroundTransparency = 1})
              Create("UICorner", {Parent = Dot, CornerRadius = UDim.new(1, 0)})
-             
-             -- BIG HITBOX TRIGGER (Area sentuh lebih besar)
              local Trigger = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.new(0, 12, 0, 24), BackgroundTransparency = 1, Text = ""})
 
-             -- Bi-Directional Logic (For -5 to 5 type sliders)
              local isBiDirectional = (min < 0 and max > 0)
              local range = max - min
              local zeroPct = (0 - min) / range
-
-             if isBiDirectional then
-                 -- Center Marker
-                 Create("Frame", {Parent = BarBg, BackgroundColor3 = Color3.fromRGB(60,60,70), Size = UDim2.new(0, 2, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(zeroPct, 0, 0.5, 0), ZIndex = 1})
-             end
+             if isBiDirectional then Create("Frame", {Parent = BarBg, BackgroundColor3 = Color3.fromRGB(60,60,70), Size = UDim2.new(0, 2, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(zeroPct, 0, 0.5, 0), ZIndex = 1}) end
 
              local function updateVisual(pct)
                  TweenService:Create(Dot, TweenInfo.new(0.1), {Position = UDim2.new(pct, 0, 0.5, 0)}):Play()
                  if isBiDirectional then
-                     if pct > zeroPct then
-                         TweenService:Create(Fill, TweenInfo.new(0.1), {Position = UDim2.new(zeroPct, 0, 0, 0), Size = UDim2.new(pct - zeroPct, 0, 1, 0)}):Play()
-                     else
-                         TweenService:Create(Fill, TweenInfo.new(0.1), {Position = UDim2.new(pct, 0, 0, 0), Size = UDim2.new(zeroPct - pct, 0, 1, 0)}):Play()
-                     end
-                 else
-                     TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
-                 end
+                     if pct > zeroPct then TweenService:Create(Fill, TweenInfo.new(0.1), {Position = UDim2.new(zeroPct, 0, 0, 0), Size = UDim2.new(pct - zeroPct, 0, 1, 0)}):Play()
+                     else TweenService:Create(Fill, TweenInfo.new(0.1), {Position = UDim2.new(pct, 0, 0, 0), Size = UDim2.new(zeroPct - pct, 0, 1, 0)}):Play() end
+                 else TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pct, 0, 1, 0)}):Play() end
              end
 
-             local function setValue(v)
-                 local pct = math.clamp((v - min) / (max - min), 0, 1)
+             local function Set(v)
+                 val = math.clamp(v, min, max)
+                 library.flags[text] = val
+                 local pct = (val - min) / (max - min)
                  updateVisual(pct)
-                 ValLbl.Text = tostring(v)
-                 callback(v)
+                 ValLbl.Text = tostring(val)
+                 callback(val)
              end
-             setValue(val)
+             Set(val)
 
              local dragging = false
              local function input(inputObj)
                  local pos = math.clamp((inputObj.Position.X - BarBg.AbsolutePosition.X) / BarBg.AbsoluteSize.X, 0, 1)
                  local newVal = math.floor(min + ((max - min) * pos))
-                 setValue(newVal)
+                 Set(newVal)
              end
 
              Trigger.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true; input(i); TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end end)
@@ -387,10 +384,14 @@ function library:Window(title)
              Trigger.MouseEnter:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end)
              Trigger.MouseLeave:Connect(function() if not dragging then TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end end)
              UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then input(i) end end)
+             
+             return { Set = Set }
         end
 
         function tab:Dropdown(text, options, default, callback)
              local isDropped = false
+             library.flags[text] = default
+             
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
              
@@ -403,6 +404,15 @@ function library:Window(title)
              Create("UIListLayout", {Parent = OptionContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
              Create("UIPadding", {Parent = OptionContainer, PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)})
              
+             local function Set(opt)
+                 library.flags[text] = opt
+                 Title.Text = text .. ": " .. opt
+                 callback(opt)
+                 isDropped = false
+                 TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play()
+                 Icon.Text = "v"
+             end
+
              Btn.MouseButton1Click:Connect(function()
                  isDropped = not isDropped
                  local height = isDropped and (36 + (#options * 30) + 10) or 36
@@ -413,8 +423,10 @@ function library:Window(title)
              for _, opt in ipairs(options) do
                  local OptBtn = Create("TextButton", {Parent = OptionContainer, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false})
                  Create("UICorner", {Parent = OptBtn, CornerRadius = UDim.new(0, 4)})
-                 OptBtn.MouseButton1Click:Connect(function() isDropped = false; Title.Text = text .. ": " .. opt; callback(opt); TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play(); Icon.Text = "v" end)
+                 OptBtn.MouseButton1Click:Connect(function() Set(opt) end)
              end
+             
+             return { Set = Set }
         end
 
         return tab
