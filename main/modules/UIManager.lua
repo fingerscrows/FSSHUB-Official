@@ -1,9 +1,12 @@
--- [[ FSSHUB: UI MANAGER V5.14 (EXPIRY DEBUG) ]] --
--- Changelog: Added VERBOSE LOGGING for Expiry System
+-- [[ FSSHUB: UI MANAGER V5.15 (DEBUG & CONFIG PURGE) ]] --
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
+
+local function Log(msg)
+    print("🟠 [FSS-DEBUG] [UIManager] " .. tostring(msg))
+end
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -17,19 +20,21 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
--- [AUTO-LOAD PURGE]
 local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
 if isfile(AutoLoadPath) then
     delfile(AutoLoadPath)
+    Log("Auto-Load config purged.")
 end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
+    Log("Fetching Library...")
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
     
     if success and lib then
         lib:Init()
         LibraryInstance = lib
+        Log("Library Loaded.")
         return lib
     else
         warn("[FSSHUB] Failed to fetch Library!")
@@ -38,8 +43,7 @@ local function LoadLibrary()
 end
 
 function UIManager.Build(GameConfig, AuthData)
-    print("------------------------------------------------")
-    print("[FSS-DEBUG] Building UI Manager...")
+    Log("Building UI for: " .. (GameConfig.Name or "Unknown"))
     
     StoredConfig = GameConfig
     StoredAuth = AuthData
@@ -73,70 +77,34 @@ function UIManager.Build(GameConfig, AuthData)
         
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         
-        -- [[ DEBUGGING EXPIRY ]] --
         task.spawn(function()
-            print("[FSS-DEBUG] Starting Expiry Logic...")
+            Log("Starting Expiry Loop...")
+            Log("AuthData.Expiry Value: " .. tostring(AuthData.Expiry))
             
-            -- 1. Cek Apakah AuthData Ada
-            if not AuthData then
-                print("[FSS-DEBUG] ERROR: AuthData is NIL")
-                TimerLabel.Text = "Error: No Auth Data"
+            if not AuthData.Expiry or AuthData.Expiry == 0 then
+                TimerLabel.Text = "Expiry: UNKNOWN / ERROR"
+                Log("Expiry is invalid/0")
                 return
             end
-
-            -- 2. Cek Nilai Raw Expiry
-            print("[FSS-DEBUG] Raw Expiry Value: ", AuthData.Expiry)
-            print("[FSS-DEBUG] Raw Expiry Type: ", type(AuthData.Expiry))
-
-            -- 3. Konversi ke Number (Jaga-jaga jika String)
-            local finalExpiry = tonumber(AuthData.Expiry)
-            print("[FSS-DEBUG] Converted Expiry: ", finalExpiry)
-
-            if not finalExpiry or finalExpiry == 0 then
-                print("[FSS-DEBUG] Expiry is 0 or Invalid. Stopping.")
-                TimerLabel.Text = "Expiry: PERMANENT / DEV"
-                return
-            end
-
-            local PERM_THRESHOLD = 9000000000 
-
-            print("[FSS-DEBUG] Entering Loop. Current Time: ", os.time())
 
             while true do
-                -- Stop loop jika label hancur (ganti tema/unload)
-                if not TimerLabel or not TimerLabel.Visible then 
-                    print("[FSS-DEBUG] Loop Stopped (Label Gone)")
-                    break 
-                end
-
-                local currentTime = os.time()
+                local t = os.time()
+                local left = AuthData.Expiry - t
                 
-                -- Cek Permanent
-                if finalExpiry > PERM_THRESHOLD then 
+                -- Debug sekali saja per menit biar tidak spam
+                if t % 60 == 0 then Log("Expiry Check: TimeLeft=" .. left) end
+
+                if AuthData.Expiry > 9000000000 then 
                     TimerLabel.Text = "Expiry: PERMANENT LICENSE"
-                    print("[FSS-DEBUG] Detected Permanent License. Loop End.")
-                    break 
-                end
-                
-                local timeLeft = finalExpiry - currentTime
-                
-                -- Log sekali saja jika selisih waktu aneh
-                if timeLeft < -999999 then
-                     print("[FSS-DEBUG] WEIRD TIME DIFF: " .. timeLeft)
-                end
-
-                if timeLeft <= 0 then 
-                    TimerLabel.Text = "Status: LICENSE EXPIRED"
+                    break
+                elseif left <= 0 then 
+                    TimerLabel.Text = "LICENSE EXPIRED"
                 else 
-                    local d = math.floor(timeLeft / 86400)
-                    local h = math.floor((timeLeft % 86400) / 3600)
-                    local m = math.floor((timeLeft % 3600) / 60)
-                    local s = math.floor(timeLeft % 60)
-                    
-                    -- Update Teks
-                    pcall(function()
-                        TimerLabel.Text = string.format("Expires: %dd %02dh %02dm %02ds", d, h, m, s)
-                    end)
+                    local d = math.floor(left / 86400)
+                    local h = math.floor((left % 86400) / 3600)
+                    local m = math.floor((left % 3600) / 60)
+                    local s = math.floor(left % 60)
+                    TimerLabel.Text = string.format("Expires: %dd %02dh %02dm %02ds", d, h, m, s)
                 end
                 task.wait(1)
             end
@@ -148,6 +116,7 @@ function UIManager.Build(GameConfig, AuthData)
     local ConfigurableItems = {} 
 
     if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
+        Log("Generating " .. #GameConfig.Tabs .. " tabs...")
         for _, tabData in ipairs(GameConfig.Tabs) do
             local Tab = Window:Section(tabData.Name, tabData.Icon)
             for _, element in ipairs(tabData.Elements) do
@@ -173,6 +142,8 @@ function UIManager.Build(GameConfig, AuthData)
                 end
             end
         end
+    else
+        Log("WARNING: GameConfig.Tabs is empty or invalid!")
     end
     
     -- [[ SETTINGS TAB ]] --
