@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.5 (DEBUGGED) ]] --
--- Changelog: Full-state saving, Debug Prints
+-- [[ FSSHUB: UI MANAGER V5.6 (NO AUTO EXEC) ]] --
+-- Changelog: Removed queue_on_teleport (Auto-Execute feature)
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -46,12 +46,7 @@ function UIManager.Build(GameConfig, AuthData)
         return 
     end
 
-    -- Persistence (Queue on Teleport)
-    if syn and syn.queue_on_teleport then
-        syn.queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua"))()')
-    elseif queue_on_teleport then
-        queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua"))()')
-    end
+    -- [REMOVED] Auto-Execute Logic (queue_on_teleport) has been deleted here.
 
     local statusIcon = "👤"
     if AuthData then
