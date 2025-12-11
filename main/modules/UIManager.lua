@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V2.5 (SAFE MODE) ]] --
--- Fitur: Anti-Crash jika Script Game tidak memiliki Tabs
+-- [[ FSSHUB: UI MANAGER V2.6 (MOTD DISPLAY & SAFE MODE) ]] --
+-- Fitur: Menampilkan Pesan MOTD di Dashboard & Anti-Crash Tabs
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -18,7 +18,7 @@ function UIManager.Build(GameConfig, AuthData)
     
     Library:Watermark("FSSHUB " .. userStatus .. " | " .. gameName)
     
-    -- Judul Window (Safe Check)
+    -- Judul Window
     local windowTitle = GameConfig.Name or "FSSHUB LOADING..."
     local Window = Library:Window("FSSHUB | " .. string.upper(windowTitle))
     
@@ -26,13 +26,16 @@ function UIManager.Build(GameConfig, AuthData)
     local ProfileTab = Window:Section("Dashboard", "10888331510")
     
     if AuthData then
+        -- [BAGIAN MOTD] Menampilkan Pengumuman jika ada
+        if AuthData.MOTD and AuthData.MOTD ~= "" then
+            ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD)
+        end
+
         local statusText = "✅ Official Script Supported"
         if AuthData.IsUniversal then statusText = "⚠️ Universal Mode" end
         
-        -- [DIAGNOSTIC INFO]
-        if not GameConfig.Tabs then
-            statusText = "❌ ERROR: NO TABS FOUND!"
-        end
+        -- Diagnostic
+        if not GameConfig.Tabs then statusText = "❌ ERROR: NO TABS FOUND!" end
 
         ProfileTab:Paragraph("Game Info", 
             "Detected: " .. (AuthData.GameName or "Unknown") .. "\n" ..
@@ -71,7 +74,6 @@ function UIManager.Build(GameConfig, AuthData)
     ProfileTab:Label("Credits: FingersCrows")
 
     -- [[ TAB 2+: GAME FEATURES (SAFE LOOP) ]] --
-    -- [FIX] Cek apakah Tabs ada isinya sebelum looping
     if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
         for _, tabData in ipairs(GameConfig.Tabs) do
             local Tab = Window:Section(tabData.Name, tabData.Icon)
@@ -90,8 +92,7 @@ function UIManager.Build(GameConfig, AuthData)
             end
         end
     else
-        -- Jika Tabs Kosong, Tampilkan Pesan Error
-        ProfileTab:Paragraph("⚠️ SYSTEM ERROR", "Script berhasil di-load, tapi tidak ada fitur (Tabs) yang ditemukan.\nCek console (F9) untuk detail.")
+        ProfileTab:Paragraph("⚠️ SYSTEM ERROR", "Script loaded but no Tabs found. Check console (F9).")
     end
     
     -- [[ SETTINGS ]] --
