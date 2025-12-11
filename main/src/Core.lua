@@ -1,34 +1,34 @@
--- [[ FSSHUB CORE V11.3 (ROBUST AUTH) ]] --
--- Fitur: Fallback Logic, Safe Game Detection, Auto-Reauth
+-- [[ FSSHUB CORE V11.5 (DEBUG MODE) ]] --
 -- Path: main/src/Core.lua
 
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
 Core.AuthData = nil 
 
+local function Log(msg)
+    print("[FSS-DEBUG] [Core] " .. tostring(msg))
+end
+
 -- KONFIGURASI
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 local DEFAULT_GAME = "main/scripts/Universal.lua" 
 
--- Services
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local MarketplaceService = game:GetService("MarketplaceService")
 
--- Utility: Fetch Game Info Realtime (Safe Mode)
 local function GetGameName()
     local success, info = pcall(function()
         return MarketplaceService:GetProductInfo(game.PlaceId)
     end)
-    -- Jika gagal (misal game belum publish), gunakan nama default
     if success and info and info.Name then return info.Name end
     return "Unknown Game (" .. tostring(game.PlaceId) .. ")"
 end
 
 local function LoadUrl(path)
-    -- Cache buster menggunakan os.time() untuk presisi
+    Log("Fetching URL: " .. path)
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(os.time()))
 end
 
@@ -41,10 +41,13 @@ local function GetHWID()
     return s and id or "UNKNOWN_HWID"
 end
 
--- Validasi Key
 function Core.ValidateKey(input)
-    if not input or #input < 5 then return {valid=false} end
-    input = string.gsub(input, "^%s*(.-)%s*$", "%1") -- Hapus spasi depan/belakang
+    Log("Validating Key...")
+    if not input or #input < 5 then 
+        Log("Key Invalid (Too short/nil)")
+        return {valid=false} 
+    end
+    input = string.gsub(input, "^%s*(.-)%s*$", "%1")
     
     local hwid = GetHWID()
     local pid = game.PlaceId
@@ -55,48 +58,55 @@ function Core.ValidateKey(input)
     
     local reqUrl = API_URL .. "?a=verify&k=" .. input .. "&hwid=" .. hwid .. "&pid=" .. pid .. "&gid=" .. gid .. "&jid=" .. jid .. "&gn=" .. encodedName .. "&nocache=" .. tostring(os.time())
     
+    Log("Sending Request to Server...")
     local success, res = pcall(function() return game:HttpGet(reqUrl) end)
     
    if success then
+        Log("Server responded. Parsing JSON...")
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
-        if ok and data and data.status == "success" then
-            
-            local rawExpiry = tonumber(data.expiry) or 0
-            if rawExpiry > 9999999999 then rawExpiry = math.floor(rawExpiry / 1000) end
-            
-            local isDeveloper = data.message and string.find(data.message, "Dev") ~= nil
-
-            Core.AuthData = {
-                Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
-                Expiry = rawExpiry, 
-                Key = input,
-                GameName = gameName,
-                TargetScript = data.script, 
-                IsDev = isDeveloper,
-                MOTD = data.motd
-            }
-            
-            return {valid=true, info=data.info} 
+        if ok and data then
+            Log("JSON Parsed. Status: " .. tostring(data.status))
+            if data.status == "success" then
+                local rawExpiry = tonumber(data.expiry) or 0
+                if rawExpiry > 9999999999 then rawExpiry = math.floor(rawExpiry / 1000) end
+                
+                Core.AuthData = {
+                    Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
+                    Expiry = rawExpiry, 
+                    Key = input,
+                    GameName = gameName,
+                    TargetScript = data.script, 
+                    IsDev = data.message and string.find(data.message, "Dev") ~= nil,
+                    MOTD = data.motd
+                }
+                return {valid=true, info=data.info} 
+            else
+                Log("Server rejected key: " .. tostring(data.message))
+            end
+        else
+            Log("Failed to parse JSON: " .. tostring(res))
         end
+    else
+        Log("HTTP Request Failed: " .. tostring(res))
     end
     return {valid=false}
 end
 
 function Core.LoadGame()
+    Log("Starting Game Load Sequence...")
     Notify("SYSTEM", "Checking Database...")
     
-    -- Load UI Manager
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     if not successManager or not ManagerLib then 
-        Notify("FATAL ERROR", "Failed to load UI Manager. Check connection.") 
+        Log("CRITICAL: Failed to load UIManager")
+        Notify("FATAL ERROR", "Failed to load UI Manager") 
         return 
     end
+    Log("UIManager loaded.")
 
-    -- [LOGIKA PENENTUAN SCRIPT]
     local scriptPath = DEFAULT_GAME
     local isUniversal = true
     
-    -- Cek apakah server memberikan script khusus
     if Core.AuthData and Core.AuthData.TargetScript and Core.AuthData.TargetScript ~= "" then
         scriptPath = Core.AuthData.TargetScript
         isUniversal = false
@@ -105,50 +115,58 @@ function Core.LoadGame()
     if not Core.AuthData then Core.AuthData = {} end
     Core.AuthData.IsUniversal = isUniversal
     
-    print("[FSSHUB] Target Module: " .. scriptPath .. " | Mode: " .. (isUniversal and "Universal" or "Official"))
+    Log("Loading Game Script: " .. scriptPath)
 
-    -- Load Data Game
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
     
-    -- Validasi hasil load
     if not successData or type(GameData) ~= "table" then
-        warn("[FSSHUB] Failed to load module: " .. scriptPath)
-        Notify("WARNING", "Official Script Error. Fallback to Universal...")
+        Log("Failed to load Target Script. Fallback to Universal.")
+        Notify("WARNING", "Official Script Error. Fallback...")
         
-        -- Coba load universal jika script khusus gagal
         local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
         if successUniv and type(UnivData) == "table" then 
             GameData = UnivData 
             Core.AuthData.IsUniversal = true
             scriptPath = DEFAULT_GAME
         else 
-            Notify("FATAL ERROR", "Universal Script Failed! Script stopped.") 
+            Log("CRITICAL: Universal Script also failed!")
+            Notify("FATAL ERROR", "Universal Script Failed!") 
             return 
         end
     end
     
-    -- [OVERRIDE NAMA MENU]
-    if Core.AuthData.GameName then
-        GameData.Name = Core.AuthData.GameName
-    end
+    if Core.AuthData.GameName then GameData.Name = Core.AuthData.GameName end
 
-    -- Jalankan Build UI
-    ManagerLib.Build(GameData, Core.AuthData)
+    Log("Calling ManagerLib.Build...")
+    -- Failsafe Build call
+    local buildStatus, buildErr = pcall(function()
+        ManagerLib.Build(GameData, Core.AuthData)
+    end)
+    
+    if not buildStatus then
+        Log("UI Build Crashed: " .. tostring(buildErr))
+    else
+        Log("UI Build Success.")
+    end
 end
 
 function Core.Init()
-    -- Cek Key Tersimpan
+    Log("Core Initialized.")
     if isfile and isfile(FILE_NAME) then
+        Log("Found saved key.")
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
         if result.valid then
+            Log("Saved key is valid.")
             Notify("WELCOME BACK", Core.AuthData.Type .. " User")
             Core.LoadGame()
             return
+        else
+            Log("Saved key invalid/expired.")
         end
     end
     
-    -- Jika tidak ada key, load Auth UI
+    Log("Loading Auth UI...")
     local success, AuthUI = pcall(function() return loadstring(LoadUrl("main/modules/AuthUI.lua"))() end)
     if success and AuthUI then
         AuthUI.Show({
@@ -156,14 +174,15 @@ function Core.Init()
                 local result = Core.ValidateKey(key)
                 if result.valid then
                     writefile(FILE_NAME, key)
-                    Core.LoadGame()
+                    task.spawn(function() Core.LoadGame() end)
                     return {success = true, info = result.info} 
                 end
                 return {success = false}
             end
         })
     else
-        Notify("ERROR", "Auth UI Failed to Load. Re-execute script.")
+        Log("Failed to load AuthUI module")
+        Notify("ERROR", "Auth UI Failed to Load")
     end
 end
 
