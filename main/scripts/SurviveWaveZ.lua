@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: WAVE Z V4.0 (REMASTERED) ]] --
--- Changelog: Global Cleanup, Event-Based ESP (No Lag), Optimized AutoFarm
+-- [[ FSSHUB DATA: WAVE Z V4.1 (STANDARDIZED) ]] --
+-- Changelog: Added Camera Reset to Cleanup, Aligned with Global UIManager standards
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -18,7 +18,7 @@ local State = {
     Aimbot = false,
     ESP = false,
     BringDist = 8,
-    TargetMode = "All", -- All, Normal, Boss
+    TargetMode = "All", -- Option: All, Normal, Boss
     Connections = {},
     ESP_Cache = {}
 }
@@ -50,13 +50,13 @@ local function StartAutoFarm()
                 if State.TargetMode == "Boss" and not z.Name:lower():find("boss") then validTarget = false end
                 
                 if validTarget then
-                    -- Cek Jarak (Max 300 Studs agar tidak menarik zombie dari ujung map)
+                    -- Cek Jarak (Max 300 Studs agar tidak menarik zombie dari map lain/jauh)
                     if (zRoot.Position - root.Position).Magnitude < 300 then
-                        -- Teleport Zombie + Putar agar tidak menyerang
+                        -- Teleport Zombie + Putar agar membelakangi pemain
                         zRoot.CFrame = targetCFrame * CFrame.Angles(math.rad(-90), 0, 0) 
                         zRoot.AssemblyLinearVelocity = Vector3.zero
                         
-                        -- Disable Collision (Sekali saja per zombie)
+                        -- Disable Collision (Sekali saja per zombie agar hemat performa)
                         if not z:GetAttribute("NoCol") then
                             for _, p in ipairs(z:GetChildren()) do 
                                 if p:IsA("BasePart") then p.CanCollide = false end 
@@ -68,7 +68,7 @@ local function StartAutoFarm()
             end
         end
         
-        -- Auto Attack
+        -- Auto Attack (Opsional, jika ada Tool)
         local tool = char:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
     end)
@@ -80,7 +80,7 @@ local function StartAimbot()
     local conn = RunService.RenderStepped:Connect(function()
         if not State.Aimbot then return end
         
-        local closest, minMag = nil, 300 -- FOV Radius Limit
+        local closest, minMag = nil, 300 -- Radius FOV
         local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
         local zFolder = Workspace:FindFirstChild("ServerZombies")
         
@@ -109,13 +109,12 @@ local function StartAimbot()
     table.insert(State.Connections, conn)
 end
 
--- [VISUALS: OPTIMIZED ESP]
+-- [VISUALS: OPTIMIZED ESP (EVENT BASED)]
 local function CreateESP(model)
     if not State.ESP then return end
     if not model:FindFirstChild("Head") then return end
     
-    -- Mencegah duplicate
-    if model:FindFirstChild("FSS_ESP") then return end
+    if model:FindFirstChild("FSS_ESP") then return end -- Prevent Duplicate
     
     local hl = Instance.new("Highlight")
     hl.Name = "FSS_ESP"
@@ -128,7 +127,7 @@ local function CreateESP(model)
     
     table.insert(State.ESP_Cache, hl)
     
-    -- Cleanup Otomatis jika Zombie Mati/Despawn
+    -- Auto Cleanup saat zombie mati
     model.AncestryChanged:Connect(function(_, parent)
         if not parent then 
             for i, v in ipairs(State.ESP_Cache) do
@@ -143,26 +142,26 @@ local function ToggleESP(active)
     if active then
         local zFolder = Workspace:FindFirstChild("ServerZombies")
         if zFolder then
-            -- 1. Pasang ke zombie yang sudah ada
+            -- Scan zombie yang sudah ada
             for _, z in ipairs(zFolder:GetChildren()) do
                 CreateESP(z)
             end
             
-            -- 2. Pasang otomatis ke zombie baru (Event Based, bukan Loop)
+            -- Listen untuk zombie baru (Lebih ringan dari loop)
             local conn = zFolder.ChildAdded:Connect(function(child)
-                 task.wait(0.1) -- Tunggu load sebentar
+                 task.wait(0.1) 
                  CreateESP(child)
             end)
             table.insert(State.Connections, conn)
         end
     else
-        -- Bersihkan Semua Visual saat dimatikan
+        -- Bersihkan Visual Total
         for _, hl in ipairs(State.ESP_Cache) do
             if hl then hl:Destroy() end
         end
         State.ESP_Cache = {}
         
-        -- Double Check (Manual Cleanup)
+        -- Double Check Cleanup
         local zFolder = Workspace:FindFirstChild("ServerZombies")
         if zFolder then
             for _, z in ipairs(zFolder:GetChildren()) do
@@ -172,30 +171,37 @@ local function ToggleESP(active)
     end
 end
 
--- [[ 4. CLEANUP ]] --
+-- [[ 4. CLEANUP (STANDARDIZED) ]] --
 local function Cleanup()
     print("[FSSHUB] Unloading Wave Z Script...")
     
-    -- Reset State
+    -- 1. Matikan State
     State.AutoFarm = false
     State.Aimbot = false
     State.ESP = false
     
-    -- Hapus Visual
+    -- 2. Bersihkan Visual & Loop
     ToggleESP(false)
-    
-    -- Putus Koneksi Loop
     for _, c in pairs(State.Connections) do c:Disconnect() end
     State.Connections = {}
     
-    print("[FSSHUB] Wave Z Unloaded.")
+    -- 3. Reset Camera (PENTING: Agar tidak stuck setelah Aimbot mati)
+    if Camera then
+        Camera.CameraType = Enum.CameraType.Custom
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = char.Humanoid
+        end
+    end
+    
+    print("[FSSHUB] Wave Z Unloaded Successfully.")
 end
 
 getgenv().FSS_WaveZ_Stop = Cleanup
 
--- RETURN DATA
+-- RETURN CONFIGURATION
 return {
-    Name = "Wave Z V4.0",
+    Name = "Wave Z V4.1",
     OnUnload = Cleanup,
     Tabs = {
         {
