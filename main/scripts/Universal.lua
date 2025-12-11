@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.4 (FOV FINAL FIX) ]] --
--- Changelog: FOV Priority set to LAST (Fix Flickering), Brightness Adjusted
+-- [[ FSSHUB DATA: UNIVERSAL V5.5 (STABLE & CLEAN) ]] --
+-- Changelog: Removed FOV (Glitchy), Reinforced Unload System (Deep Clean)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,11 +7,10 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- [[ 1. GLOBAL CLEANUP SYSTEM ]] --
--- Wajib ada untuk mematikan script lama yang masih berjalan
+-- [[ 1. GLOBAL OVERWRITE PROTECTION ]] --
+-- Mengecek apakah script sudah berjalan sebelumnya, jika ya, matikan yang lama.
 if getgenv().FSS_Universal_Stop then
     pcall(getgenv().FSS_Universal_Stop)
 end
@@ -29,8 +28,7 @@ local State = {
     
     -- Visuals
     Fullbright = false,
-    FOV = 70,
-    FOVEnabled = false,
+    -- FOV DIHAPUS
     
     -- ESP
     ESP = false,
@@ -50,7 +48,7 @@ local State = {
 
 -- [MOVEMENT LOOP]
 local function StartMovementLoop()
-    -- Prioritas Character untuk pergerakan mulus
+    -- Menggunakan RenderStep agar speed/jump tidak bisa di-override game
     RunService:BindToRenderStep("FSS_Movement_Loop", Enum.RenderPriority.Character.Value + 1, function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
@@ -69,6 +67,7 @@ local function StartMovementLoop()
         end
     end)
     
+    -- Spinbot Logic
     local conn = RunService.Heartbeat:Connect(function()
         if State.Spinbot and LocalPlayer.Character then
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -107,6 +106,7 @@ local function ToggleNoclip(active)
         end)
         table.insert(State.Connections, conn)
     else
+        -- Force Restore Collision saat dimatikan
         if LocalPlayer.Character then
             for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
                 if part:IsA("BasePart") then
@@ -131,27 +131,6 @@ local function ToggleInfJump(active)
     end
 end
 
--- [FOV FIX - PRIORITY LAST]
-local function UpdateFOV(active)
-    State.FOVEnabled = active
-    
-    -- Hapus bind lama
-    pcall(function() RunService:UnbindFromRenderStep("FSS_FOV_Fix") end)
-
-    if not active then
-        Camera.FieldOfView = 70 -- Reset ke default
-    else
-        -- FIX UTAMA DISINI: Menggunakan RenderPriority.Last
-        -- Ini akan memaksa FOV berubah PALING TERAKHIR sebelum frame dirender
-        -- Tidak ada script game yang bisa menimpanya lagi.
-        RunService:BindToRenderStep("FSS_FOV_Fix", Enum.RenderPriority.Last.Value, function()
-            if State.FOVEnabled then
-                Camera.FieldOfView = State.FOV
-            end
-        end)
-    end
-end
-
 -- [FULLBRIGHT - SOFT]
 local function ApplyFullbright(active)
     State.Fullbright = active
@@ -170,7 +149,7 @@ local function ApplyFullbright(active)
 
         task.spawn(function()
             while State.Fullbright do
-                Lighting.Brightness = 1 -- Brightness Standard
+                Lighting.Brightness = 1 -- Soft Brightness
                 Lighting.ClockTime = 14
                 Lighting.GlobalShadows = false
                 Lighting.Ambient = Color3.fromRGB(170, 170, 170)
@@ -180,6 +159,7 @@ local function ApplyFullbright(active)
             end
         end)
     else
+        -- Restore Lighting secara instan saat dimatikan
         if State.OriginalLighting then
             Lighting.Brightness = State.OriginalLighting.Brightness
             Lighting.ClockTime = State.OriginalLighting.ClockTime
@@ -283,6 +263,7 @@ local function ToggleESP(active)
         table.insert(State.Connections, conn1)
         UpdateESP_Loop()
     else
+        -- Hapus total semua visual ESP saat dimatikan
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -298,32 +279,50 @@ end
 -- Init Global Loops
 StartMovementLoop()
 
--- 4. CLEANUP FUNCTION
+-- [[ 4. DEEP CLEAN UP FUNCTION ]] --
 local function Cleanup()
+    print("[FSSHUB] Starting Deep Cleanup...")
+
+    -- 1. Matikan State
     State.SpeedEnabled = false
     State.JumpEnabled = false
     State.InfJump = false
     State.Spinbot = false
     
-    ToggleNoclip(false)
-    UpdateFOV(false)
-    ApplyFullbright(false)
-    ToggleESP(false)
+    -- 2. Restore Visuals & Physics
+    ToggleNoclip(false)     -- Restore Collision
+    ApplyFullbright(false)  -- Restore Lighting
+    ToggleESP(false)        -- Hapus Visual ESP
     
+    -- 3. Reset Karakter ke Default
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        LocalPlayer.Character.Humanoid.JumpPower = 50
+    end
+    
+    -- 4. Hapus Spinbot Object
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
+        if s then s:Destroy() end
+    end
+
+    -- 5. Matikan semua Loops & Binds
     pcall(function() RunService:UnbindFromRenderStep("FSS_Movement_Loop") end)
-    pcall(function() RunService:UnbindFromRenderStep("FSS_FOV_Fix") end)
     
-    for _, c in pairs(State.Connections) do c:Disconnect() end
+    for _, c in pairs(State.Connections) do 
+        if c then c:Disconnect() end 
+    end
     State.Connections = {}
     
-    print("[FSSHUB] Universal Script Cleaned Up.")
+    print("[FSSHUB] Universal Script Completely Unloaded.")
 end
 
+-- Set Global Function untuk akses luar
 getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V5.4",
+    Name = "Universal V5.5",
     OnUnload = Cleanup,
 
     Tabs = {
@@ -351,8 +350,7 @@ return {
                 
                 {Type = "Toggle", Title = "Fullbright (Soft)", Default = false, Callback = ApplyFullbright},
                 
-                {Type = "Toggle", Title = "Enable FOV Changer", Default = false, Callback = function(v) UpdateFOV(v) end},
-                {Type = "Slider", Title = "Field of View", Min = 30, Max = 120, Default = 70, Callback = function(v) State.FOV = v end},
+                -- FITUR FOV TELAH DIHAPUS SESUAI PERMINTAAN
             }
         },
         {
