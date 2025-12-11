@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.5 (STABLE RELEASE) ]] --
--- Changelog: Fixed syntax error in TweenService, robust rendering
+-- [[ FSSHUB LIBRARY: V15.6 (RENDER FIX) ]] --
+-- Changelog: Added AutomaticCanvasSize to fix empty pages
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -75,7 +75,6 @@ local function MakeDraggable(topbarobject, object)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            -- FIX: Syntax error fixed here (removed extra '}')
             TweenService:Create(object, TweenInfo.new(0.05), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
         end
     end)
@@ -228,7 +227,8 @@ function library:Window(title)
     function window:Section(name, iconId) 
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
-            ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false
+            ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
+            AutomaticCanvasSize = Enum.AutomaticSize.Y -- FIX: Agar konten bisa di-scroll dan muncul
         })
         Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
