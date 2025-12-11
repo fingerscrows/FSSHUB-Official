@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.5 (ESP FIXED) ]] --
--- Fitur: God Mode, Smart ESP (Anti-Limit), Clean Fullbright
+-- [[ FSSHUB DATA: UNIVERSAL V4.6 (FINAL VISUAL FIX) ]] --
+-- Fitur: God Mode, Smart ESP (Tembus Tembok Instan), Anti-Gloomy Fullbright
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,6 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 -- 1. State Variables
 local State = {
@@ -24,7 +23,6 @@ local State = {
     
     -- Cache Post-Effect agar bisa direstore
     StoredEffects = {},
-    -- Cache ESP Objects untuk manajemen limit
     ESP_Cache = {}
 }
 
@@ -110,11 +108,10 @@ local function CreateESP(player)
     local function AddVisuals(char)
         if not State.ESP then return end
         
-        -- Tunggu sampai Head ada agar tidak error
-        local head = char:WaitForChild("Head", 5)
-        if not head then return end
+        -- Cek apakah Head sudah ada (tanpa delay)
+        local head = char:FindFirstChild("Head") 
+        if not head then return end -- Cepat keluar jika belum siap
         
-        -- 1. Highlight (Chams)
         local hl = Instance.new("Highlight")
         hl.Name = "FSS_ESP_Box"
         hl.Adornee = char
@@ -122,11 +119,10 @@ local function CreateESP(player)
         hl.FillTransparency = 0.5
         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
         hl.OutlineTransparency = 0
-        -- [FIX UTAMA] Agar tembus tembok
+        -- [FIX UTAMA] Harus AlwaysOnTop
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop 
         hl.Parent = char
         
-        -- 2. Nama & Jarak
         local bg = Instance.new("BillboardGui")
         bg.Name = "FSS_ESP_Text"
         bg.Adornee = head
@@ -144,10 +140,8 @@ local function CreateESP(player)
         text.Font = Enum.Font.GothamBold
         text.TextSize = 12
         
-        -- Simpan ke cache untuk manajemen
         table.insert(State.ESP_Cache, {hl = hl, txt = text, plr = player, char = char})
         
-        -- Cleanup saat mati
         char.AncestryChanged:Connect(function(_, parent)
             if not parent then 
                 hl:Destroy()
@@ -155,28 +149,29 @@ local function CreateESP(player)
             end
         end)
     end
-
+    
+    -- [OPTIMASI CHAMS] Jika karakter ada sekarang, langsung panggil.
     if player.Character then AddVisuals(player.Character) end
     player.CharacterAdded:Connect(AddVisuals)
 end
 
 local function UpdateESP_Loop()
-    -- Loop untuk update jarak & manajemen limit Highlight (Max 31)
+    -- Loop untuk update jarak & manajemen limit Highlight
     RunService.Heartbeat:Connect(function()
-        if not State.ESP then return end
+        if not State.ESP or not LocalPlayer.Character then return end
+        
+        local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
         
         for i, item in ipairs(State.ESP_Cache) do
             if item.char and item.char.Parent and item.txt.Parent then
                 local root = item.char:FindFirstChild("HumanoidRootPart")
-                local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 
-                if root and myRoot then
+                if root then
                     local dist = (root.Position - myRoot.Position).Magnitude
                     item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
                     
-                    -- [OPTIMASI LIMIT 31]
-                    -- Jika highlight lebih dari 30, matikan yang jauh (> 500 stud)
-                    -- agar yang dekat tetap menyala.
+                    -- Optimasi Limit (Matikan yang terlalu jauh)
                     if #State.ESP_Cache > 30 then
                         item.hl.Enabled = (dist < 500)
                     else
@@ -193,17 +188,13 @@ end
 
 local function ToggleESP(active)
     if active then
-        -- Init ESP untuk player yang sudah ada
         for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
         
-        -- Koneksi player baru
         local conn1 = Players.PlayerAdded:Connect(CreateESP)
         table.insert(State.Connections, conn1)
         
-        -- Jalankan Loop Update Jarak
         UpdateESP_Loop()
     else
-        -- Bersihkan semua visual
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -212,13 +203,13 @@ local function ToggleESP(active)
                 end
             end
         end
-        State.ESP_Cache = {} -- Reset cache
+        State.ESP_Cache = {}
     end
 end
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.5",
+    Name = "Universal V4.6",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -263,7 +254,7 @@ return {
             Elements = {
                 {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
                 {
-                    Type = "Toggle", Title = "Fullbright (Clean)", Default = false,
+                    Type = "Toggle", Title = "Fullbright (Experimental)", Default = false,
                     Callback = function(val)
                         State.Fullbright = val
                         if val then
@@ -286,6 +277,7 @@ return {
                                 end
                             end)
                         else
+                            -- Restore
                             for obj, enabled in pairs(State.StoredEffects) do
                                 if obj and obj.Parent then obj.Enabled = enabled end
                             end
