@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: WAVE Z V5.1 (FIX PATCH) ]] --
--- Changelog: Fixed Revive Clipping (Void Fall), Fixed Auto Attack Logic
+-- [[ FSSHUB DATA: WAVE Z V5.2 (DISTANCE UPDATE) ]] --
+-- Changelog: Updated Magnet Distance Min Value to 2
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -29,7 +29,7 @@ local State = {
     TargetMode = "All",
     
     -- Internal Flags
-    IsReviving = false, -- Flag untuk mencegah konflik
+    IsReviving = false, 
     
     -- Cache
     Connections = {},
@@ -83,20 +83,17 @@ local function StartAutoFarm()
     table.insert(State.Connections, conn)
 end
 
--- [AUTO ATTACK FIX: DIRECT ACTIVATE]
+-- [AUTO ATTACK: DIRECT ACTIVATE]
 local function StartAutoAttack()
     task.spawn(function()
         while State.AutoAttack do
             local char = LocalPlayer.Character
             if char then
                 local tool = char:FindFirstChildOfClass("Tool")
-                -- Hanya menembak jika ada tool yang dipegang
                 if tool then
-                    -- Metode Langsung (Lebih Stabil)
                     tool:Activate()
                 end
             end
-            -- Interval cepat tapi aman agar tidak lag
             task.wait(0.1)
         end
     end)
@@ -127,9 +124,8 @@ local function StartAutoLoot()
     end)
 end
 
--- [AUTO REVIVE FIX: ANTI-VOID / SAFE MODE]
+-- [AUTO REVIVE: SAFE MODE]
 local function StartAutoRevive()
-    -- Loop Noclip Khusus saat Revive (Mencegah jatuh ke void)
     local noclipReviveConn = RunService.Stepped:Connect(function()
         if State.IsReviving and LocalPlayer.Character then
             for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
@@ -155,7 +151,6 @@ local function StartAutoRevive()
                             local tHum = plr.Character:FindFirstChild("Humanoid")
                             local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
                             
-                            -- Deteksi teman knock
                             if tHum and tRoot and tHum.Health <= 0 then 
                                 local prompt = nil
                                 for _, v in pairs(plr.Character:GetDescendants()) do
@@ -163,32 +158,26 @@ local function StartAutoRevive()
                                 end
                                 
                                 if prompt then
-                                    State.IsReviving = true -- Aktifkan Mode Aman
+                                    State.IsReviving = true
                                     
-                                    -- 1. Teleport AMAN (Lebih tinggi 5 studs dari tanah agar tidak nyangkut)
                                     myRoot.CFrame = tRoot.CFrame + Vector3.new(0, 5, 0)
                                     myRoot.AssemblyLinearVelocity = Vector3.zero
                                     myRoot.Anchored = true
                                     
-                                    -- 2. Proses Revive
                                     local start = tick()
                                     prompt.HoldDuration = 0 
                                     
-                                    -- Loop tahan tombol E
                                     while tHum.Health <= 0 and (tick() - start < 3) and State.AutoRevive do
                                         fireproximityprompt(prompt)
-                                        -- Pastikan posisi tetap di atas (Anti-Jatuh)
                                         myRoot.CFrame = tRoot.CFrame + Vector3.new(0, 5, 0)
                                         task.wait(0.1)
                                     end
                                     
-                                    -- 3. Finishing Aman (Anti-Void)
-                                    -- Teleport sedikit ke atas lagi sebelum lepas Anchor
                                     myRoot.CFrame = myRoot.CFrame + Vector3.new(0, 2, 0)
                                     task.wait(0.1) 
                                     
                                     myRoot.Anchored = false
-                                    State.IsReviving = false -- Matikan Noclip Revive
+                                    State.IsReviving = false
                                 end
                             end
                         end
@@ -283,7 +272,7 @@ local function Cleanup()
     State.AutoAttack = false
     State.AutoLoot = false
     State.AutoRevive = false
-    State.IsReviving = false -- Pastikan flag revive mati
+    State.IsReviving = false 
     State.Aimbot = false
     State.ESP = false
     
@@ -291,13 +280,10 @@ local function Cleanup()
     for _, c in pairs(State.Connections) do c:Disconnect() end
     State.Connections = {}
     
-    -- Reset Camera & Physics
     if Camera then Camera.CameraType = Enum.CameraType.Custom end
     
-    -- Reset HipHeight
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.HipHeight = 0 
-        -- Safety Unanchor jika mati saat revive
         if LocalPlayer.Character.PrimaryPart then
             LocalPlayer.Character.PrimaryPart.Anchored = false
         end
@@ -310,7 +296,7 @@ getgenv().FSS_WaveZ_Stop = Cleanup
 
 -- RETURN CONFIGURATION
 return {
-    Name = "Wave Z V5.1",
+    Name = "Wave Z V5.2",
     OnUnload = Cleanup,
     Tabs = {
         {
@@ -320,7 +306,8 @@ return {
                 {Type = "Toggle", Title = "Auto Attack (Direct)", Default = false, Callback = function(v) State.AutoAttack = v; if v then StartAutoAttack() end end},
                 {Type = "Toggle", Title = "Auto Collect Loot", Default = false, Callback = function(v) State.AutoLoot = v; if v then StartAutoLoot() end end},
                 
-                {Type = "Slider", Title = "Magnet Distance", Min = 5, Max = 20, Default = 10, Callback = function(v) State.BringDist = v end},
+                -- [UPDATED RANGE] Min: 2, Max: 20
+                {Type = "Slider", Title = "Magnet Distance", Min = 2, Max = 20, Default = 10, Callback = function(v) State.BringDist = v end},
                 {Type = "Slider", Title = "Levitate Height", Min = -5, Max = 5, Default = 1, Callback = function(v) State.LevitateHeight = v end},
                 {Type = "Dropdown", Title = "Target Priority", Options = {"All", "Normal", "Boss"}, Default = "All", Callback = function(v) State.TargetMode = v end}
             }
