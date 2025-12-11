@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: WAVE Z V6.0 (MODULAR) ]] --
--- Changelog: Integrated Utils Module for cleaner logic & better stability
+-- [[ FSSHUB DATA: WAVE Z V6.1 (CACHE SAFE) ]] --
+-- Changelog: Integrated Utils Module with Cache Buster
 -- Path: main/scripts/SurviveWaveZ.lua
 
 local Players = game:GetService("Players")
@@ -7,8 +7,14 @@ local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Load Module Utils (Added Cache Buster for Safety)
-local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Utils.lua?t="..tostring(math.random(1,10000))))()
+-- Load Module Utils (Added Cache Buster ?t=os.time())
+local UtilsUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Utils.lua?t="..tostring(os.time())
+local success, Utils = pcall(function() return loadstring(game:HttpGet(UtilsUrl))() end)
+
+if not success or not Utils then
+    game.StarterGui:SetCore("SendNotification", {Title = "Script Error", Text = "Failed to load Utils Module", Duration = 5})
+    return
+end
 
 -- [[ 1. GLOBAL CLEANUP PROTECTION ]] --
 if getgenv().FSS_WaveZ_Stop then
@@ -135,7 +141,7 @@ end
 
 -- [[ 4. CLEANUP (VIA UTILS) ]] --
 local function Cleanup()
-    Utils:DeepClean() -- Satu baris ini membersihkan SEMUA (Loop, Event, ESP, Physics)
+    if Utils then Utils:DeepClean() end
     getgenv().FSS_WaveZ_Stop = nil
 end
 
@@ -143,7 +149,7 @@ getgenv().FSS_WaveZ_Stop = Cleanup
 
 -- RETURN CONFIG
 return {
-    Name = "Wave Z V6.0",
+    Name = "Wave Z V6.1",
     OnUnload = Cleanup,
     Tabs = {
         {
