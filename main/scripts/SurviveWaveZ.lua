@@ -1,13 +1,14 @@
 -- [[ FSSHUB DATA: WAVE Z V6.0 (MODULAR) ]] --
 -- Changelog: Integrated Utils Module for cleaner logic & better stability
+-- Path: main/scripts/SurviveWaveZ.lua
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Load Module Utils
-local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Utils.lua"))()
+-- Load Module Utils (Added Cache Buster for Safety)
+local Utils = loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Utils.lua?t="..tostring(math.random(1,10000))))()
 
 -- [[ 1. GLOBAL CLEANUP PROTECTION ]] --
 if getgenv().FSS_WaveZ_Stop then
