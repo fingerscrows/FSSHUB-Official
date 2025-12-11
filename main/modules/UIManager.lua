@@ -1,8 +1,14 @@
--- [[ FSSHUB: UI MANAGER V3.4 (ICON STATUS) ]] --
--- Fitur: Status Icon, Compact Watermark, & MOTD
+-- [[ FSSHUB: UI MANAGER V4.0 (GLOBAL UTILITIES) ]] --
+-- Changelog: Added Global Rejoin & Server Hop to Settings, Cleaned Up Structure
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
+
+-- Services Global
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local StoredConfig = nil
 local StoredAuth = nil
@@ -27,13 +33,12 @@ function UIManager.Build(GameConfig, AuthData)
     if not Library then warn("FSSHUB: Library Failed to Load") return end
 
     -- [ICON LOGIC]
-    local statusIcon = "👤" -- Default Free
+    local statusIcon = "👤"
     if AuthData then
         if AuthData.Type == "Premium" or AuthData.Type == "Unlimited" then statusIcon = "👑" 
         elseif AuthData.IsDev then statusIcon = "🛠️" end
     end
     
-    -- Watermark: FSSHUB [Icon] (Tanpa Nama Game agar pendek)
     Library:Watermark("FSSHUB " .. statusIcon)
     
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
@@ -103,7 +108,7 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end
     
-    -- [[ SETTINGS ]] --
+    -- [[ GLOBAL SETTINGS (OTOMATIS ADA DI SEMUA SCRIPT) ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
     local safePresets = Library.presets or {
@@ -113,32 +118,60 @@ function UIManager.Build(GameConfig, AuthData)
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
-    SettingsTab:Dropdown("Interface Theme", themeNames, "Select Theme", function(selected)
+    SettingsTab:Label("Interface Configuration")
+    SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
         Library:SetTheme(selected)
         if Library.base then Library.base:Destroy(); Library.base = nil end 
         Library.keybinds = {} 
         UIManager.Build(StoredConfig, StoredAuth)
     end)
 
-    SettingsTab:Dropdown("Watermark Position", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
-        if Library.SetWatermarkAlign then
-            Library:SetWatermarkAlign(pos)
-        end
+    SettingsTab:Dropdown("Watermark", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
+        if Library.SetWatermarkAlign then Library:SetWatermarkAlign(pos) end
     end)
 
-    SettingsTab:Toggle("Status & FPS", true, function(state)
+    SettingsTab:Toggle("Show FPS & Ping", true, function(state)
         Library:ToggleWatermark(state)
     end)
 
+    SettingsTab:Label("Global Utilities")
+    -- [GLOBAL REJOIN]
+    SettingsTab:Button("Rejoin Server", function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+    end)
+
+    -- [GLOBAL SERVER HOP]
+    SettingsTab:Button("Server Hop (Low Players)", function()
+        Library:Notify("System", "Searching for server...", 2)
+        task.spawn(function()
+            local success, result = pcall(function()
+                return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+            end)
+            
+            if success and result and result.data then
+                for _, s in pairs(result.data) do
+                    if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
+                        TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                        break
+                    end
+                end
+            else
+                Library:Notify("Error", "Failed to fetch servers", 3)
+            end
+        end)
+    end)
+
     if AuthData and AuthData.IsDev then
-        SettingsTab:Button("Open Debug Console [DEV]", function()
+        SettingsTab:Label("Developer Zone")
+        SettingsTab:Button("Open Debug Console", function()
             local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
             local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
             if s and m then m.Show() end
         end)
     end
 
-    SettingsTab:Keybind("Toggle Menu", Enum.KeyCode.RightControl, function()
+    SettingsTab:Label("System")
+    SettingsTab:Keybind("Toggle UI Keybind", Enum.KeyCode.RightControl, function()
         if Library.base then 
             local main = Library.base:FindFirstChild("MainFrame")
             if main then main.Visible = not main.Visible end
