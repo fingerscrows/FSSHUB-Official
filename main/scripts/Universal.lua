@@ -1,15 +1,18 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.7 (ESP & VISUAL CONTROL) ]] --
--- Fitur: God Mode, Smart ESP (Jarak & Interval), Clean Fullbright
+-- [[ FSSHUB DATA: UNIVERSAL V5.0 (OPTIMIZED & IMPROVED) ]] --
+-- Changelog: Noclip Optimized, Heartbeat Speed Logic, Team Check ESP, Added FOV Changer
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 -- 1. State Variables
 local State = {
+    -- Movement
     Speed = 16,
     Jump = 50,
     SpeedEnabled = false,
@@ -17,128 +20,144 @@ local State = {
     InfJump = false,
     Noclip = false,
     Spinbot = false,
+    
+    -- Visuals
     Fullbright = false,
+    FOV = 70,
+    FOVEnabled = false,
+    
+    -- ESP
     ESP = false,
+    ESP_MaxDistance = 1000, 
+    ESP_UpdateInterval = 0.1, -- Dipercepat sedikit agar text lebih responsif
+    ESP_TeamCheck = false,    -- [BARU] Fitur Team Check
+    
+    -- System
     Connections = {},
-    
-    -- [BARU] Kontrol ESP
-    ESP_MaxDistance = 800, -- Jarak maksimum default
-    ESP_UpdateInterval = 0.5, -- Interval update default
-    
     StoredEffects = {},
     ESP_Cache = {}
 }
 
 -- 2. Logic Functions
 
-local function UpdateSpeed()
-    while State.SpeedEnabled do
-        task.wait()
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.WalkSpeed = State.Speed
+-- [OPTIMIZED SPEED & JUMP] Menggunakan Heartbeat agar lebih smooth dan anti-override
+local function StartMovementLoop()
+    local conn = RunService.Heartbeat:Connect(function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChild("Humanoid")
+        
+        if char and hum then
+            -- WalkSpeed Logic
+            if State.SpeedEnabled then
+                if hum.WalkSpeed ~= State.Speed then
+                    hum.WalkSpeed = State.Speed
+                end
             end
-        end)
-    end
-    pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
+            
+            -- JumpPower Logic
+            if State.JumpEnabled then
+                hum.UseJumpPower = true
+                if hum.JumpPower ~= State.Jump then
+                    hum.JumpPower = State.Jump
+                end
+            end
+            
+            -- Spinbot Logic
+            if State.Spinbot then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local spin = root:FindFirstChild("FSS_Spin")
+                    if not spin then
+                        spin = Instance.new("BodyAngularVelocity")
+                        spin.Name = "FSS_Spin"
+                        spin.MaxTorque = Vector3.new(0, math.huge, 0)
+                        spin.AngularVelocity = Vector3.new(0, 50, 0)
+                        spin.Parent = root
+                    else
+                        spin.AngularVelocity = Vector3.new(0, 50, 0)
+                    end
+                end
+            else
+                -- Cleanup Spinbot jika dimatikan saat loop berjalan
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local s = char.HumanoidRootPart:FindFirstChild("FSS_Spin")
+                    if s then s:Destroy() end
+                end
+            end
+        end
+    end)
+    table.insert(State.Connections, conn)
 end
 
-local function UpdateJump()
-    while State.JumpEnabled do
-        task.wait()
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.UseJumpPower = true
-                LocalPlayer.Character.Humanoid.JumpPower = State.Jump
+-- [OPTIMIZED NOCLIP] Hanya loop BasePart karakter, bukan Descendants (Lag reduction)
+local function ToggleNoclip(active)
+    if active then
+        local conn = RunService.Stepped:Connect(function()
+            if State.Noclip and LocalPlayer.Character then
+                for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
             end
         end)
+        table.insert(State.Connections, conn)
     end
-    pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
 end
 
+-- [INF JUMP]
 local function ToggleInfJump(active)
     if active then
         local conn = UserInputService.JumpRequest:Connect(function()
             if State.InfJump and LocalPlayer.Character then
                 local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if hum then hum:ChangeState("Jumping") end
+                if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
             end
         end)
         table.insert(State.Connections, conn)
     end
 end
 
-local function ToggleNoclip(active)
-    if active then
-        local conn = RunService.Stepped:Connect(function()
-            if State.Noclip and LocalPlayer.Character then
-                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
-                end
-            end
-        end)
-        table.insert(State.Connections, conn)
-    end
+-- [FOV CHANGER]
+local function UpdateFOV()
+    local conn = RunService.RenderStepped:Connect(function()
+        if State.FOVEnabled then
+            Camera.FieldOfView = State.FOV
+        end
+    end)
+    table.insert(State.Connections, conn)
 end
 
-local function ToggleSpinbot(active)
-    if active then
-        task.spawn(function()
-            local spin = Instance.new("BodyAngularVelocity")
-            spin.Name = "FSS_Spin"
-            spin.MaxTorque = Vector3.new(0, math.huge, 0)
-            spin.AngularVelocity = Vector3.new(0, 50, 0)
-            while State.Spinbot do
-                pcall(function()
-                    local root = LocalPlayer.Character.HumanoidRootPart
-                    if root and not root:FindFirstChild("FSS_Spin") then spin:Clone().Parent = root end
-                end)
-                task.wait(0.5)
-            end
-            pcall(function()
-                if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
-                    LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
-                end
-            end)
-        end)
-    end
-end
-
--- [FULLBRIGHT LOGIC (RESTORE VISUAL)]
+-- [FULLBRIGHT LOGIC]
 local function RestoreOriginalVisuals()
-    -- Restore Efek yang disembunyikan
     for obj, enabled in pairs(State.StoredEffects) do
         if obj and obj.Parent then obj.Enabled = enabled end
     end
     State.StoredEffects = {}
-
-    -- Restore Global Lighting (Minimal)
+    
     Lighting.Brightness = 1
     Lighting.ClockTime = 12
     Lighting.GlobalShadows = true
-    Lighting.Ambient = Color3.new(0,0,0)
-    Lighting.OutdoorAmbient = Color3.new(0,0,0)
-    Lighting.FogEnd = 100000 -- Nilai default yang aman
+    Lighting.Ambient = Color3.fromRGB(0,0,0)
+    Lighting.OutdoorAmbient = Color3.fromRGB(0,0,0)
+    Lighting.FogEnd = 100000
 end
 
 local function ApplyFullbright(active)
     State.Fullbright = active
-    
     if active then
-        -- Simpan nilai saat ini sebelum diubah (jika belum pernah disimpan)
         if not State.StoredEffects.isSetup then
             Lighting.GlobalShadows = false
-            Lighting.Ambient = Color3.new(0.5,0.5,0.5) -- Lebih moderat
-            Lighting.OutdoorAmbient = Color3.new(0.5,0.5,0.5)
+            Lighting.Ambient = Color3.fromRGB(150, 150, 150)
+            Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
             Lighting.FogEnd = 9e9
+            State.StoredEffects.isSetup = true
         end
 
         task.spawn(function()
             while State.Fullbright do
-                Lighting.Brightness = 1.5 -- Tidak terlalu terang (turun dari 2)
+                Lighting.Brightness = 2
                 Lighting.ClockTime = 14
-                
-                -- Matikan Efek Post-Processing yang bikin Gloomy
                 for _, v in pairs(Lighting:GetChildren()) do
                     if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("ColorCorrection") then
                         if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end
@@ -150,20 +169,25 @@ local function ApplyFullbright(active)
             RestoreOriginalVisuals()
         end)
     else
-        -- Restore visual dilakukan oleh loop saat State.Fullbright menjadi false
+        RestoreOriginalVisuals()
     end
 end
 
--- [ESP SYSTEM]
+-- [ESP SYSTEM IMPROVED]
 local function CreateESP(player)
     if player == LocalPlayer then return end
     
     local function AddVisuals(char)
         if not State.ESP then return end
         
-        -- Cek apakah Head sudah ada (tanpa delay)
-        local head = char:FindFirstChild("Head") 
+        -- Team Check
+        if State.ESP_TeamCheck and player.Team == LocalPlayer.Team then return end
+        
+        local head = char:WaitForChild("Head", 5) 
         if not head then return end 
+        
+        -- Hapus ESP lama jika ada (prevent duplicate)
+        if char:FindFirstChild("FSS_ESP_Box") then char.FSS_ESP_Box:Destroy() end
         
         local hl = Instance.new("Highlight")
         hl.Name = "FSS_ESP_Box"
@@ -172,7 +196,6 @@ local function CreateESP(player)
         hl.FillTransparency = 0.5
         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
         hl.OutlineTransparency = 0
-        -- [FIX CHAMS UTAMA] Harus AlwaysOnTop untuk tembus tembok
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop 
         hl.Parent = char
         
@@ -194,13 +217,6 @@ local function CreateESP(player)
         text.TextSize = 12
         
         table.insert(State.ESP_Cache, {hl = hl, txt = text, plr = player, char = char})
-        
-        char.AncestryChanged:Connect(function(_, parent)
-            if not parent then 
-                hl:Destroy()
-                bg:Destroy()
-            end
-        end)
     end
     
     if player.Character then AddVisuals(player.Character) end
@@ -208,30 +224,37 @@ local function CreateESP(player)
 end
 
 local function UpdateESP_Loop()
-    -- Loop dengan interval yang ditentukan user
     task.spawn(function()
         while State.ESP do
             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not myRoot then task.wait(1) end
+            
+            -- Clean Cache (Hapus entry yang invalid)
+            for i = #State.ESP_Cache, 1, -1 do
+                local item = State.ESP_Cache[i]
+                if not item.char or not item.char.Parent or not item.plr or not item.plr.Parent then
+                    if item.hl then item.hl:Destroy() end
+                    if item.txt and item.txt.Parent then item.txt.Parent:Destroy() end
+                    table.remove(State.ESP_Cache, i)
+                end
+            end
 
-            for i, item in ipairs(State.ESP_Cache) do
-                if item.char and item.char.Parent and item.txt.Parent then
+            for _, item in ipairs(State.ESP_Cache) do
+                if myRoot and item.char and item.txt.Parent then
                     local root = item.char:FindFirstChild("HumanoidRootPart")
-                    
-                    if root and myRoot then
+                    if root then
                         local dist = (root.Position - myRoot.Position).Magnitude
                         item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
                         
-                        -- [KONTROL JARAK] Matikan Chams/ESP jika terlalu jauh
-                        if dist > State.ESP_MaxDistance then
+                        -- Visibility Check berdasarkan Jarak & Team Check Realtime
+                        local isTeammate = (State.ESP_TeamCheck and item.plr.Team == LocalPlayer.Team)
+                        
+                        if dist > State.ESP_MaxDistance or isTeammate then
                             item.hl.Enabled = false
                             item.txt.Visible = false
                         else
                             item.hl.Enabled = true
                             item.txt.Visible = true
                         end
-                    else
-                        -- Jika karakter hilang, biarkan loop Heartbeat menghapus dari cache
                     end
                 end
             end
@@ -249,6 +272,7 @@ local function ToggleESP(active)
         
         UpdateESP_Loop()
     else
+        -- Bersihkan semua Visual
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -261,9 +285,12 @@ local function ToggleESP(active)
     end
 end
 
+-- Init Global Loops
+StartMovementLoop()
+
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.7",
+    Name = "Universal V5.0",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -272,9 +299,14 @@ return {
         State.Noclip = false
         State.Spinbot = false
         State.ESP = false
+        State.FOVEnabled = false
         
         if State.Fullbright then ApplyFullbright(false) end
         
+        -- Restore Camera FOV
+        Camera.FieldOfView = 70
+        
+        -- Disconnect semua event (Heartbeat, RenderStepped, Input)
         for _, c in pairs(State.Connections) do c:Disconnect() end
         ToggleESP(false)
     end,
@@ -283,35 +315,41 @@ return {
         {
             Name = "Player", Icon = "10888331510",
             Elements = {
-                {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v; if v then task.spawn(UpdateSpeed) end end},
+                {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v end},
                 {Type = "Slider", Title = "Speed Value", Min = 16, Max = 500, Default = 16, Callback = function(v) State.Speed = v end},
-                {Type = "Toggle", Title = "Enable JumpPower", Default = false, Callback = function(v) State.JumpEnabled = v; if v then task.spawn(UpdateJump) end end},
+                
+                {Type = "Toggle", Title = "Enable JumpPower", Default = false, Callback = function(v) State.JumpEnabled = v end},
                 {Type = "Slider", Title = "Jump Value", Min = 50, Max = 500, Default = 50, Callback = function(v) State.Jump = v end},
+                
                 {Type = "Toggle", Title = "Infinite Jump", Default = false, Callback = function(v) State.InfJump = v; ToggleInfJump(v) end},
                 {Type = "Toggle", Title = "Noclip (Wall Hack)", Default = false, Callback = function(v) State.Noclip = v; ToggleNoclip(v) end},
-                {Type = "Toggle", Title = "Spinbot (Troll)", Default = false, Callback = function(v) State.Spinbot = v; ToggleSpinbot(v) end}
+                {Type = "Toggle", Title = "Spinbot (Troll)", Default = false, Callback = function(v) State.Spinbot = v end}
             }
         },
         {
             Name = "Visuals", Icon = "10888332158",
             Elements = {
                 {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
-                -- [BARU] SLIDER JARAK
-                {Type = "Slider", Title = "ESP Max Distance (Studs)", Min = 100, Max = 2000, Default = 800, Callback = function(v) State.ESP_MaxDistance = v end},
-                -- [BARU] SLIDER INTERVAL UPDATE
-                {Type = "Slider", Title = "ESP Update Interval (Sec)", Min = 0.1, Max = 2, Default = 0.5, Callback = function(v) State.ESP_UpdateInterval = v end},
-                {
-                    Type = "Toggle", Title = "Fullbright (Anti-Gloomy)", Default = false,
-                    Callback = ApplyFullbright
-                }
+                {Type = "Toggle", Title = "Team Check", Default = false, Callback = function(v) State.ESP_TeamCheck = v end}, -- [BARU]
+                
+                {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1000, Callback = function(v) State.ESP_MaxDistance = v end},
+                
+                {Type = "Toggle", Title = "Fullbright", Default = false, Callback = ApplyFullbright},
+                
+                -- [BARU] FOV Changer Controls
+                {Type = "Toggle", Title = "Enable FOV Changer", Default = false, Callback = function(v) 
+                    State.FOVEnabled = v 
+                    if v then UpdateFOV() else Camera.FieldOfView = 70 end 
+                end},
+                {Type = "Slider", Title = "Field of View", Min = 30, Max = 120, Default = 70, Callback = function(v) State.FOV = v end},
             }
         },
         {
             Name = "Misc", Icon = "10888332462",
             Elements = {
                 {Type = "Button", Title = "Rejoin Server", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end},
-                {Type = "Button", Title = "Server Hop", Callback = function() 
-                    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+                {Type = "Button", Title = "Server Hop (Low Player)", Callback = function() 
+                    local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
                     for _, s in pairs(servers.data) do
                         if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
                             TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer); break
