@@ -1,13 +1,11 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.7 (NO CAMERA LOGIC) ]] --
--- Changelog: Removed ALL Camera Services/References to guarantee smooth camera
+-- [[ FSSHUB DATA: UNIVERSAL V5.8 (PHYSICS DEEP RESET) ]] --
+-- Changelog: Added AngularVelocity Cleanup & Humanoid State Refresh to fix walking jitter after unload
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
--- HAPUS: local Workspace = game:GetService("Workspace") (Tidak perlu akses workspace global)
--- HAPUS: local Camera (Sumber masalah)
 local LocalPlayer = Players.LocalPlayer
 
 -- [[ 1. GLOBAL CLEANUP ]] --
@@ -47,12 +45,13 @@ local State = {
 
 -- [MOVEMENT LOOP]
 local function StartMovementLoop()
-    -- Loop Heartbeat MURNI untuk Karakter saja
+    -- Menggunakan Heartbeat untuk sinkronisasi fisika yang lebih baik
     local conn = RunService.Heartbeat:Connect(function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
+        local root = char and char:FindFirstChild("HumanoidRootPart")
         
-        if char and hum then
+        if char and hum and root then
             -- WalkSpeed Logic
             if State.SpeedEnabled and hum.WalkSpeed ~= State.Speed then
                 hum.WalkSpeed = State.Speed
@@ -66,23 +65,21 @@ local function StartMovementLoop()
                 end
             end
 
-            -- Spinbot Logic (Rotasi Akar Karakter)
+            -- Spinbot Logic
             if State.Spinbot then
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local spin = root:FindFirstChild("FSS_Spin")
-                    if not spin then
-                        spin = Instance.new("BodyAngularVelocity")
-                        spin.Name = "FSS_Spin"
-                        spin.MaxTorque = Vector3.new(0, math.huge, 0)
-                        spin.AngularVelocity = Vector3.new(0, 50, 0)
-                        spin.Parent = root
-                    else
-                        spin.AngularVelocity = Vector3.new(0, 50, 0)
-                    end
+                local spin = root:FindFirstChild("FSS_Spin")
+                if not spin then
+                    spin = Instance.new("BodyAngularVelocity")
+                    spin.Name = "FSS_Spin"
+                    spin.MaxTorque = Vector3.new(0, math.huge, 0)
+                    spin.AngularVelocity = Vector3.new(0, 50, 0)
+                    spin.Parent = root
+                else
+                    spin.AngularVelocity = Vector3.new(0, 50, 0)
                 end
             else
-                local s = char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("FSS_Spin")
+                -- Cleanup Realtime jika toggle dimatikan
+                local s = root:FindFirstChild("FSS_Spin")
                 if s then s:Destroy() end
             end
         end
@@ -275,41 +272,64 @@ end
 -- Init Global Loops
 StartMovementLoop()
 
--- [[ 4. CLEANUP (NO CAMERA TOUCH) ]] --
+-- [[ 4. DEEP CLEANUP LOGIC (V5.8 FIX) ]] --
 local function Cleanup()
-    print("[FSSHUB] Universal Unload (No Camera).")
+    print("[FSSHUB] Starting Deep Physics Cleanup...")
 
+    -- 1. Matikan State
     State.SpeedEnabled = false
     State.JumpEnabled = false
     State.InfJump = false
     State.Spinbot = false
     
+    -- 2. Matikan Loop & Visual
     ToggleNoclip(false)
     ApplyFullbright(false)
     ToggleESP(false)
     
-    -- Reset Humanoid ONLY
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = 16
-        LocalPlayer.Character.Humanoid.JumpPower = 50
-    end
-    
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
-        if s then s:Destroy() end
-    end
-
     for _, c in pairs(State.Connections) do 
         if c then c:Disconnect() end 
     end
     State.Connections = {}
+
+    -- 3. PHYSICS RESET (Kunci perbaikan Jitter/Shaking)
+    if LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        -- A. Reset Nilai Standar
+        if hum then
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+            hum.AutoRotate = true 
+            hum.PlatformStand = false -- Pastikan tidak stuck
+        end
+        
+        -- B. Hapus Sisa Spinbot/BodyMover
+        if root then
+            -- Hapus BodyAngularVelocity milik kita
+            local s = root:FindFirstChild("FSS_Spin")
+            if s then s:Destroy() end
+            
+            -- Hapus Momentum Sisa (Ini yang bikin licin/getar)
+            root.AssemblyAngularVelocity = Vector3.zero 
+            root.AssemblyLinearVelocity = Vector3.zero 
+        end
+        
+        -- C. Refresh State (Opsional, tapi membantu reset animasi)
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Landed)
+        end
+    end
+
+    print("[FSSHUB] Unload Complete. Physics Reset.")
 end
 
 getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V5.7",
+    Name = "Universal V5.8",
     OnUnload = Cleanup,
 
     Tabs = {
