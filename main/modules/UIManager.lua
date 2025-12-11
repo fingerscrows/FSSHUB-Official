@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.7 (REMOVED AUTO-EXEC) ]] --
--- Changelog: COMPLETELY removed queue_on_teleport block
+-- [[ FSSHUB: UI MANAGER V5.8 (CLEAN START) ]] --
+-- Changelog: PURGES any existing Auto-Load config on startup
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -16,6 +16,13 @@ local LibraryInstance = nil
 local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
+
+-- [AUTO-LOAD PURGE] Hapus file auto-load agar script mulai bersih
+local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
+if isfile(AutoLoadPath) then
+    delfile(AutoLoadPath)
+    print("[FSSHUB] Auto-Load config purged for clean start.")
+end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
@@ -45,8 +52,6 @@ function UIManager.Build(GameConfig, AuthData)
         game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load. Check console.", Duration = 5})
         return 
     end
-
-    -- [REMOVED] Logic Auto-Execute sudah dihapus sepenuhnya di sini
 
     local statusIcon = "👤"
     if AuthData then
@@ -190,33 +195,8 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
 
-    -- Auto Load
-    local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
-    local autoLoadState = false
-    if isfile(AutoLoadPath) then
-        local alData = HttpService:JSONDecode(readfile(AutoLoadPath))
-        if alData.GameId == game.GameId and alData.Enabled then
-            autoLoadState = true
-            if isfile(ConfigFolder .. "/" .. alData.Config .. ".json") then
-                task.spawn(function()
-                    task.wait(1)
-                    local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. alData.Config .. ".json"))
-                    for title, value in pairs(data) do
-                        Library.flags[title] = value
-                        if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
-                    end
-                    if Library.base then Library.base:Destroy(); Library.base = nil end 
-                    UIManager.Build(StoredConfig, StoredAuth)
-                    Library:Notify("AutoLoad", "Config Loaded", 3)
-                end)
-            end
-        end
-    end
-
-    SettingsTab:Toggle("Auto Load This Game", autoLoadState, function(state)
-        local data = { GameId = game.GameId, Config = selectedConfig, Enabled = state }
-        writefile(AutoLoadPath, HttpService:JSONEncode(data))
-    end)
+    -- [REMOVED] AUTO LOAD BLOCK
+    -- Blok kode Auto Load sudah dihapus total di sini
 
     -- 3. GLOBAL UTILITIES
     SettingsTab:Label("Utilities")
