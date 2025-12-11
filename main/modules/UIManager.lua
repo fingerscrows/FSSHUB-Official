@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.2 (COMPLETE) ]] --
--- Changelog: MERGED Config System AND Theme Interface (No features missing)
+-- [[ FSSHUB: UI MANAGER V5.3 (LOGIC SAFE) ]] --
+-- Changelog: Added logic cleanup before theme switch to prevent double-looping
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -19,7 +19,7 @@ if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
-    -- Menggunakan URL dari file lokal jika memungkinkan untuk testing, atau load dari web
+    -- Menggunakan URL dari GitHub
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
     if success and lib then
         lib:Init()
@@ -108,16 +108,23 @@ function UIManager.Build(GameConfig, AuthData)
     -- [[ SETTINGS TAB ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- 1. THEME INTERFACE (DIKEMBALIKAN)
+    -- 1. THEME INTERFACE
     SettingsTab:Label("Interface Configuration")
     local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)}, ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)} }
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
     SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
+        -- FIX: Matikan loop script sebelum rebuild UI untuk mencegah double-loop
+        if GameConfig.OnUnload then 
+            pcall(GameConfig.OnUnload) 
+        end
+        
         Library:SetTheme(selected)
         if Library.base then Library.base:Destroy(); Library.base = nil end 
         Library.keybinds = {} 
+        
+        -- Rebuild UI (State akan dipulihkan berkat fix di FSSHUB_Lib)
         UIManager.Build(StoredConfig, StoredAuth)
     end)
 
@@ -163,7 +170,6 @@ function UIManager.Build(GameConfig, AuthData)
     end)
 
     SettingsTab:Button("Create/Overwrite Config", function()
-        -- Save as new random name if Default, else overwrite current
         local name = selectedConfig == "Default" and "Config_" .. tostring(math.random(1000,9999)) or selectedConfig
         local data = {}
         for title, _ in pairs(ConfigurableItems) do data[title] = Library.flags[title] end
