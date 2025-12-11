@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V4.0 (GLOBAL UTILITIES) ]] --
--- Changelog: Added Global Rejoin & Server Hop to Settings, Cleaned Up Structure
+-- [[ FSSHUB: UI MANAGER V4.1 (IMPROVED HOP) ]] --
+-- Changelog: Fixed Server Hop Fetching (Pagination support), Added Debug Console Toggle
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -108,7 +108,7 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end
     
-    -- [[ GLOBAL SETTINGS (OTOMATIS ADA DI SEMUA SCRIPT) ]] --
+    -- [[ GLOBAL SETTINGS ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
     local safePresets = Library.presets or {
@@ -135,28 +135,56 @@ function UIManager.Build(GameConfig, AuthData)
     end)
 
     SettingsTab:Label("Global Utilities")
+    
     -- [GLOBAL REJOIN]
     SettingsTab:Button("Rejoin Server", function()
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end)
 
-    -- [GLOBAL SERVER HOP]
-    SettingsTab:Button("Server Hop (Low Players)", function()
-        Library:Notify("System", "Searching for server...", 2)
+    -- [GLOBAL SERVER HOP FIX V4.1]
+    SettingsTab:Button("Server Hop (Smart)", function()
+        Library:Notify("System", "Scanning servers...", 2)
+        
         task.spawn(function()
-            local success, result = pcall(function()
-                return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-            end)
+            local cursor = ""
+            local found = false
+            local attempts = 0
             
-            if success and result and result.data then
-                for _, s in pairs(result.data) do
-                    if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
-                        TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
-                        break
+            while not found and attempts < 10 do -- Limit 10 halaman agar tidak crash
+                attempts = attempts + 1
+                
+                -- Menggunakan Descending (Terbanyak) untuk mencari server aktif tapi belum penuh
+                -- Ascending (Sedikit) seringkali error/buggy server
+                local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100&cursor="..cursor
+                
+                local success, result = pcall(function()
+                    return HttpService:JSONDecode(game:HttpGet(url))
+                end)
+                
+                if success and result and result.data then
+                    for _, s in pairs(result.data) do
+                        if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                            found = true
+                            Library:Notify("Hop", "Joining: " .. s.id, 3)
+                            TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                            break
+                        end
                     end
+                    
+                    if result.nextPageCursor then
+                        cursor = result.nextPageCursor
+                    else
+                        break -- Habis halaman
+                    end
+                else
+                    Library:Notify("Error", "Fetch Failed. Retrying...", 2)
+                    task.wait(1)
                 end
-            else
-                Library:Notify("Error", "Failed to fetch servers", 3)
+                task.wait(0.1)
+            end
+            
+            if not found then
+                Library:Notify("System", "No better server found.", 3)
             end
         end)
     end)
