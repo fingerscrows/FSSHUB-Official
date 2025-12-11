@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.5 (STABLE & CLEAN) ]] --
--- Changelog: Removed FOV (Glitchy), Reinforced Unload System (Deep Clean)
+-- [[ FSSHUB DATA: UNIVERSAL V5.6 (NO-JITTER FIX) ]] --
+-- Changelog: Switched Movement Loop to Heartbeat (Fix Jitter), Added Camera Type Reset
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,10 +7,10 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- [[ 1. GLOBAL OVERWRITE PROTECTION ]] --
--- Mengecek apakah script sudah berjalan sebelumnya, jika ya, matikan yang lama.
+-- [[ 1. GLOBAL CLEANUP (ANTI-CRASH) ]] --
 if getgenv().FSS_Universal_Stop then
     pcall(getgenv().FSS_Universal_Stop)
 end
@@ -28,7 +28,6 @@ local State = {
     
     -- Visuals
     Fullbright = false,
-    -- FOV DIHAPUS
     
     -- ESP
     ESP = false,
@@ -46,14 +45,15 @@ local State = {
 
 -- 3. Logic Functions
 
--- [MOVEMENT LOOP]
+-- [MOVEMENT LOOP - STABILIZED]
 local function StartMovementLoop()
-    -- Menggunakan RenderStep agar speed/jump tidak bisa di-override game
-    RunService:BindToRenderStep("FSS_Movement_Loop", Enum.RenderPriority.Character.Value + 1, function()
+    -- Ganti ke Heartbeat: Lebih halus, tidak bikin kamera jitter/glitch
+    local conn = RunService.Heartbeat:Connect(function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
         
         if char and hum then
+            -- WalkSpeed & JumpPower Logic
             if State.SpeedEnabled and hum.WalkSpeed ~= State.Speed then
                 hum.WalkSpeed = State.Speed
             end
@@ -64,28 +64,27 @@ local function StartMovementLoop()
                     hum.JumpPower = State.Jump
                 end
             end
-        end
-    end)
-    
-    -- Spinbot Logic
-    local conn = RunService.Heartbeat:Connect(function()
-        if State.Spinbot and LocalPlayer.Character then
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local spin = root:FindFirstChild("FSS_Spin")
-                if not spin then
-                    spin = Instance.new("BodyAngularVelocity")
-                    spin.Name = "FSS_Spin"
-                    spin.MaxTorque = Vector3.new(0, math.huge, 0)
-                    spin.AngularVelocity = Vector3.new(0, 50, 0)
-                    spin.Parent = root
-                else
-                    spin.AngularVelocity = Vector3.new(0, 50, 0)
+
+            -- Spinbot Logic
+            if State.Spinbot then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local spin = root:FindFirstChild("FSS_Spin")
+                    if not spin then
+                        spin = Instance.new("BodyAngularVelocity")
+                        spin.Name = "FSS_Spin"
+                        spin.MaxTorque = Vector3.new(0, math.huge, 0)
+                        spin.AngularVelocity = Vector3.new(0, 50, 0)
+                        spin.Parent = root
+                    else
+                        spin.AngularVelocity = Vector3.new(0, 50, 0)
+                    end
                 end
+            else
+                -- Auto Cleanup Spinbot jika dimatikan via Toggle
+                local s = char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("FSS_Spin")
+                if s then s:Destroy() end
             end
-        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
-            if s then s:Destroy() end
         end
     end)
     table.insert(State.Connections, conn)
@@ -106,7 +105,7 @@ local function ToggleNoclip(active)
         end)
         table.insert(State.Connections, conn)
     else
-        -- Force Restore Collision saat dimatikan
+        -- Force Restore Collision
         if LocalPlayer.Character then
             for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
                 if part:IsA("BasePart") then
@@ -149,7 +148,7 @@ local function ApplyFullbright(active)
 
         task.spawn(function()
             while State.Fullbright do
-                Lighting.Brightness = 1 -- Soft Brightness
+                Lighting.Brightness = 1
                 Lighting.ClockTime = 14
                 Lighting.GlobalShadows = false
                 Lighting.Ambient = Color3.fromRGB(170, 170, 170)
@@ -159,7 +158,6 @@ local function ApplyFullbright(active)
             end
         end)
     else
-        -- Restore Lighting secara instan saat dimatikan
         if State.OriginalLighting then
             Lighting.Brightness = State.OriginalLighting.Brightness
             Lighting.ClockTime = State.OriginalLighting.ClockTime
@@ -263,7 +261,6 @@ local function ToggleESP(active)
         table.insert(State.Connections, conn1)
         UpdateESP_Loop()
     else
-        -- Hapus total semua visual ESP saat dimatikan
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -283,46 +280,47 @@ StartMovementLoop()
 local function Cleanup()
     print("[FSSHUB] Starting Deep Cleanup...")
 
-    -- 1. Matikan State
     State.SpeedEnabled = false
     State.JumpEnabled = false
     State.InfJump = false
     State.Spinbot = false
     
-    -- 2. Restore Visuals & Physics
-    ToggleNoclip(false)     -- Restore Collision
-    ApplyFullbright(false)  -- Restore Lighting
-    ToggleESP(false)        -- Hapus Visual ESP
+    ToggleNoclip(false)
+    ApplyFullbright(false)
+    ToggleESP(false)
     
-    -- 3. Reset Karakter ke Default
+    -- [JITTER FIX] Reset Camera & Humanoid
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = 16
         LocalPlayer.Character.Humanoid.JumpPower = 50
+        LocalPlayer.Character.Humanoid.AutoRotate = true -- Pastikan rotasi kembali normal
     end
     
-    -- 4. Hapus Spinbot Object
+    -- Pastikan Camera kembali ke Mode Custom (Standard Roblox)
+    if Camera then
+        Camera.CameraType = Enum.CameraType.Custom
+    end
+    
+    -- Hapus Spinbot
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
         if s then s:Destroy() end
     end
 
-    -- 5. Matikan semua Loops & Binds
-    pcall(function() RunService:UnbindFromRenderStep("FSS_Movement_Loop") end)
-    
+    -- Disconnect Loops (Tidak ada lagi UnbindFromRenderStep yang bikin jitter)
     for _, c in pairs(State.Connections) do 
         if c then c:Disconnect() end 
     end
     State.Connections = {}
     
-    print("[FSSHUB] Universal Script Completely Unloaded.")
+    print("[FSSHUB] Universal Script Unloaded (Jitter Free).")
 end
 
--- Set Global Function untuk akses luar
 getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V5.5",
+    Name = "Universal V5.6",
     OnUnload = Cleanup,
 
     Tabs = {
@@ -349,8 +347,6 @@ return {
                 {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1500, Callback = function(v) State.ESP_MaxDistance = v end},
                 
                 {Type = "Toggle", Title = "Fullbright (Soft)", Default = false, Callback = ApplyFullbright},
-                
-                -- FITUR FOV TELAH DIHAPUS SESUAI PERMINTAAN
             }
         },
         {
