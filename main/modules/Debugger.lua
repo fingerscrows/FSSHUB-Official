@@ -1,5 +1,6 @@
--- [[ FSSHUB MODULE: DEV SUITE V4.1 (RICHTEXT & MONITOR) ]] --
+-- [[ FSSHUB MODULE: DEV SUITE V4.2 (SECURE GUI) ]] --
 -- Features: F10 Toggle, RichText Logs (Colors fixed), Copy All, Detailed Monitor Toggle
+-- Path: main/modules/Debugger.lua
 
 local Debugger = {}
 local CoreGui = game:GetService("CoreGui")
@@ -10,6 +11,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 function Debugger.Show()
+    -- FIX: Gunakan gethui untuk keamanan ekstra
     local Parent = gethui and gethui() or CoreGui
     if Parent:FindFirstChild("FSSHUB_DevSuite") then
         Parent.FSSHUB_DevSuite:Destroy()
@@ -46,7 +48,7 @@ function Debugger.Show()
     Title.Position = UDim2.new(0, 15, 0, 10)
     Title.Size = UDim2.new(1, -100, 0, 20)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "FSSHUB DEBUGGER [F10] | V4.1"
+    Title.Text = "FSSHUB DEBUGGER [F10] | V4.2"
     Title.TextColor3 = Color3.fromRGB(140, 80, 255)
     Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -345,7 +347,7 @@ Active: %s]],
         if not p and i.KeyCode == Enum.KeyCode.F10 then Main.Visible = not Main.Visible end
     end)
 
-    AddLog("Debugger V4.1 Loaded. RichText Enabled.", Enum.MessageType.MessageOutput)
+    AddLog("Debugger V4.2 Loaded. RichText Enabled.", Enum.MessageType.MessageOutput)
 end
 
 return Debugger
