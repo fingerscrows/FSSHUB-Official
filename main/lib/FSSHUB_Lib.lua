@@ -174,6 +174,7 @@ function library:Window(title)
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = library.theme.Stroke, Thickness = 1})
 
+    -- [MOUSE UNLOCK FIX] Ini membuat kursor tetap muncul di tengah layar
     Create("TextButton", {Parent = MainFrame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(0,0,0,0), Modal = true})
 
     local Header = Create("Frame", {Parent = MainFrame, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 45)})
@@ -303,6 +304,19 @@ function library:Window(title)
             local boundKey = nil; return { SetKeybind = function(key) UpdateKeybind(library.keybinds, boundKey, key, DoClick); boundKey = key end }
         end
 
+        function tab:Keybind(text, defaultKey, callback)
+            local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
+            AddHover(Frame)
+            Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+            local BindBtn = Create("TextButton", {Parent = Frame, Text = (defaultKey and defaultKey.Name or "NONE"), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), BackgroundColor3 = library.theme.Main})
+            Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
+            local binding = false; local boundKey = defaultKey
+            if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end
+            BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
+            UserInputService.InputBegan:Connect(function(input) if binding and input.UserInputType == Enum.UserInputType.Keyboard then binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim; UpdateKeybind(library.keybinds, boundKey, input.KeyCode, callback); boundKey = input.KeyCode end end)
+        end
+        
         function tab:Slider(text, min, max, default, callback)
              local val = default or min
              library.flags[text] = val
