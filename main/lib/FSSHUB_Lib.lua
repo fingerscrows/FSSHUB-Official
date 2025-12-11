@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.7 (STABLE RENDER FIX) ]] --
--- Changelog: Manual Canvas Resizing (Fixes empty GUI), Cleaned Debugs
+-- [[ FSSHUB LIBRARY: V15.8 (PARAGRAPH FIX) ]] --
+-- Changelog: Added missing 'Paragraph' element to fix UI Build Error
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -17,6 +17,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
+-- [[ THEME ENGINE ]] --
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -212,14 +213,14 @@ function library:Window(title)
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.None, -- Manual mode ON
+            AutomaticCanvasSize = Enum.AutomaticSize.None, -- Manual Mode
             CanvasSize = UDim2.new(0, 0, 0, 0)
         })
         
         local List = Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
         
-        -- [RENDER FIX] Update tinggi canvas berdasarkan konten
+        -- Live Resize
         List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
         end)
@@ -255,7 +256,7 @@ function library:Window(title)
             end
             Page.Visible = true; Indicator.Visible = true
             
-            -- Force refresh canvas height
+            -- Force Canvas Update
             Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
             
             TweenService:Create(TabLabel, TweenInfo.new(0.2), {TextColor3 = library.theme.Text}):Play()
@@ -265,12 +266,30 @@ function library:Window(title)
         if firstTab then
             Page.Visible = true; Indicator.Visible = true; TabLabel.TextColor3 = library.theme.Text
             if tabObj.icon then tabObj.icon.ImageColor3 = library.theme.Text end
-            -- Force init canvas
             task.delay(0.1, function() if Page and List then Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20) end end)
             firstTab = false
         end
 
         local tab = {}
+        
+        -- [NEW FEATURE] Paragraph (Label Multi-Baris)
+        function tab:Paragraph(title, content)
+            local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 60)})
+            Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            
+            Create("TextLabel", {
+                Parent = Frame, Text = title, Font = Enum.Font.GothamBold, TextColor3 = library.theme.Accent, 
+                TextSize = 13, Size = UDim2.new(1, -20, 0, 20), Position = UDim2.new(0, 10, 0, 5), 
+                BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left
+            })
+            
+            Create("TextLabel", {
+                Parent = Frame, Text = content, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, 
+                TextSize = 12, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.new(0, 10, 0, 25), 
+                BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true
+            })
+        end
+
         function tab:Label(text)
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 30)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -296,7 +315,7 @@ function library:Window(title)
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)}):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
             end
-            local function SetState(val) toggled = val; library.flags[text] = val; UpdateToggleState(); callback(toggled) end
+            local function SetState(val) toggled = val; library.flags[text] = val; UpdateToggleState(); pcall(function() callback(toggled) end) end
             
             Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
             
@@ -335,7 +354,12 @@ function library:Window(title)
             local Frame = Create("TextButton", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 34), Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, AutoButtonColor = false})
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-            local function DoClick() TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play(); task.wait(0.1); TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play(); callback() end
+            local function DoClick() 
+                TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play()
+                task.wait(0.1)
+                TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play()
+                pcall(callback)
+            end
             Frame.MouseButton1Click:Connect(DoClick)
             
             local boundKey = nil
@@ -423,7 +447,7 @@ function library:Window(title)
                  local pct = (val - min) / (max - min)
                  updateVisual(pct)
                  ValLbl.Text = tostring(val)
-                 callback(val)
+                 pcall(function() callback(val) end)
              end
              Set(val)
 
@@ -457,7 +481,14 @@ function library:Window(title)
              local OptionContainer = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 1, -36), Position = UDim2.new(0, 0, 0, 36), BackgroundTransparency = 1, Name = "OptionList"})
              Create("UIListLayout", {Parent = OptionContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
              Create("UIPadding", {Parent = OptionContainer, PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)})
-             local function Set(opt) library.flags[text] = opt; Title.Text = text .. ": " .. opt; callback(opt); isDropped = false; TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play(); Icon.Text = "v" end
+             local function Set(opt) 
+                 library.flags[text] = opt
+                 Title.Text = text .. ": " .. opt
+                 pcall(function() callback(opt) end)
+                 isDropped = false
+                 TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play()
+                 Icon.Text = "v" 
+             end
              Btn.MouseButton1Click:Connect(function() isDropped = not isDropped; local height = isDropped and (36 + (#options * 30) + 10) or 36; TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, height)}):Play(); Icon.Text = isDropped and "^" or "v" end)
              for _, opt in ipairs(options) do
                  local OptBtn = Create("TextButton", {Parent = OptionContainer, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false})
