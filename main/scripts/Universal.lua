@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.8 (PHYSICS DEEP RESET) ]] --
--- Changelog: Added AngularVelocity Cleanup & Humanoid State Refresh to fix walking jitter after unload
+-- [[ FSSHUB DATA: UNIVERSAL V6.0 (CLASSIC HYBRID) ]] --
+-- Changelog: Reverted to V4.7 Loop Logic (Fix Shaking), Kept V5.8 Features (Clean Unload, Team Check)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -30,7 +30,7 @@ local State = {
     -- ESP
     ESP = false,
     ESP_MaxDistance = 1500, 
-    ESP_UpdateInterval = 0.2,
+    ESP_UpdateInterval = 0.5, -- Kembali ke 0.5 agar tidak berat
     ESP_TeamCheck = false,
     
     -- System
@@ -41,50 +41,67 @@ local State = {
     OriginalLighting = nil
 }
 
--- 3. Logic Functions
+-- 3. Logic Functions (KEMBALI KE LOGIKA CLASSIC V4.7)
 
--- [MOVEMENT LOOP]
-local function StartMovementLoop()
-    -- Menggunakan Heartbeat untuk sinkronisasi fisika yang lebih baik
-    local conn = RunService.Heartbeat:Connect(function()
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChild("Humanoid")
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        
-        if char and hum and root then
-            -- WalkSpeed Logic
-            if State.SpeedEnabled and hum.WalkSpeed ~= State.Speed then
-                hum.WalkSpeed = State.Speed
+local function UpdateSpeed()
+    -- Menggunakan 'while task.wait()' agar smooth dan tidak jitter
+    while State.SpeedEnabled do
+        task.wait()
+        pcall(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                -- Cek dulu agar tidak spam property jika nilainya sudah sama
+                if LocalPlayer.Character.Humanoid.WalkSpeed ~= State.Speed then
+                    LocalPlayer.Character.Humanoid.WalkSpeed = State.Speed
+                end
+            end
+        end)
+    end
+    -- Reset saat loop mati
+    pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
+end
+
+local function UpdateJump()
+    while State.JumpEnabled do
+        task.wait()
+        pcall(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.UseJumpPower = true
+                if LocalPlayer.Character.Humanoid.JumpPower ~= State.Jump then
+                    LocalPlayer.Character.Humanoid.JumpPower = State.Jump
+                end
+            end
+        end)
+    end
+    -- Reset saat loop mati
+    pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
+end
+
+local function ToggleSpinbot(active)
+    if active then
+        task.spawn(function()
+            local spin = Instance.new("BodyAngularVelocity")
+            spin.Name = "FSS_Spin"
+            spin.MaxTorque = Vector3.new(0, math.huge, 0)
+            spin.AngularVelocity = Vector3.new(0, 50, 0)
+            
+            while State.Spinbot do
+                pcall(function()
+                    local root = LocalPlayer.Character.HumanoidRootPart
+                    if root and not root:FindFirstChild("FSS_Spin") then 
+                        spin:Clone().Parent = root 
+                    end
+                end)
+                task.wait(0.5) -- Cek setiap 0.5 detik, bukan setiap frame (Anti-Lag/Jitter)
             end
             
-            -- JumpPower Logic
-            if State.JumpEnabled then
-                hum.UseJumpPower = true
-                if hum.JumpPower ~= State.Jump then
-                    hum.JumpPower = State.Jump
+            -- Cleanup saat loop mati
+            pcall(function()
+                if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
+                    LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
                 end
-            end
-
-            -- Spinbot Logic
-            if State.Spinbot then
-                local spin = root:FindFirstChild("FSS_Spin")
-                if not spin then
-                    spin = Instance.new("BodyAngularVelocity")
-                    spin.Name = "FSS_Spin"
-                    spin.MaxTorque = Vector3.new(0, math.huge, 0)
-                    spin.AngularVelocity = Vector3.new(0, 50, 0)
-                    spin.Parent = root
-                else
-                    spin.AngularVelocity = Vector3.new(0, 50, 0)
-                end
-            else
-                -- Cleanup Realtime jika toggle dimatikan
-                local s = root:FindFirstChild("FSS_Spin")
-                if s then s:Destroy() end
-            end
-        end
-    end)
-    table.insert(State.Connections, conn)
+            end)
+        end)
+    end
 end
 
 -- [ROBUST NOCLIP]
@@ -269,82 +286,72 @@ local function ToggleESP(active)
     end
 end
 
--- Init Global Loops
-StartMovementLoop()
-
--- [[ 4. DEEP CLEANUP LOGIC (V5.8 FIX) ]] --
+-- [[ 4. CLEANUP (CLASSIC SAFE MODE) ]] --
 local function Cleanup()
-    print("[FSSHUB] Starting Deep Physics Cleanup...")
+    print("[FSSHUB] Unloading Universal (Classic Mode)...")
 
-    -- 1. Matikan State
+    -- 1. Matikan Flag (Ini akan menghentikan loop 'while' secara otomatis)
     State.SpeedEnabled = false
     State.JumpEnabled = false
     State.InfJump = false
     State.Spinbot = false
+    State.ESP = false
+    State.Fullbright = false
+    State.Noclip = false
     
-    -- 2. Matikan Loop & Visual
+    -- 2. Tunggu sebentar agar loop sempat berhenti
+    task.wait(0.1)
+    
+    -- 3. Paksa Matikan Fitur yang mungkin nyangkut
     ToggleNoclip(false)
     ApplyFullbright(false)
     ToggleESP(false)
     
+    -- 4. Reset Humanoid
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        LocalPlayer.Character.Humanoid.JumpPower = 50
+    end
+    
+    -- 5. Hapus Objek Fisika (PENTING UNTUK MENCEGAH SHAKING)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
+        if s then s:Destroy() end
+        
+        -- Reset Momentum (Opsional, tapi aman)
+        LocalPlayer.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0,0,0)
+    end
+
+    -- 6. Disconnect semua event listener
     for _, c in pairs(State.Connections) do 
         if c then c:Disconnect() end 
     end
     State.Connections = {}
-
-    -- 3. PHYSICS RESET (Kunci perbaikan Jitter/Shaking)
-    if LocalPlayer.Character then
-        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        -- A. Reset Nilai Standar
-        if hum then
-            hum.WalkSpeed = 16
-            hum.JumpPower = 50
-            hum.AutoRotate = true 
-            hum.PlatformStand = false -- Pastikan tidak stuck
-        end
-        
-        -- B. Hapus Sisa Spinbot/BodyMover
-        if root then
-            -- Hapus BodyAngularVelocity milik kita
-            local s = root:FindFirstChild("FSS_Spin")
-            if s then s:Destroy() end
-            
-            -- Hapus Momentum Sisa (Ini yang bikin licin/getar)
-            root.AssemblyAngularVelocity = Vector3.zero 
-            root.AssemblyLinearVelocity = Vector3.zero 
-        end
-        
-        -- C. Refresh State (Opsional, tapi membantu reset animasi)
-        if hum then
-            hum:ChangeState(Enum.HumanoidStateType.Landed)
-        end
-    end
-
-    print("[FSSHUB] Unload Complete. Physics Reset.")
+    
+    print("[FSSHUB] Universal Unloaded Successfully.")
 end
 
 getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V5.8",
+    Name = "Universal V6.0",
     OnUnload = Cleanup,
 
     Tabs = {
         {
             Name = "Player", Icon = "10888331510",
             Elements = {
-                {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v end},
+                -- Menggunakan task.spawn untuk memanggil fungsi loop (V4.7 Style)
+                {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v; if v then task.spawn(UpdateSpeed) end end},
                 {Type = "Slider", Title = "Speed Value", Min = 16, Max = 500, Default = 16, Callback = function(v) State.Speed = v end},
                 
-                {Type = "Toggle", Title = "Enable JumpPower", Default = false, Callback = function(v) State.JumpEnabled = v end},
+                {Type = "Toggle", Title = "Enable JumpPower", Default = false, Callback = function(v) State.JumpEnabled = v; if v then task.spawn(UpdateJump) end end},
                 {Type = "Slider", Title = "Jump Value", Min = 50, Max = 500, Default = 50, Callback = function(v) State.Jump = v end},
                 
                 {Type = "Toggle", Title = "Infinite Jump", Default = false, Callback = function(v) ToggleInfJump(v) end},
                 {Type = "Toggle", Title = "Noclip (Wall Hack)", Default = false, Callback = function(v) ToggleNoclip(v) end},
-                {Type = "Toggle", Title = "Spinbot (Troll)", Default = false, Callback = function(v) State.Spinbot = v end}
+                {Type = "Toggle", Title = "Spinbot (Troll)", Default = false, Callback = function(v) State.Spinbot = v; ToggleSpinbot(v) end}
             }
         },
         {
