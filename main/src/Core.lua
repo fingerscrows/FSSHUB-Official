@@ -1,5 +1,6 @@
 -- [[ FSSHUB CORE V11.2 (SMART NAMING) ]] --
 -- Fitur: Override Nama Menu dengan Nama Game Asli & Status Deteksi
+-- Path: main/src/Core.lua
 
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
@@ -26,6 +27,7 @@ local function GetGameName()
 end
 
 local function LoadUrl(path)
+    -- Menambahkan cache buster ?t=random
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(math.random(1, 100000)))
 end
 
@@ -41,7 +43,7 @@ end
 -- Validasi Key
 function Core.ValidateKey(input)
     if not input or #input < 5 then return {valid=false} end
-    input = string.gsub(input, "^%s*(.-)%s*$", "%1")
+    input = string.gsub(input, "^%s*(.-)%s*$", "%1") -- Trim spasi
     
     local hwid = GetHWID()
     local pid = game.PlaceId
@@ -70,7 +72,7 @@ function Core.ValidateKey(input)
                 GameName = gameName,
                 TargetScript = data.script, 
                 IsDev = isDeveloper,
-                MOTD = data.motd -- [BARU] Simpan pesan pengumuman
+                MOTD = data.motd -- Simpan pesan pengumuman
             }
             
             return {valid=true, info=data.info} 
@@ -82,6 +84,7 @@ end
 function Core.LoadGame()
     Notify("SYSTEM", "Checking Database...")
     
+    -- Load UI Manager Module
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     if not successManager or not ManagerLib then Notify("FATAL ERROR", "Failed to load UI Manager") return end
 
@@ -90,7 +93,7 @@ function Core.LoadGame()
     local isUniversal = true -- Default anggap Universal
     
     -- Jika Server memberikan script khusus, pakai itu
-    if Core.AuthData and Core.AuthData.TargetScript then
+    if Core.AuthData and Core.AuthData.TargetScript and Core.AuthData.TargetScript ~= "" then
         scriptPath = Core.AuthData.TargetScript
         isUniversal = false -- Tandai sebagai script resmi/support
     end
@@ -105,6 +108,7 @@ function Core.LoadGame()
     
     if not successData or type(GameData) ~= "table" then
         Notify("WARNING", "Module Error. Loading Universal...")
+        -- Fallback ke Universal jika script game error
         local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
         if successUniv then 
             GameData = UnivData 
@@ -116,8 +120,7 @@ function Core.LoadGame()
     end
     
     -- [OVERRIDE NAMA MENU]
-    -- Selalu gunakan Nama Game Asli sebagai Judul Menu (Request User)
-    -- Jadi tidak akan pernah muncul tulisan "Universal V3.1" di header
+    -- Selalu gunakan Nama Game Asli sebagai Judul Menu
     if Core.AuthData and Core.AuthData.GameName then
         GameData.Name = Core.AuthData.GameName
     end
@@ -126,6 +129,7 @@ function Core.LoadGame()
 end
 
 function Core.Init()
+    -- Cek Key Tersimpan
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
@@ -136,6 +140,7 @@ function Core.Init()
         end
     end
     
+    -- Load Auth UI jika tidak ada key tersimpan
     local success, AuthUI = pcall(function() return loadstring(LoadUrl("main/modules/AuthUI.lua"))() end)
     if success and AuthUI then
         AuthUI.Show({
