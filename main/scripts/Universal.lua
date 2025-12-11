@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.2 (AUTO-CLEAN & BUG FIX) ]] --
--- Changelog: Added Global Overwrite Protection, Fixed FOV Fighting, Robust Noclip
+-- [[ FSSHUB DATA: UNIVERSAL V5.3 (FOV & BRIGHTNESS FIX) ]] --
+-- Changelog: Reduced Brightness, Fixed FOV Fighting using BindToRenderStep
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,7 +11,7 @@ local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 -- [[ 1. GLOBAL CLEANUP SYSTEM ]] --
--- Ini akan mematikan script lama secara otomatis jika kamu meng-execute ulang
+-- Mematikan script versi sebelumnya agar tidak bertabrakan
 if getgenv().FSS_Universal_Stop then
     pcall(getgenv().FSS_Universal_Stop)
 end
@@ -35,7 +35,7 @@ local State = {
     -- ESP
     ESP = false,
     ESP_MaxDistance = 1500, 
-    ESP_UpdateInterval = 0.2, -- Lebih cepat untuk respon lebih baik
+    ESP_UpdateInterval = 0.2,
     ESP_TeamCheck = false,
     
     -- System
@@ -43,25 +43,23 @@ local State = {
     ESP_Cache = {},
     
     -- Backup Values
-    OriginalLighting = nil -- Kita set nil dulu agar tidak menyimpan lighting yang sudah ter-modifikasi
+    OriginalLighting = nil
 }
 
 -- 3. Logic Functions
 
--- [MOVEMENT & PHYSICS LOOP]
+-- [MOVEMENT LOOP]
 local function StartMovementLoop()
-    -- Gunakan Unique Name untuk bind agar tidak duplikat
+    -- Menggunakan prioritas Character agar movement smooth
     RunService:BindToRenderStep("FSS_Movement_Loop", Enum.RenderPriority.Character.Value + 1, function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
         
         if char and hum then
-            -- WalkSpeed (Force Set)
             if State.SpeedEnabled and hum.WalkSpeed ~= State.Speed then
                 hum.WalkSpeed = State.Speed
             end
             
-            -- JumpPower (Force Set)
             if State.JumpEnabled then
                 hum.UseJumpPower = true
                 if hum.JumpPower ~= State.Jump then
@@ -71,7 +69,6 @@ local function StartMovementLoop()
         end
     end)
     
-    -- Spinbot Logic (Heartbeat lebih baik untuk fisika)
     local conn = RunService.Heartbeat:Connect(function()
         if State.Spinbot and LocalPlayer.Character then
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -110,7 +107,6 @@ local function ToggleNoclip(active)
         end)
         table.insert(State.Connections, conn)
     else
-        -- Force Restore Collision
         if LocalPlayer.Character then
             for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
                 if part:IsA("BasePart") then
@@ -135,27 +131,31 @@ local function ToggleInfJump(active)
     end
 end
 
--- [FOV FIX]
+-- [FOV FIX - HIGH PRIORITY]
 local function UpdateFOV(active)
     State.FOVEnabled = active
+    
+    -- Hapus bind lama jika ada
+    pcall(function() RunService:UnbindFromRenderStep("FSS_FOV_Fix") end)
+
     if not active then
-        Camera.FieldOfView = 70 -- Reset ke default
+        Camera.FieldOfView = 70
     else
-        local conn = RunService.RenderStepped:Connect(function()
+        -- KUNCI UTAMA: Menggunakan prioritas Camera + 1
+        -- Ini memaksa script kita berjalan SETELAH script kamera game, mencegah glitch
+        RunService:BindToRenderStep("FSS_FOV_Fix", Enum.RenderPriority.Camera.Value + 1, function()
             if State.FOVEnabled then
                 Camera.FieldOfView = State.FOV
             end
         end)
-        table.insert(State.Connections, conn)
     end
 end
 
--- [FULLBRIGHT ROBUST]
+-- [FULLBRIGHT - ADJUSTED BRIGHTNESS]
 local function ApplyFullbright(active)
     State.Fullbright = active
     
     if active then
-        -- Hanya simpan backup JIKA belum pernah disimpan (agar tidak membackup lighting yang sudah terang)
         if not State.OriginalLighting then
             State.OriginalLighting = {
                 Brightness = Lighting.Brightness,
@@ -169,7 +169,8 @@ local function ApplyFullbright(active)
 
         task.spawn(function()
             while State.Fullbright do
-                Lighting.Brightness = 2
+                -- Mengubah Brightness dari 2 ke 1 (Lebih nyaman di mata)
+                Lighting.Brightness = 1 
                 Lighting.ClockTime = 14
                 Lighting.GlobalShadows = false
                 Lighting.Ambient = Color3.fromRGB(170, 170, 170)
@@ -179,7 +180,6 @@ local function ApplyFullbright(active)
             end
         end)
     else
-        -- Restore hanya jika backup ada
         if State.OriginalLighting then
             Lighting.Brightness = State.OriginalLighting.Brightness
             Lighting.ClockTime = State.OriginalLighting.ClockTime
@@ -187,14 +187,12 @@ local function ApplyFullbright(active)
             Lighting.Ambient = State.OriginalLighting.Ambient
             Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
             Lighting.FogEnd = State.OriginalLighting.FogEnd
-            
-            -- Reset backup agar pengambilan berikutnya segar
             State.OriginalLighting = nil
         end
     end
 end
 
--- [ESP SYSTEM OPTIMIZED]
+-- [ESP SYSTEM]
 local function CreateESP(player)
     if player == LocalPlayer then return end
     
@@ -246,7 +244,6 @@ local function UpdateESP_Loop()
         while State.ESP do
             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             
-            -- Loop mundur agar aman saat menghapus item dari table
             for i = #State.ESP_Cache, 1, -1 do
                 local item = State.ESP_Cache[i]
                 if not item.char or not item.char.Parent or not item.plr or not item.plr.Parent then
@@ -301,33 +298,33 @@ end
 -- Init Global Loops
 StartMovementLoop()
 
--- 4. CLEANUP FUNCTION
+-- 4. CLEANUP FUNCTION (CRITICAL)
 local function Cleanup()
     State.SpeedEnabled = false
     State.JumpEnabled = false
     State.InfJump = false
     State.Spinbot = false
     
-    -- Reset Visuals
     ToggleNoclip(false)
-    UpdateFOV(false)
+    UpdateFOV(false) -- Ini akan mematikan BindToRenderStep FOV
     ApplyFullbright(false)
     ToggleESP(false)
     
-    -- Kill Loops
-    RunService:UnbindFromRenderStep("FSS_Movement_Loop")
+    -- Unbind semua RenderStep kustom
+    pcall(function() RunService:UnbindFromRenderStep("FSS_Movement_Loop") end)
+    pcall(function() RunService:UnbindFromRenderStep("FSS_FOV_Fix") end)
+    
     for _, c in pairs(State.Connections) do c:Disconnect() end
     State.Connections = {}
     
     print("[FSSHUB] Universal Script Cleaned Up.")
 end
 
--- Simpan fungsi cleanup ke Global Environment
 getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V5.2",
+    Name = "Universal V5.3",
     OnUnload = Cleanup,
 
     Tabs = {
@@ -353,7 +350,7 @@ return {
                 
                 {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1500, Callback = function(v) State.ESP_MaxDistance = v end},
                 
-                {Type = "Toggle", Title = "Fullbright", Default = false, Callback = ApplyFullbright},
+                {Type = "Toggle", Title = "Fullbright (Soft)", Default = false, Callback = ApplyFullbright},
                 
                 {Type = "Toggle", Title = "Enable FOV Changer", Default = false, Callback = function(v) UpdateFOV(v) end},
                 {Type = "Slider", Title = "Field of View", Min = 30, Max = 120, Default = 70, Callback = function(v) State.FOV = v end},
