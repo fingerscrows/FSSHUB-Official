@@ -1,5 +1,6 @@
 -- [[ FSSHUB DATA: UNIVERSAL V6.2 (CLEANED) ]] --
 -- Changelog: Removed redundant 'Misc' tab (now handled globally by UIManager)
+-- Path: main/scripts/Universal.lua
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
