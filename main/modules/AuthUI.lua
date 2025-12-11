@@ -1,16 +1,12 @@
--- [[ FSSHUB AUTH UI V7.8 (DEBUG MODE) ]] --
+-- [[ FSSHUB AUTH UI V7.7 (SMART INPUT) ]] --
 -- Path: main/modules/AuthUI.lua
 
 local AuthUI = {}
+local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
-local TweenService = game:GetService("TweenService")
-
-local function Log(msg)
-    print("[FSS-DEBUG] [AuthUI] " .. tostring(msg))
-end
 
 local Theme = {
     Bg = Color3.fromRGB(15, 15, 20),
@@ -27,7 +23,6 @@ local function GetHWID()
 end
 
 function AuthUI.Show(options)
-    Log("Showing Auth Interface...")
     local Parent = gethui and gethui() or CoreGui
     if Parent:FindFirstChild("FSSHUB_Auth") then Parent.FSSHUB_Auth:Destroy() end
 
@@ -68,7 +63,7 @@ function AuthUI.Show(options)
     Input.PlaceholderText = "Paste Key Here..."
     Input.Font = Enum.Font.Code
     Input.TextSize = 14
-    Input.Text = ""
+    Input.Text = "" 
     
     local function CreateBtn(text, posScale, func)
         local Btn = Instance.new("TextButton", Main)
@@ -90,6 +85,7 @@ function AuthUI.Show(options)
     CreateBtn("GET KEY", 0.075, function(btn)
         local hwid = GetHWID()
         local link = "https://fingerscrows.github.io/fsshub-official/?hwid=" .. hwid
+        
         if setclipboard then
             setclipboard(link)
             btn.Text = "COPIED!"
@@ -101,33 +97,18 @@ function AuthUI.Show(options)
     end)
     
     CreateBtn("LOGIN", 0.525, function(btn)
-        Log("Login button clicked")
         local txt = Input.Text
         txt = string.gsub(txt, "^%s+", "")
         txt = string.gsub(txt, "%s+$", "")
-        
-        Log("Processing Key: " .. (txt:sub(1,5) or "NIL") .. "...") -- Log key sebagian untuk keamanan
         
         local oldTxt = btn.Text
         local oldColor = btn.BackgroundColor3
         
         btn.Text = "CHECKING..."
         
-        -- Safe Call Callback
-        local s, result = pcall(function() 
-            return options.OnSuccess(txt) 
-        end)
-        
-        if not s then
-            Log("CRITICAL ERROR in OnSuccess callback: " .. tostring(result))
-            btn.Text = "ERROR"
-            return
-        end
-        
-        Log("Server Response Received: " .. tostring(result and result.success))
+        local result = options.OnSuccess(txt)
         
         if result and result.success then
-            Log("Access Granted. Closing Auth UI...")
             Stroke.Color = Theme.Accent
             Title.Text = "ACCESS GRANTED"
             
@@ -142,9 +123,7 @@ function AuthUI.Show(options)
             
             task.wait(1)
             Screen:Destroy()
-            Log("Auth UI Destroyed.")
         else
-            Log("Access Denied or Invalid Key")
             btn.Text = oldTxt
             btn.BackgroundColor3 = oldColor
             Title.Text = "INVALID KEY"
@@ -157,7 +136,6 @@ function AuthUI.Show(options)
         end
     end)
     
-    -- Drag Logic Simplified
     local dragging, dragInput, dragStart, startPos
     Main.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = Main.Position end end)
     Main.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
