@@ -18,14 +18,17 @@ function UIManager.Build(GameConfig, AuthData)
     Library:Watermark("FSSHUB " .. userStatus .. " | " .. GameConfig.Name)
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name))
     
-    -- [[ PROFILE TAB ]] --
-    local ProfileTab = Window:Section("Profile", "10888331510")
+  -- [[ TAB 1: DASHBOARD ]] --
+    local ProfileTab = Window:Section("Dashboard", "10888331510")
     
     if AuthData then
-        -- [LOGIKA STATUS SCRIPT]
-        local scriptStatusText = "✅ Official Script Loaded"
-        local gameNameText = GameConfig.Name
-        
+        -- [BARU] Tampilkan MOTD Paling Atas (Jika ada isinya)
+        if AuthData.MOTD and AuthData.MOTD ~= "" then
+            ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD)
+        end
+
+        local statusText = "✅ Official Script Supported"
+        -- ... (Kode selanjutnya sama)
         if AuthData.IsUniversal then
             scriptStatusText = "⚠️ Script Not Supported (Universal Mode)"
             -- Tambahkan info ini agar user sadar
