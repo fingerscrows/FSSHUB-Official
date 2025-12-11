@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.8 (SMOOTH THEME) ]] --
--- Changelog: Added Real-time Theme Registry for smooth transitions
+-- [[ FSSHUB LIBRARY: V16.0 (FINAL STABLE) ]] --
+-- Changelog: Fixed Label return object (Expiry Fix), Manual Canvas (GUI Fix)
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -9,7 +9,7 @@ local library = {
     keybinds = {},
     gui_objects = {},
     wm_obj = nil,
-    themeRegistry = {} -- [NEW] Penyimpanan objek untuk update tema
+    themeRegistry = {}
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
+-- [[ THEME ENGINE ]] --
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -39,27 +40,20 @@ library.presets = {
     ["Midnight"]   = {Accent = Color3.fromRGB(80, 80, 255), Main = Color3.fromRGB(10, 10, 15), Content = Color3.fromRGB(15, 15, 20)}
 }
 
--- [NEW] Fungsi Pendaftaran Tema
 function library:RegisterTheme(obj, prop, key)
     if not obj then return end
-    obj[prop] = self.theme[key] -- Set warna awal
+    obj[prop] = self.theme[key]
     table.insert(self.themeRegistry, {Type = "Prop", Obj = obj, Prop = prop, Key = key})
 end
 
 function library:RegisterThemeFunc(func)
-    func() -- Jalankan awal
+    func()
     table.insert(self.themeRegistry, {Type = "Func", Func = func})
 end
 
 function library:SetTheme(themeName)
     local selected = self.presets[themeName] or self.presets["FSS Purple"]
-    
-    -- Update tabel theme
-    for k, v in pairs(selected) do 
-        self.theme[k] = v 
-    end
-    
-    -- [NEW] Apply ke semua elemen yang terdaftar (Smooth Update)
+    for k, v in pairs(selected) do self.theme[k] = v end
     for _, item in ipairs(self.themeRegistry) do
         if item.Type == "Prop" and item.Obj and item.Obj.Parent then
             item.Obj[item.Prop] = self.theme[item.Key]
@@ -259,8 +253,8 @@ function library:Window(title)
     function window:Section(name, iconId) 
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
-            ScrollBarThickness = 6, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.None, 
+            ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
+            AutomaticCanvasSize = Enum.AutomaticSize.None, -- Manual Mode (Safe)
             CanvasSize = UDim2.new(0, 0, 0, 0)
         })
         library:RegisterTheme(Page, "ScrollBarImageColor3", "Accent")
@@ -278,7 +272,6 @@ function library:Window(title)
         if iconId then
             textOffset = 25
             IconImg = Create("ImageLabel", {Parent = TabBtn, Image = "rbxassetid://" .. iconId, BackgroundTransparency = 1, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 5, 0.5, -9)})
-            -- Icon Color Logic handled in loop below
         end
         
         local TabLabel = Create("TextLabel", {
@@ -297,15 +290,12 @@ function library:Window(title)
         local tabObj = {page = Page, btn = TabBtn, label = TabLabel, indicator = Indicator, icon = IconImg, active = false}
         table.insert(window.tabs, tabObj)
 
-        -- [NEW] Centralized Tab Update Logic
         local function UpdateTabVisuals()
             for _, t in ipairs(window.tabs) do
                 if t.active then
                     t.page.Visible = true; t.indicator.Visible = true
                     t.label.TextColor3 = library.theme.Text
                     if t.icon then t.icon.ImageColor3 = library.theme.Text end
-                    
-                    -- Force Canvas Update
                     t.page.CanvasSize = UDim2.new(0, 0, 0, t.page.UIListLayout.AbsoluteContentSize.Y + 20)
                 else
                     t.page.Visible = false; t.indicator.Visible = false
@@ -314,8 +304,6 @@ function library:Window(title)
                 end
             end
         end
-        
-        -- Register Tab Visuals to Theme Updater
         library:RegisterThemeFunc(UpdateTabVisuals)
 
         TabBtn.MouseButton1Click:Connect(function()
@@ -351,19 +339,26 @@ function library:Window(title)
             library:RegisterTheme(C, "TextColor3", "Text")
         end
 
+        -- [FIX CRITICAL] Mengembalikan object label agar text bisa diupdate
         function tab:Label(text)
             local Frame = Create("Frame", {Parent = Page, Size = UDim2.new(1, 0, 0, 30)})
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             
-            local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.GothamBold, TextSize = 13, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+            local T = Create("TextLabel", {
+                Parent = Frame, Text = text, Font = Enum.Font.GothamBold, 
+                TextSize = 13, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0), 
+                BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left
+            })
             library:RegisterTheme(T, "TextColor3", "Text")
+            return T -- Return Object (Fix for Expiry)
         end
 
         function tab:Toggle(text, default, callback)
             local toggled = default or false
             if library.flags[text] ~= nil then toggled = library.flags[text] end
 
+            local toggleAction = function() toggled = not toggled; library.flags[text] = toggled; callback(toggled) end
             local Frame = Create("Frame", {Parent = Page, Size = UDim2.new(1, 0, 0, 38)})
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
             AddHover(Frame)
@@ -387,8 +382,6 @@ function library:Window(title)
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {Position = targetPos}):Play()
             end
-            
-            -- [NEW] Register dynamic visuals update
             library:RegisterThemeFunc(UpdateVisuals)
 
             local function SetState(val) 
@@ -546,12 +539,11 @@ function library:Window(title)
              library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
              AddHover(Frame)
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-             
              local Header = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Name = "Header"})
-             local Title = Create("TextLabel", {Parent = Header, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+             local Title = Create("TextLabel", {Parent = Header, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
              library:RegisterTheme(Title, "TextColor3", "Text")
              
-             local Icon = Create("TextLabel", {Parent = Header, Text = "v", Font = Enum.Font.GothamBold, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
+             local Icon = Create("TextLabel", {Parent = Header, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
              library:RegisterTheme(Icon, "TextColor3", "TextDim")
              
              local Btn = Create("TextButton", {Parent = Header, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""})
