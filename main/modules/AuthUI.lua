@@ -1,4 +1,6 @@
 -- [[ FSSHUB AUTH UI V7.6 (PREMIUM VISUALS) ]] --
+-- Path: main/modules/AuthUI.lua
+
 local AuthUI = {}
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local UserInputService = game:GetService("UserInputService")
