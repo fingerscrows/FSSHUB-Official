@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V12.4 (ADVANCED STATUS) ]] --
--- Fitur: Multi-Theme, Dynamic Color, Fixed Dropdown, & Advanced Stats
+-- [[ FSSHUB LIBRARY: V12.5 (WATERMARK CRASH FIX) ]] --
+-- Fitur: Safe Stats Reading & Fixed Layout
 
 local library = {
     flags = {}, 
@@ -7,15 +7,14 @@ local library = {
     open = true,
     keybinds = {},
     gui_objects = {},
-    wm_obj = nil,
-    wm_text = nil -- Simpan referensi teks watermark
+    wm_obj = nil
 }
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Stats = game:GetService("Stats")
+local Stats = game:GetService("Stats") -- Service Stats
 
 -- [[ DEFAULT THEME ]] --
 library.theme = {
@@ -88,7 +87,7 @@ function library:Notify(title, text, duration)
     pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
 end
 
--- [ADVANCED WATERMARK SYSTEM]
+-- [SAFE WATERMARK SYSTEM]
 function library:Watermark(text)
     if not self.base then return end
     if self.base:FindFirstChild("FSS_Watermark") then self.base.FSS_Watermark:Destroy() end
@@ -114,23 +113,23 @@ function library:Watermark(text)
         TextSize = 12, Size = UDim2.new(0, 0, 1, 0), Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X
     })
-    self.wm_text = label -- Simpan referensi text
-    
     wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
     
-    -- Loop Stats Realtime
     task.spawn(function()
         local startTime = os.time()
         while wm.Parent do
-            local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001)) -- Anti division by zero
-            local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1] or 0)
+            local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001))
             
-            -- Hitung Waktu Main
+            -- [FIX CRASH] Ambil Ping dengan Pcall
+            local ping = 0
+            pcall(function()
+                ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1])
+            end)
+            
             local playedTime = os.time() - startTime
             local h = math.floor(playedTime / 3600)
             local m = math.floor((playedTime % 3600) / 60)
             
-            -- Update Text
             label.Text = string.format("%s | FPS: %d | Ping: %dms | Time: %02dh %02dm", text, fps, ping, h, m)
             wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
             task.wait(1)
@@ -385,36 +384,15 @@ function library:Window(title)
 
         function tab:Dropdown(text, options, default, callback)
              local isDropped = false
-             
-             -- Frame Container Utama
-             local Frame = Create("Frame", {
-                 Parent = Page, 
-                 BackgroundColor3 = library.theme.ItemBg, 
-                 Size = UDim2.new(1, 0, 0, 36), 
-                 ClipsDescendants = true
-             })
+             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
              
-             -- HEADER FRAME (Wajib dipisah agar tidak kena ListLayout)
-             local Header = Create("Frame", {
-                 Parent = Frame,
-                 Size = UDim2.new(1, 0, 0, 36),
-                 BackgroundTransparency = 1,
-                 Name = "Header"
-             })
-             
+             local Header = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Name = "Header"})
              local Title = Create("TextLabel", {Parent = Header, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
              local Icon = Create("TextLabel", {Parent = Header, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
              local Btn = Create("TextButton", {Parent = Header, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""})
              
-             -- OPTIONS CONTAINER (Di bawah header)
-             local OptionContainer = Create("Frame", {
-                 Parent = Frame,
-                 Size = UDim2.new(1, 0, 1, -36),
-                 Position = UDim2.new(0, 0, 0, 36),
-                 BackgroundTransparency = 1,
-                 Name = "OptionList"
-             })
+             local OptionContainer = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 1, -36), Position = UDim2.new(0, 0, 0, 36), BackgroundTransparency = 1, Name = "OptionList"})
              Create("UIListLayout", {Parent = OptionContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
              Create("UIPadding", {Parent = OptionContainer, PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)})
              
@@ -426,24 +404,9 @@ function library:Window(title)
              end)
              
              for _, opt in ipairs(options) do
-                 local OptBtn = Create("TextButton", {
-                     Parent = OptionContainer, 
-                     Text = opt, 
-                     Font = Enum.Font.Gotham, 
-                     TextColor3 = library.theme.TextDim, 
-                     TextSize = 12, 
-                     Size = UDim2.new(1, 0, 0, 28), 
-                     BackgroundColor3 = Color3.fromRGB(45,45,50), 
-                     AutoButtonColor = false
-                 })
+                 local OptBtn = Create("TextButton", {Parent = OptionContainer, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false})
                  Create("UICorner", {Parent = OptBtn, CornerRadius = UDim.new(0, 4)})
-                 OptBtn.MouseButton1Click:Connect(function()
-                     isDropped = false; 
-                     Title.Text = text .. ": " .. opt; 
-                     callback(opt)
-                     TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play()
-                     Icon.Text = "v"
-                 end)
+                 OptBtn.MouseButton1Click:Connect(function() isDropped = false; Title.Text = text .. ": " .. opt; callback(opt); TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play(); Icon.Text = "v" end)
              end
         end
 
