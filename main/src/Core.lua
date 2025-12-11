@@ -1,5 +1,5 @@
--- [[ FSSHUB CORE V11.2 (SMART NAMING) ]] --
--- Fitur: Override Nama Menu dengan Nama Game Asli & Status Deteksi
+-- [[ FSSHUB CORE V11.3 (ROBUST AUTH) ]] --
+-- Fitur: Fallback Logic, Safe Game Detection, Auto-Reauth
 -- Path: main/src/Core.lua
 
 local Core = {}
@@ -17,18 +17,19 @@ local StarterGui = game:GetService("StarterGui")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local MarketplaceService = game:GetService("MarketplaceService")
 
--- Utility: Fetch Game Info Realtime
+-- Utility: Fetch Game Info Realtime (Safe Mode)
 local function GetGameName()
     local success, info = pcall(function()
         return MarketplaceService:GetProductInfo(game.PlaceId)
     end)
-    if success and info then return info.Name end
-    return "Unknown Game"
+    -- Jika gagal (misal game belum publish), gunakan nama default
+    if success and info and info.Name then return info.Name end
+    return "Unknown Game (" .. tostring(game.PlaceId) .. ")"
 end
 
 local function LoadUrl(path)
-    -- Menambahkan cache buster ?t=random
-    return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(math.random(1, 100000)))
+    -- Cache buster menggunakan os.time() untuk presisi
+    return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(os.time()))
 end
 
 local function Notify(title, text)
@@ -43,7 +44,7 @@ end
 -- Validasi Key
 function Core.ValidateKey(input)
     if not input or #input < 5 then return {valid=false} end
-    input = string.gsub(input, "^%s*(.-)%s*$", "%1") -- Trim spasi
+    input = string.gsub(input, "^%s*(.-)%s*$", "%1") -- Hapus spasi depan/belakang
     
     local hwid = GetHWID()
     local pid = game.PlaceId
@@ -52,7 +53,7 @@ function Core.ValidateKey(input)
     local gameName = GetGameName()
     local encodedName = HttpService:UrlEncode(gameName)
     
-    local reqUrl = API_URL .. "?a=verify&k=" .. input .. "&hwid=" .. hwid .. "&pid=" .. pid .. "&gid=" .. gid .. "&jid=" .. jid .. "&gn=" .. encodedName .. "&nocache=" .. math.random(1, 10000)
+    local reqUrl = API_URL .. "?a=verify&k=" .. input .. "&hwid=" .. hwid .. "&pid=" .. pid .. "&gid=" .. gid .. "&jid=" .. jid .. "&gn=" .. encodedName .. "&nocache=" .. tostring(os.time())
     
     local success, res = pcall(function() return game:HttpGet(reqUrl) end)
     
@@ -72,7 +73,7 @@ function Core.ValidateKey(input)
                 GameName = gameName,
                 TargetScript = data.script, 
                 IsDev = isDeveloper,
-                MOTD = data.motd -- Simpan pesan pengumuman
+                MOTD = data.motd
             }
             
             return {valid=true, info=data.info} 
@@ -84,47 +85,54 @@ end
 function Core.LoadGame()
     Notify("SYSTEM", "Checking Database...")
     
-    -- Load UI Manager Module
+    -- Load UI Manager
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
-    if not successManager or not ManagerLib then Notify("FATAL ERROR", "Failed to load UI Manager") return end
+    if not successManager or not ManagerLib then 
+        Notify("FATAL ERROR", "Failed to load UI Manager. Check connection.") 
+        return 
+    end
 
     -- [LOGIKA PENENTUAN SCRIPT]
     local scriptPath = DEFAULT_GAME
-    local isUniversal = true -- Default anggap Universal
+    local isUniversal = true
     
-    -- Jika Server memberikan script khusus, pakai itu
+    -- Cek apakah server memberikan script khusus
     if Core.AuthData and Core.AuthData.TargetScript and Core.AuthData.TargetScript ~= "" then
         scriptPath = Core.AuthData.TargetScript
-        isUniversal = false -- Tandai sebagai script resmi/support
+        isUniversal = false
     end
     
-    -- Simpan status ke AuthData agar UIManager tau
+    if not Core.AuthData then Core.AuthData = {} end
     Core.AuthData.IsUniversal = isUniversal
     
-    print("[FSSHUB] Module: " .. scriptPath .. " | Mode: " .. (isUniversal and "Universal" or "Official"))
+    print("[FSSHUB] Target Module: " .. scriptPath .. " | Mode: " .. (isUniversal and "Universal" or "Official"))
 
     -- Load Data Game
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
     
+    -- Validasi hasil load
     if not successData or type(GameData) ~= "table" then
-        Notify("WARNING", "Module Error. Loading Universal...")
-        -- Fallback ke Universal jika script game error
+        warn("[FSSHUB] Failed to load module: " .. scriptPath)
+        Notify("WARNING", "Official Script Error. Fallback to Universal...")
+        
+        -- Coba load universal jika script khusus gagal
         local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
-        if successUniv then 
+        if successUniv and type(UnivData) == "table" then 
             GameData = UnivData 
-            Core.AuthData.IsUniversal = true -- Fallback jadi Universal
+            Core.AuthData.IsUniversal = true
+            scriptPath = DEFAULT_GAME
         else 
-            Notify("FATAL ERROR", "Universal Script Failed!") 
+            Notify("FATAL ERROR", "Universal Script Failed! Script stopped.") 
             return 
         end
     end
     
     -- [OVERRIDE NAMA MENU]
-    -- Selalu gunakan Nama Game Asli sebagai Judul Menu
-    if Core.AuthData and Core.AuthData.GameName then
+    if Core.AuthData.GameName then
         GameData.Name = Core.AuthData.GameName
     end
 
+    -- Jalankan Build UI
     ManagerLib.Build(GameData, Core.AuthData)
 end
 
@@ -140,7 +148,7 @@ function Core.Init()
         end
     end
     
-    -- Load Auth UI jika tidak ada key tersimpan
+    -- Jika tidak ada key, load Auth UI
     local success, AuthUI = pcall(function() return loadstring(LoadUrl("main/modules/AuthUI.lua"))() end)
     if success and AuthUI then
         AuthUI.Show({
@@ -155,7 +163,7 @@ function Core.Init()
             end
         })
     else
-        Notify("ERROR", "Auth UI Failed to Load")
+        Notify("ERROR", "Auth UI Failed to Load. Re-execute script.")
     end
 end
 
