@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V16.2 (GLASSY THEME) ]] --
--- Changelog: Added Selective Transparency (Container only, Items solid)
+-- [[ FSSHUB LIBRARY: V16.3 (OPTIMIZED GLASSY) ]] --
+-- Changelog: Memory leak fix on registry, selective transparency ensured
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -10,7 +10,7 @@ local library = {
     gui_objects = {},
     wm_obj = nil,
     themeRegistry = {},
-    transparencyFrames = {} -- [NEW] Daftar frame khusus container
+    transparencyFrames = {} 
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -31,7 +31,17 @@ library.theme = {
     ItemHover   = Color3.fromRGB(45, 45, 50)
 }
 
--- [NEW] Fungsi Transparansi (Hanya untuk Container)
+library.presets = {
+    ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
+    ["Blood Red"]  = {Accent = Color3.fromRGB(255, 65, 65)},
+    ["Ocean Blue"] = {Accent = Color3.fromRGB(0, 140, 255)},
+    ["Toxic Green"]= {Accent = Color3.fromRGB(0, 255, 140)},
+    ["Golden Age"] = {Accent = Color3.fromRGB(255, 215, 0)},
+    ["Midnight"]   = {Accent = Color3.fromRGB(80, 80, 255), Main = Color3.fromRGB(10, 10, 15), Content = Color3.fromRGB(15, 15, 20)}
+}
+
+-- [FUNGSI TRANSPARANSI SELEKTIF]
+-- Hanya mengubah transparansi frame yang didaftarkan (Container), bukan Item.
 function library:SetTransparency(val)
     for _, obj in ipairs(self.transparencyFrames) do
         if obj and obj.Parent then
@@ -201,12 +211,16 @@ end
 function library:Window(title)
     if not self.base then self:Init() end
     
+    -- [CLEANUP] Reset registry untuk mencegah memory leak saat reload
+    self.transparencyFrames = {} 
+    self.themeRegistry = {}
+    
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = self.base, Size = UDim2.new(0, 550, 0, 350), 
         Position = UDim2.new(0.5, -275, 0.5, -175), BorderSizePixel = 0
     })
     library:RegisterTheme(MainFrame, "BackgroundColor3", "Main")
-    -- [TRANSPARENCY TARGET] Container Utama
+    -- [TRANSPARENCY] Daftarkan MainFrame (Container)
     table.insert(library.transparencyFrames, MainFrame)
     
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
@@ -217,7 +231,7 @@ function library:Window(title)
 
     local Header = Create("Frame", {Parent = MainFrame, Size = UDim2.new(1, 0, 0, 45)})
     library:RegisterTheme(Header, "BackgroundColor3", "Sidebar")
-    -- [TRANSPARENCY TARGET] Header
+    -- [TRANSPARENCY] Daftarkan Header
     table.insert(library.transparencyFrames, Header)
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
     
@@ -239,7 +253,7 @@ function library:Window(title)
         Position = UDim2.new(0, 0, 0, 46), BorderSizePixel = 0, ScrollBarThickness = 0
     })
     library:RegisterTheme(Sidebar, "BackgroundColor3", "Sidebar")
-    -- [TRANSPARENCY TARGET] Sidebar
+    -- [TRANSPARENCY] Daftarkan Sidebar
     table.insert(library.transparencyFrames, Sidebar)
     
     Create("UICorner", {Parent = Sidebar, CornerRadius = UDim.new(0,0)})
@@ -251,7 +265,7 @@ function library:Window(title)
         Position = UDim2.new(0, 160, 0, 46), BorderSizePixel = 0, ClipsDescendants = true
     })
     library:RegisterTheme(Content, "BackgroundColor3", "Main")
-    -- [TRANSPARENCY TARGET] Content Container
+    -- [TRANSPARENCY] Daftarkan Content Background
     table.insert(library.transparencyFrames, Content)
     
     MakeDraggable(Header, MainFrame)
@@ -329,8 +343,9 @@ function library:Window(title)
 
         local tab = {}
         
-        -- ITEM FRAME TIDAK DI-INSERT KE TRANSPARENCY FRAMES
-        -- AGAR TETAP SOLID
+        -- [CATATAN PENTING] 
+        -- Frame Item di bawah ini SENGAJA tidak didaftarkan ke 'transparencyFrames'
+        -- agar mereka tetap SOLID (tidak ikut transparan) sesuai permintaan.
         
         function tab:Paragraph(title, content)
             local Frame = Create("Frame", {Parent = Page, Size = UDim2.new(1, 0, 0, 60)})
