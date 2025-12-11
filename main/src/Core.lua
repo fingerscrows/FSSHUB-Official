@@ -54,23 +54,23 @@ function Core.ValidateKey(input)
     
     local success, res = pcall(function() return game:HttpGet(reqUrl) end)
     
-    if success then
+   if success then
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data and data.status == "success" then
             
             local rawExpiry = tonumber(data.expiry) or 0
             if rawExpiry > 9999999999 then rawExpiry = math.floor(rawExpiry / 1000) end
             
-            -- Cek Status Dev
             local isDeveloper = data.message and string.find(data.message, "Dev") ~= nil
 
             Core.AuthData = {
                 Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
                 Expiry = rawExpiry, 
                 Key = input,
-                GameName = gameName, 
-                TargetScript = data.script, -- Script khusus dari Cloud
-                IsDev = isDeveloper
+                GameName = gameName,
+                TargetScript = data.script, 
+                IsDev = isDeveloper,
+                MOTD = data.motd -- [BARU] Simpan pesan pengumuman
             }
             
             return {valid=true, info=data.info} 
