@@ -1,11 +1,12 @@
--- [[ FSSHUB LIBRARY: V11.7 (GHOST FIX & CLICK FIX) ]] --
--- Fix: Toggle Click Area Full & Mencegah Keybind Ganda (Ghost Connection)
+-- [[ FSSHUB LIBRARY: V12.0 (THEME ENGINE) ]] --
+-- Fitur: Multi-Theme Support & Dynamic Color Switching
 
 local library = {
     flags = {}, 
     windows = {}, 
     open = true,
-    keybinds = {} 
+    keybinds = {},
+    gui_objects = {} -- [BARU] Menyimpan objek UI untuk live-update
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -13,17 +14,39 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
--- [[ THEME ]] --
+-- [[ DEFAULT THEME ]] --
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
     Content     = Color3.fromRGB(25, 25, 30),
-    Accent      = Color3.fromRGB(140, 80, 255),
+    Accent      = Color3.fromRGB(140, 80, 255), -- Default Ungu
     Text        = Color3.fromRGB(240, 240, 240),
     TextDim     = Color3.fromRGB(150, 150, 150),
     Stroke      = Color3.fromRGB(50, 50, 60),
     ItemBg      = Color3.fromRGB(30, 30, 35)
 }
+
+-- [[ THEME PRESETS ]] --
+library.presets = {
+    ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
+    ["Blood Red"]  = {Accent = Color3.fromRGB(255, 65, 65)},
+    ["Ocean Blue"] = {Accent = Color3.fromRGB(0, 140, 255)},
+    ["Toxic Green"]= {Accent = Color3.fromRGB(0, 255, 140)},
+    ["Golden Age"] = {Accent = Color3.fromRGB(255, 215, 0)},
+    ["Midnight"]   = {Accent = Color3.fromRGB(80, 80, 255), Main = Color3.fromRGB(10, 10, 15), Content = Color3.fromRGB(15, 15, 20)}
+}
+
+function library:SetTheme(themeName)
+    local selected = self.presets[themeName] or self.presets["FSS Purple"]
+    
+    -- Update tabel theme
+    for k, v in pairs(selected) do
+        self.theme[k] = v
+    end
+    
+    -- [NOTE] Untuk update real-time yang sempurna, cara termudah adalah me-rebuild UI.
+    -- Library ini didesain untuk reload UI via UIManager saat tema ganti.
+end
 
 local function Create(class, props)
     local inst = Instance.new(class)
@@ -35,13 +58,9 @@ end
 local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
     if oldKey and tableBinds[oldKey] then
         for i, func in ipairs(tableBinds[oldKey]) do
-            if func == callback then
-                table.remove(tableBinds[oldKey], i)
-                break
-            end
+            if func == callback then table.remove(tableBinds[oldKey], i) break end
         end
     end
-    
     if newKey then
         if not tableBinds[newKey] then tableBinds[newKey] = {} end
         table.insert(tableBinds[newKey], callback)
@@ -129,15 +148,13 @@ function library:Init()
     local gui = Create("ScreenGui", {Name = "FSSHUB_V10", Parent = self.base, ResetOnSpawn = false, IgnoreGuiInset = true})
     self.base = gui
     
-    -- [[ CLEANUP GHOST CONNECTIONS ]] --
-    -- Kita cek apakah ada koneksi lama di Global Environment, jika ada kita putuskan
+    -- CLEANUP GHOST CONNECTIONS
     if getgenv().FSS_InputConnection then
         getgenv().FSS_InputConnection:Disconnect()
         getgenv().FSS_InputConnection = nil
     end
 
-    -- [[ GLOBAL INPUT HANDLER ]] --
-    -- Simpan koneksi ke Global Variable agar bisa di-disconnect nanti
+    -- GLOBAL INPUT HANDLER
     getgenv().FSS_InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode ~= Enum.KeyCode.Unknown then
             if library.keybinds[input.KeyCode] then
@@ -277,6 +294,7 @@ function library:Window(title)
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true})
         end
 
+        -- [TOGGLE FIXED]
         function tab:Toggle(text, default, callback)
             local toggled = default or false
             local boundKey = nil 
@@ -294,10 +312,8 @@ function library:Window(title)
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
             
-            -- [FIX CLICK FULL WIDTH] Tombol Klik memenuhi seluruh frame
             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
             
-            -- [BIND BTN] ZIndex lebih tinggi (10) agar tetap bisa diklik
             local BindBtn = Create("TextButton", {
                 Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
                 TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9),
