@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.4 (FULL CONFIG) ]] --
--- Changelog: Full-state saving (includes Keybinds)
+-- [[ FSSHUB: UI MANAGER V5.5 (DEBUGGED) ]] --
+-- Changelog: Full-state saving, Debug Prints
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -19,22 +19,32 @@ if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
-    -- Menggunakan URL dari GitHub
+    print("[FSSHUB] Fetching Library from: " .. LIB_URL)
+    
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
+    
     if success and lib then
+        print("[FSSHUB] Library Fetched Successfully!")
         lib:Init()
         LibraryInstance = lib
         return lib
+    else
+        warn("[FSSHUB] Failed to fetch Library!")
     end
     return nil
 end
 
 function UIManager.Build(GameConfig, AuthData)
+    print("[FSSHUB] Building UI for: " .. (GameConfig.Name or "Unknown"))
+    
     StoredConfig = GameConfig
     StoredAuth = AuthData
     
     local Library = LoadLibrary()
-    if not Library then warn("FSSHUB: Library Failed to Load") return end
+    if not Library then 
+        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load. Check console.", Duration = 5})
+        return 
+    end
 
     -- Persistence (Queue on Teleport)
     if syn and syn.queue_on_teleport then
@@ -115,7 +125,6 @@ function UIManager.Build(GameConfig, AuthData)
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
     SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
-        -- FIX: Matikan loop script sebelum rebuild UI untuk mencegah double-loop
         if GameConfig.OnUnload then 
             pcall(GameConfig.OnUnload) 
         end
@@ -124,7 +133,6 @@ function UIManager.Build(GameConfig, AuthData)
         if Library.base then Library.base:Destroy(); Library.base = nil end 
         Library.keybinds = {} 
         
-        -- Rebuild UI (State akan dipulihkan berkat fix di FSSHUB_Lib)
         UIManager.Build(StoredConfig, StoredAuth)
     end)
 
@@ -155,12 +163,10 @@ function UIManager.Build(GameConfig, AuthData)
         local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
-            -- Update flags langsung ke Library untuk menangkap keybind
             for title, value in pairs(data) do
                 Library.flags[title] = value -- Load ke memory
                 if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
-            -- Rebuild UI agar keybind visual terupdate
             if Library.base then Library.base:Destroy(); Library.base = nil end 
             UIManager.Build(StoredConfig, StoredAuth)
             Library:Notify("Config", "Loaded: " .. selectedConfig, 3)
@@ -168,7 +174,6 @@ function UIManager.Build(GameConfig, AuthData)
     end)
 
     SettingsTab:Button("Save Config", function()
-        -- FIX: Simpan seluruh Library.flags agar keybind ikut tersimpan
         local data = Library.flags 
         writefile(ConfigFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(data))
         Library:Notify("Config", "Saved: " .. selectedConfig, 3)
@@ -205,7 +210,6 @@ function UIManager.Build(GameConfig, AuthData)
                         Library.flags[title] = value
                         if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
                     end
-                    -- Rebuild UI untuk apply keybind auto-load
                     if Library.base then Library.base:Destroy(); Library.base = nil end 
                     UIManager.Build(StoredConfig, StoredAuth)
                     Library:Notify("AutoLoad", "Config Loaded", 3)
