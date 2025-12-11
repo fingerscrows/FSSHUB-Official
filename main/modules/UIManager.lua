@@ -1,12 +1,9 @@
--- [[ FSSHUB: UI MANAGER V5.15 (DEBUG & CONFIG PURGE) ]] --
+-- [[ FSSHUB: UI MANAGER V5.13 (TRANSPARENCY & EXPIRY FIX) ]] --
+-- Changelog: Added Transparency Slider, Improved Expiry Timer
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
-
-local function Log(msg)
-    print("🟠 [FSS-DEBUG] [UIManager] " .. tostring(msg))
-end
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -20,21 +17,19 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
+-- [AUTO-LOAD PURGE]
 local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
 if isfile(AutoLoadPath) then
     delfile(AutoLoadPath)
-    Log("Auto-Load config purged.")
 end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
-    Log("Fetching Library...")
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
     
     if success and lib then
         lib:Init()
         LibraryInstance = lib
-        Log("Library Loaded.")
         return lib
     else
         warn("[FSSHUB] Failed to fetch Library!")
@@ -43,8 +38,6 @@ local function LoadLibrary()
 end
 
 function UIManager.Build(GameConfig, AuthData)
-    Log("Building UI for: " .. (GameConfig.Name or "Unknown"))
-    
     StoredConfig = GameConfig
     StoredAuth = AuthData
     
@@ -78,12 +71,8 @@ function UIManager.Build(GameConfig, AuthData)
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         
         task.spawn(function()
-            Log("Starting Expiry Loop...")
-            Log("AuthData.Expiry Value: " .. tostring(AuthData.Expiry))
-            
             if not AuthData.Expiry or AuthData.Expiry == 0 then
-                TimerLabel.Text = "Expiry: UNKNOWN / ERROR"
-                Log("Expiry is invalid/0")
+                TimerLabel.Text = "Expiry: PERMANENT / DEV"
                 return
             end
 
@@ -91,11 +80,8 @@ function UIManager.Build(GameConfig, AuthData)
                 local t = os.time()
                 local left = AuthData.Expiry - t
                 
-                -- Debug sekali saja per menit biar tidak spam
-                if t % 60 == 0 then Log("Expiry Check: TimeLeft=" .. left) end
-
                 if AuthData.Expiry > 9000000000 then 
-                    TimerLabel.Text = "Expiry: PERMANENT LICENSE"
+                    TimerLabel.Text = "Expiry: PERMANENT / DEV"
                     break
                 elseif left <= 0 then 
                     TimerLabel.Text = "LICENSE EXPIRED"
@@ -103,8 +89,7 @@ function UIManager.Build(GameConfig, AuthData)
                     local d = math.floor(left / 86400)
                     local h = math.floor((left % 86400) / 3600)
                     local m = math.floor((left % 3600) / 60)
-                    local s = math.floor(left % 60)
-                    TimerLabel.Text = string.format("Expires: %dd %02dh %02dm %02ds", d, h, m, s)
+                    TimerLabel.Text = string.format("Expires In: %dd %02dh %02dm", d, h, m)
                 end
                 task.wait(1)
             end
@@ -116,7 +101,6 @@ function UIManager.Build(GameConfig, AuthData)
     local ConfigurableItems = {} 
 
     if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
-        Log("Generating " .. #GameConfig.Tabs .. " tabs...")
         for _, tabData in ipairs(GameConfig.Tabs) do
             local Tab = Window:Section(tabData.Name, tabData.Icon)
             for _, element in ipairs(tabData.Elements) do
@@ -142,8 +126,6 @@ function UIManager.Build(GameConfig, AuthData)
                 end
             end
         end
-    else
-        Log("WARNING: GameConfig.Tabs is empty or invalid!")
     end
     
     -- [[ SETTINGS TAB ]] --
@@ -156,6 +138,11 @@ function UIManager.Build(GameConfig, AuthData)
     
     SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
         Library:SetTheme(selected)
+    end)
+
+    -- [NEW] SLIDER TRANSPARANSI
+    SettingsTab:Slider("Menu Transparency", 0, 90, 0, function(v)
+        Library:SetTransparency(v/100) -- Konversi 0-90 ke 0.0 - 0.9
     end)
 
     SettingsTab:Dropdown("Watermark", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
@@ -186,7 +173,7 @@ function UIManager.Build(GameConfig, AuthData)
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
             for title, value in pairs(data) do
-                Library.flags[title] = value 
+                Library.flags[title] = value -- Load ke memory
                 if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
             
