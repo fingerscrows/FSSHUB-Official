@@ -1,12 +1,10 @@
--- [[ FSSHUB: UI MANAGER V4.2 (HOP FIX & UTILS) ]] --
--- Changelog: Robust Server Hop (Retry Logic), Settings Cleanup
+-- [[ FSSHUB: UI MANAGER V4.3 (CLEAN & STABLE) ]] --
+-- Changelog: Removed Server Hop (Unstable), Kept Rejoin
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
--- Services Global
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -32,7 +30,6 @@ function UIManager.Build(GameConfig, AuthData)
     local Library = LoadLibrary()
     if not Library then warn("FSSHUB: Library Failed to Load") return end
 
-    -- [ICON LOGIC]
     local statusIcon = "👤"
     if AuthData then
         if AuthData.Type == "Premium" or AuthData.Type == "Unlimited" then statusIcon = "👑" 
@@ -140,57 +137,8 @@ function UIManager.Build(GameConfig, AuthData)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end)
 
-    -- [FIXED & ROBUST SERVER HOP]
-    SettingsTab:Button("Server Hop", function()
-        Library:Notify("System", "Scanning servers...", 3)
-        
-        task.spawn(function()
-            local cursor = ""
-            local found = false
-            local retryCount = 0
-            
-            while not found and retryCount < 5 do
-                -- Gunakan Descending untuk mencari server yang aktif (bukan server kosong/buggy)
-                local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&cursor=" .. cursor
-                
-                local success, result = pcall(function()
-                    return HttpService:JSONDecode(game:HttpGet(url))
-                end)
-                
-                if success and result and result.data then
-                    for _, s in ipairs(result.data) do
-                        -- Logic: Server tidak penuh DAN tidak sama dengan server sekarang
-                        if type(s) == "table" and s.playing and s.maxPlayers and s.id then
-                            if s.playing < s.maxPlayers and s.id ~= game.JobId then
-                                found = true
-                                Library:Notify("Hop", "Joining Server...", 3)
-                                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
-                                return -- Stop loop dan fungsi
-                            end
-                        end
-                    end
-                    
-                    -- Pagination Logic
-                    if result.nextPageCursor and result.nextPageCursor ~= cursor then
-                        cursor = result.nextPageCursor
-                    else
-                        -- Jika habis halaman, reset cursor atau stop (opsional: stop untuk mencegah infinite loop)
-                        break 
-                    end
-                else
-                    retryCount = retryCount + 1
-                    warn("[FSSHUB] Hop Fetch Failed: " .. tostring(result))
-                    Library:Notify("System", "Fetch Error. Retrying ("..retryCount..")...", 1)
-                    task.wait(1)
-                end
-                task.wait(0.2)
-            end
-            
-            if not found then
-                Library:Notify("System", "No suitable server found.", 3)
-            end
-        end)
-    end)
+    -- [SERVER HOP REMOVED]
+    -- Fitur Server Hop dihapus untuk menjaga stabilitas script.
 
     if AuthData and AuthData.IsDev then
         SettingsTab:Label("Developer Zone")
