@@ -1,5 +1,5 @@
--- [[ FSSHUB MODULE: DEV SUITE V4.0 (ULTIMATE) ]] --
--- Features: F10 Keybind, Full Text Selection, Copy All, Filters (Info/Warn/Error), Search
+-- [[ FSSHUB MODULE: DEV SUITE V4.1 (RICHTEXT & MONITOR) ]] --
+-- Features: F10 Toggle, RichText Logs (Colors fixed), Copy All, Detailed Monitor Toggle
 
 local Debugger = {}
 local CoreGui = game:GetService("CoreGui")
@@ -7,6 +7,7 @@ local LogService = game:GetService("LogService")
 local Stats = game:GetService("Stats")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 function Debugger.Show()
     local Parent = gethui and gethui() or CoreGui
@@ -45,7 +46,7 @@ function Debugger.Show()
     Title.Position = UDim2.new(0, 15, 0, 10)
     Title.Size = UDim2.new(1, -100, 0, 20)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "FSSHUB DEBUGGER [F10] | V4.0"
+    Title.Text = "FSSHUB DEBUGGER [F10] | V4.1"
     Title.TextColor3 = Color3.fromRGB(140, 80, 255)
     Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -62,7 +63,7 @@ function Debugger.Show()
     local SearchInput = Instance.new("TextBox")
     SearchInput.Parent = ControlBar
     SearchInput.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    SearchInput.Size = UDim2.new(0, 200, 0, 25)
+    SearchInput.Size = UDim2.new(0, 180, 0, 25)
     SearchInput.Position = UDim2.new(0, 5, 0.5, -12.5)
     SearchInput.Font = Enum.Font.Code
     SearchInput.PlaceholderText = "Search Logs..."
@@ -77,8 +78,8 @@ function Debugger.Show()
     local function CreateFilterBtn(text, color, xOffset, key)
         local Btn = Instance.new("TextButton")
         Btn.Parent = ControlBar
-        Btn.Size = UDim2.new(0, 30, 0, 25)
-        Btn.Position = UDim2.new(0, 215 + xOffset, 0.5, -12.5)
+        Btn.Size = UDim2.new(0, 25, 0, 25)
+        Btn.Position = UDim2.new(0, 190 + xOffset, 0.5, -12.5)
         Btn.BackgroundColor3 = color
         Btn.Text = text
         Btn.TextColor3 = Color3.new(0,0,0)
@@ -89,27 +90,68 @@ function Debugger.Show()
         Btn.MouseButton1Click:Connect(function()
             Filters[key] = not Filters[key]
             Btn.BackgroundTransparency = Filters[key] and 0 or 0.6
-            -- Trigger Refresh Log
             SearchInput.Text = SearchInput.Text .. " " 
             SearchInput.Text = string.sub(SearchInput.Text, 1, -2) 
         end)
     end
 
     CreateFilterBtn("I", Color3.fromRGB(255, 255, 255), 0, "Info")
-    CreateFilterBtn("W", Color3.fromRGB(255, 200, 50), 35, "Warn")
-    CreateFilterBtn("E", Color3.fromRGB(255, 80, 80), 70, "Error")
+    CreateFilterBtn("W", Color3.fromRGB(255, 200, 50), 30, "Warn")
+    CreateFilterBtn("E", Color3.fromRGB(255, 80, 80), 60, "Error")
 
-    -- [[ LOG CONTAINER (SINGLE TEXTBOX FOR SELECTION) ]] --
+    -- [[ MONITOR PANEL (HIDDEN BY DEFAULT) ]] --
+    local StatsVisible = false
+    local MonitorFrame = Instance.new("Frame")
+    MonitorFrame.Parent = Main
+    MonitorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    MonitorFrame.Size = UDim2.new(0, 200, 1, -85) -- Side Panel
+    MonitorFrame.Position = UDim2.new(1, -210, 0, 80)
+    MonitorFrame.Visible = false
+    MonitorFrame.ZIndex = 10
+    Instance.new("UICorner", MonitorFrame).CornerRadius = UDim.new(0, 6)
+    local MStroke = Instance.new("UIStroke", MonitorFrame)
+    MStroke.Color = Color3.fromRGB(60,60,70); MStroke.Thickness = 1
+
+    local MonitorText = Instance.new("TextLabel")
+    MonitorText.Parent = MonitorFrame
+    MonitorText.BackgroundTransparency = 1
+    MonitorText.Size = UDim2.new(1, -20, 1, -20)
+    MonitorText.Position = UDim2.new(0, 10, 0, 10)
+    MonitorText.Font = Enum.Font.Code
+    MonitorText.TextSize = 11
+    MonitorText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    MonitorText.TextXAlignment = Enum.TextXAlignment.Left
+    MonitorText.TextYAlignment = Enum.TextYAlignment.Top
+    MonitorText.Text = "Loading Stats..."
+
+    -- Toggle Monitor Button
+    local ToggleStatsBtn = Instance.new("TextButton")
+    ToggleStatsBtn.Parent = ControlBar
+    ToggleStatsBtn.Text = "STATS"
+    ToggleStatsBtn.Size = UDim2.new(0, 50, 0, 25)
+    ToggleStatsBtn.Position = UDim2.new(0, 290, 0.5, -12.5)
+    ToggleStatsBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    ToggleStatsBtn.TextColor3 = Color3.new(1,1,1)
+    ToggleStatsBtn.Font = Enum.Font.GothamBold
+    ToggleStatsBtn.TextSize = 10
+    Instance.new("UICorner", ToggleStatsBtn).CornerRadius = UDim.new(0, 4)
+    
+    ToggleStatsBtn.MouseButton1Click:Connect(function()
+        StatsVisible = not StatsVisible
+        MonitorFrame.Visible = StatsVisible
+        ToggleStatsBtn.BackgroundColor3 = StatsVisible and Color3.fromRGB(140, 80, 255) or Color3.fromRGB(50, 50, 60)
+    end)
+
+    -- [[ LOG CONTAINER (RICHTEXT ENABLED) ]] --
     local LogScroll = Instance.new("ScrollingFrame")
     LogScroll.Parent = Main
     LogScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
     LogScroll.Position = UDim2.new(0, 10, 0, 85)
-    LogScroll.Size = UDim2.new(1, -20, 1, -125) -- Sisa ruang untuk monitor bawah
+    LogScroll.Size = UDim2.new(1, -20, 1, -95)
     LogScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     LogScroll.ScrollBarThickness = 6
     Instance.new("UICorner", LogScroll).CornerRadius = UDim.new(0, 6)
 
-    -- INI KUNCINYA: Satu TextBox besar agar bisa select text sepuasnya
     local LogDisplay = Instance.new("TextBox")
     LogDisplay.Name = "LogDisplay"
     LogDisplay.Parent = LogScroll
@@ -124,41 +166,56 @@ function Debugger.Show()
     LogDisplay.TextWrapped = true
     LogDisplay.MultiLine = true
     LogDisplay.ClearTextOnFocus = false
-    LogDisplay.TextEditable = false -- Read Only
+    LogDisplay.TextEditable = false 
     LogDisplay.AutomaticSize = Enum.AutomaticSize.Y
+    LogDisplay.RichText = true -- AKTIFKAN WARNA
     LogDisplay.Text = "Waiting for logs..."
 
     -- [[ DATA MANAGEMENT ]] --
     local LogsCache = {}
     
+    -- Fungsi Helper untuk Escape karakter XML agar tidak merusak RichText
+    local function EscapeXml(str)
+        return str:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub("\"", "&quot;"):gsub("'", "&apos;")
+    end
+
     local function RefreshLogs()
         local query = SearchInput.Text:lower()
         local finalStr = ""
         
         for _, log in ipairs(LogsCache) do
-            -- Filter Type Check
+            -- Filter Logic
             local typePass = false
             if log.type == "Info" and Filters.Info then typePass = true end
             if log.type == "Warn" and Filters.Warn then typePass = true end
             if log.type == "Error" and Filters.Error then typePass = true end
             
-            -- Search Check
+            -- Search Logic (Cari di raw text, bukan yang sudah di-format)
             local searchPass = true
-            if query ~= "" and not log.msg:lower():find(query) then searchPass = false end
+            if query ~= "" and not log.rawMsg:lower():find(query) then searchPass = false end
             
             if typePass and searchPass then
-                -- Kita pakai RichText manual simple untuk tagging tipe
+                -- Format Warna menggunakan RichText
+                local colorTag = ""
                 local prefix = ""
-                if log.type == "Info" then prefix = "[INFO] "
-                elseif log.type == "Warn" then prefix = "[WARN] "
-                elseif log.type == "Error" then prefix = "[ERR] "
+                
+                if log.type == "Info" then 
+                    colorTag = '<font color="#FFFFFF">' 
+                    prefix = "[INFO] "
+                elseif log.type == "Warn" then 
+                    colorTag = '<font color="#FFC832">' -- Kuning
+                    prefix = "[WARN] "
+                elseif log.type == "Error" then 
+                    colorTag = '<font color="#FF5050">' -- Merah
+                    prefix = "[ERR] "
                 end
                 
-                finalStr = finalStr .. log.time .. " " .. prefix .. log.msg .. "\n"
+                -- Gabungkan: Waktu + Warna(Prefix + Pesan) + Tutup Warna
+                finalStr = finalStr .. string.format('<font color="#AAAAAA">%s</font> %s%s%s</font>\n', 
+                    log.time, colorTag, prefix, EscapeXml(log.rawMsg))
             end
         end
         LogDisplay.Text = finalStr
-        -- Scroll to bottom
         LogScroll.CanvasPosition = Vector2.new(0, 99999)
     end
 
@@ -169,8 +226,8 @@ function Debugger.Show()
         if type == Enum.MessageType.MessageWarning then typeStr = "Warn"
         elseif type == Enum.MessageType.MessageError then typeStr = "Error" end
         
-        table.insert(LogsCache, {time = t, msg = msg, type = typeStr})
-        if #LogsCache > 300 then table.remove(LogsCache, 1) end -- Limit memory
+        table.insert(LogsCache, {time = t, rawMsg = msg, type = typeStr})
+        if #LogsCache > 250 then table.remove(LogsCache, 1) end 
         
         RefreshLogs()
     end
@@ -178,33 +235,53 @@ function Debugger.Show()
     SearchInput:GetPropertyChangedSignal("Text"):Connect(RefreshLogs)
     LogService.MessageOut:Connect(AddLog)
 
-    -- [[ BOTTOM MONITOR ]] --
-    local MonitorBar = Instance.new("Frame")
-    MonitorBar.Parent = Main
-    MonitorBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    MonitorBar.Position = UDim2.new(0, 10, 1, -35)
-    MonitorBar.Size = UDim2.new(1, -20, 0, 25)
-    Instance.new("UICorner", MonitorBar).CornerRadius = UDim.new(0, 4)
-    
-    local MonitorText = Instance.new("TextLabel")
-    MonitorText.Parent = MonitorBar
-    MonitorText.BackgroundTransparency = 1
-    MonitorText.Size = UDim2.new(1, -10, 1, 0)
-    MonitorText.Position = UDim2.new(0, 10, 0, 0)
-    MonitorText.Font = Enum.Font.Code
-    MonitorText.TextSize = 11
-    MonitorText.TextColor3 = Color3.fromRGB(150, 255, 150)
-    MonitorText.TextXAlignment = Enum.TextXAlignment.Left
-    
+    -- [[ MONITOR UPDATE LOOP ]] --
     task.spawn(function()
         while Main.Parent do
-            if Main.Visible then
+            if Main.Visible and StatsVisible then
                 local fps = math.floor(workspace:GetRealPhysicsFPS())
+                local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
                 local mem = math.floor(Stats:GetTotalMemoryUsageMb())
-                local uStop = getgenv().FSS_Universal_Stop and "YES" or "NO"
-                MonitorText.Text = string.format("FPS: %d | Mem: %d MB | Univ_Active: %s", fps, mem, uStop)
+                
+                local ws, jp, sit, rootPos, vel = "N/A", "N/A", "N/A", "N/A", 0
+                local char = Players.LocalPlayer.Character
+                if char then
+                    local hum = char:FindFirstChild("Humanoid")
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if hum then
+                        ws = math.floor(hum.WalkSpeed)
+                        jp = math.floor(hum.JumpPower)
+                        sit = tostring(hum.Sit)
+                    end
+                    if root then
+                        rootPos = string.format("%d, %d, %d", math.floor(root.Position.X), math.floor(root.Position.Y), math.floor(root.Position.Z))
+                        vel = math.floor(root.AssemblyLinearVelocity.Magnitude)
+                    end
+                end
+                
+                local activeFlags = ""
+                if getgenv().FSS_Universal_Stop then activeFlags = activeFlags .. "[UNI] " end
+                if getgenv().FSS_WaveZ_Stop then activeFlags = activeFlags .. "[WVZ] " end
+                if activeFlags == "" then activeFlags = "None" end
+
+                MonitorText.Text = string.format(
+[[[SYSTEM]
+FPS:  %d
+Ping: %d ms
+Mem:  %d MB
+
+[CHARACTER]
+WalkSpeed: %s
+JumpPower: %s
+Sitting:   %s
+Velocity:  %d
+Position:  %s
+
+[SCRIPTS]
+Active: %s]], 
+                fps, ping, mem, ws, jp, sit, vel, rootPos, activeFlags)
             end
-            task.wait(0.5)
+            task.wait(0.2)
         end
     end)
 
@@ -223,18 +300,22 @@ function Debugger.Show()
         B.MouseButton1Click:Connect(func)
     end
 
-    -- Copy All
+    -- Copy All (Hapus tag rich text sebelum copy agar bersih)
     CreateBtn("COPY ALL", UDim2.new(1, -75, 0, 45), function()
         if setclipboard then
-            setclipboard(LogDisplay.Text)
-            local old = LogDisplay.Text
-            LogDisplay.Text = ">> COPIED TO CLIPBOARD <<"
+            local cleanText = ""
+            for _, log in ipairs(LogsCache) do
+                cleanText = cleanText .. string.format("[%s] [%s] %s\n", log.time, log.type:upper(), log.rawMsg)
+            end
+            setclipboard(cleanText)
+            
+            local oldText = LogDisplay.Text
+            LogDisplay.Text = ">> COPIED CLEAN LOGS TO CLIPBOARD <<"
             task.wait(0.5)
-            LogDisplay.Text = old
+            LogDisplay.Text = oldText
         end
     end, Color3.fromRGB(100, 255, 100))
 
-    -- Force Nuke
     CreateBtn("NUKE", UDim2.new(1, -145, 0, 45), function()
         if getgenv().FSS_Universal_Stop then getgenv().FSS_Universal_Stop() end
         if getgenv().FSS_WaveZ_Stop then getgenv().FSS_WaveZ_Stop() end
@@ -260,12 +341,11 @@ function Debugger.Show()
     CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     CloseBtn.MouseButton1Click:Connect(function() Screen:Destroy() end)
 
-    -- Toggle F10
     UserInputService.InputBegan:Connect(function(i, p)
         if not p and i.KeyCode == Enum.KeyCode.F10 then Main.Visible = not Main.Visible end
     end)
 
-    AddLog("Debugger V4.0 Loaded. Press F10 to Toggle.", Enum.MessageType.MessageOutput)
+    AddLog("Debugger V4.1 Loaded. RichText Enabled.", Enum.MessageType.MessageOutput)
 end
 
 return Debugger
