@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.2 (STABILITY FIX) ]] --
--- Changelog: Fixed Toggle state reset on UI rebuild, Improved input handling
+-- [[ FSSHUB LIBRARY: V15.3 (KEYBIND PERSISTENCE) ]] --
+-- Changelog: Keybinds now saved to flags, restored on rebuild
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -75,7 +75,7 @@ local function MakeDraggable(topbarobject, object)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            TweenService:Create(object, TweenInfo.new(0.05), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
+            TweenService:Create(object, TweenInfo.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
@@ -261,7 +261,6 @@ function library:Window(title)
         end
 
         function tab:Toggle(text, default, callback)
-            -- FIX: Prioritaskan library.flags jika ada (agar state bertahan saat rebuild UI)
             local toggled = default or false
             if library.flags[text] ~= nil then toggled = library.flags[text] end
 
@@ -284,26 +283,39 @@ function library:Window(title)
             
             Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
             
-            -- Init State (Memicu callback jika nilai ada di memori/flags)
-            if library.flags[text] ~= nil then 
-                SetState(library.flags[text]) 
-            elseif default then 
-                SetState(true) 
-            else 
-                library.flags[text] = false 
-            end
+            if library.flags[text] ~= nil then SetState(library.flags[text]) 
+            elseif default then SetState(true) 
+            else library.flags[text] = false end
             
+            -- KEYBIND TOGGLE
             local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             local binding, boundKey = false, nil
+            
+            local bindFlag = text .. "_Bind"
+            
+            local function SetBind(key)
+                boundKey = key
+                BindBtn.Text = key.Name
+                library.flags[bindFlag] = key.Name -- Simpan ke flags
+                UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end)
+            end
+
+            -- Restore Bind if exists
+            if library.flags[bindFlag] then
+                local s, k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end)
+                if s and k then SetBind(k) end
+            end
+
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             UserInputService.InputBegan:Connect(function(input)
                 if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-                    binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim
-                    UpdateKeybind(library.keybinds, boundKey, input.KeyCode, function() SetState(not toggled) end); boundKey = input.KeyCode
+                    binding = false; BindBtn.TextColor3 = library.theme.TextDim
+                    SetBind(input.KeyCode)
                 end
             end)
-            return { Set = SetState, SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end); boundKey = key end }
+            
+            return { Set = SetState, SetKeybind = SetBind }
         end
 
         function tab:Button(text, callback)
@@ -312,7 +324,22 @@ function library:Window(title)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             local function DoClick() TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play(); task.wait(0.1); TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play(); callback() end
             Frame.MouseButton1Click:Connect(DoClick)
-            local boundKey = nil; return { SetKeybind = function(key) UpdateKeybind(library.keybinds, boundKey, key, DoClick); boundKey = key end }
+            
+            local boundKey = nil
+            local bindFlag = text .. "_ButtonBind"
+
+            local function SetBind(key)
+                boundKey = key
+                library.flags[bindFlag] = key.Name
+                UpdateKeybind(library.keybinds, boundKey, key, DoClick)
+            end
+
+            if library.flags[bindFlag] then
+                local s, k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end)
+                if s and k then SetBind(k) end
+            end
+
+            return { SetKeybind = SetBind }
         end
 
         function tab:Keybind(text, defaultKey, callback)
@@ -322,18 +349,38 @@ function library:Window(title)
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
             local BindBtn = Create("TextButton", {Parent = Frame, Text = (defaultKey and defaultKey.Name or "NONE"), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), BackgroundColor3 = library.theme.Main})
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
-            local binding = false; local boundKey = defaultKey
-            if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end
-            BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
-            UserInputService.InputBegan:Connect(function(input) if binding and input.UserInputType == Enum.UserInputType.Keyboard then binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim; UpdateKeybind(library.keybinds, boundKey, input.KeyCode, callback); boundKey = input.KeyCode end end)
             
-            -- FIX: Return object untuk akses eksternal (masa depan)
-            return { SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, callback); boundKey = key end }
+            local binding = false; local boundKey = defaultKey
+            local bindFlag = text .. "_Keybind"
+
+            local function SetBind(key)
+                boundKey = key
+                BindBtn.Text = key.Name
+                library.flags[bindFlag] = key.Name
+                UpdateKeybind(library.keybinds, nil, key, callback)
+            end
+            
+            if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end
+            
+            -- Restore
+            if library.flags[bindFlag] then
+                local s, k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end)
+                if s and k then SetBind(k) end
+            end
+
+            BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
+            UserInputService.InputBegan:Connect(function(input) 
+                if binding and input.UserInputType == Enum.UserInputType.Keyboard then 
+                    binding = false; BindBtn.TextColor3 = library.theme.TextDim; 
+                    SetBind(input.KeyCode)
+                end 
+            end)
+            
+            return { SetKeybind = SetBind }
         end
         
         function tab:Slider(text, min, max, default, callback)
              local val = default or min
-             -- FIX: Prioritaskan memory flags
              if library.flags[text] ~= nil then val = library.flags[text] end
              library.flags[text] = val
 
@@ -390,7 +437,6 @@ function library:Window(title)
 
         function tab:Dropdown(text, options, default, callback)
              local isDropped = false; 
-             -- FIX: Prioritaskan memory flags
              if library.flags[text] ~= nil then default = library.flags[text] end
              library.flags[text] = default
              
