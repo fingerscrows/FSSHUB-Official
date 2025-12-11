@@ -1,4 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.9 (DEBUG & RENDER) ]] --
+-- [[ FSSHUB LIBRARY: V15.7 (STABLE RENDER FIX) ]] --
+-- Changelog: Manual Canvas Resizing (Fixes empty GUI), Cleaned Debugs
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -10,17 +11,12 @@ local library = {
     wm_obj = nil
 }
 
-local function Log(msg)
-    print("[FSS-DEBUG] [Lib] " .. tostring(msg))
-end
-
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
--- [[ THEME ENGINE ]] --
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -33,7 +29,14 @@ library.theme = {
     ItemHover   = Color3.fromRGB(45, 45, 50)
 }
 
-library.presets = { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
+library.presets = {
+    ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
+    ["Blood Red"]  = {Accent = Color3.fromRGB(255, 65, 65)},
+    ["Ocean Blue"] = {Accent = Color3.fromRGB(0, 140, 255)},
+    ["Toxic Green"]= {Accent = Color3.fromRGB(0, 255, 140)},
+    ["Golden Age"] = {Accent = Color3.fromRGB(255, 215, 0)},
+    ["Midnight"]   = {Accent = Color3.fromRGB(80, 80, 255), Main = Color3.fromRGB(10, 10, 15), Content = Color3.fromRGB(15, 15, 20)}
+}
 
 function library:SetTheme(themeName)
     local selected = self.presets[themeName] or self.presets["FSS Purple"]
@@ -162,13 +165,11 @@ function library:Init()
         Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
     end
     
-    Log("Library Init Complete on: " .. tostring(TargetParent))
     return gui
 end
 
 function library:Window(title)
     if not self.base then self:Init() end
-    Log("Creating Window: " .. title)
     
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = self.base, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 550, 0, 350), 
@@ -208,17 +209,17 @@ function library:Window(title)
     local firstTab = true
 
     function window:Section(name, iconId) 
-        Log("Creating Section: " .. name)
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.None, 
+            AutomaticCanvasSize = Enum.AutomaticSize.None, -- Manual mode ON
             CanvasSize = UDim2.new(0, 0, 0, 0)
         })
         
         local List = Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
         
+        -- [RENDER FIX] Update tinggi canvas berdasarkan konten
         List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
         end)
@@ -254,7 +255,7 @@ function library:Window(title)
             end
             Page.Visible = true; Indicator.Visible = true
             
-            -- FORCE UPDATE CANVAS
+            -- Force refresh canvas height
             Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
             
             TweenService:Create(TabLabel, TweenInfo.new(0.2), {TextColor3 = library.theme.Text}):Play()
@@ -264,10 +265,8 @@ function library:Window(title)
         if firstTab then
             Page.Visible = true; Indicator.Visible = true; TabLabel.TextColor3 = library.theme.Text
             if tabObj.icon then tabObj.icon.ImageColor3 = library.theme.Text end
-            -- FORCE UPDATE FIRST TAB
-            task.delay(0.1, function()
-                if Page and List then Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20) end
-            end)
+            -- Force init canvas
+            task.delay(0.1, function() if Page and List then Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20) end end)
             firstTab = false
         end
 
@@ -282,13 +281,7 @@ function library:Window(title)
             local toggled = default or false
             if library.flags[text] ~= nil then toggled = library.flags[text] end
 
-            local toggleAction = function() 
-                toggled = not toggled
-                library.flags[text] = toggled
-                local s, err = pcall(function() callback(toggled) end)
-                if not s then Log("Error in Toggle callback: " .. tostring(err)) end
-            end
-            
+            local toggleAction = function() toggled = not toggled; library.flags[text] = toggled; callback(toggled) end
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -303,13 +296,7 @@ function library:Window(title)
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)}):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
             end
-            local function SetState(val) 
-                toggled = val
-                library.flags[text] = val
-                UpdateToggleState()
-                local s, err = pcall(function() callback(toggled) end)
-                if not s then Log("Error in Toggle SetState: " .. tostring(err)) end
-            end
+            local function SetState(val) toggled = val; library.flags[text] = val; UpdateToggleState(); callback(toggled) end
             
             Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
             
@@ -348,13 +335,7 @@ function library:Window(title)
             local Frame = Create("TextButton", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 34), Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, AutoButtonColor = false})
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-            local function DoClick() 
-                TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play()
-                task.wait(0.1)
-                TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play()
-                local s, err = pcall(callback)
-                if not s then Log("Error in Button Callback: " .. tostring(err)) end
-            end
+            local function DoClick() TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play(); task.wait(0.1); TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play(); callback() end
             Frame.MouseButton1Click:Connect(DoClick)
             
             local boundKey = nil
@@ -442,8 +423,7 @@ function library:Window(title)
                  local pct = (val - min) / (max - min)
                  updateVisual(pct)
                  ValLbl.Text = tostring(val)
-                 local s, err = pcall(function() callback(val) end)
-                 if not s then Log("Error in Slider Callback: " .. tostring(err)) end
+                 callback(val)
              end
              Set(val)
 
@@ -477,15 +457,7 @@ function library:Window(title)
              local OptionContainer = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 1, -36), Position = UDim2.new(0, 0, 0, 36), BackgroundTransparency = 1, Name = "OptionList"})
              Create("UIListLayout", {Parent = OptionContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
              Create("UIPadding", {Parent = OptionContainer, PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)})
-             local function Set(opt) 
-                 library.flags[text] = opt
-                 Title.Text = text .. ": " .. opt
-                 local s, err = pcall(function() callback(opt) end)
-                 if not s then Log("Error in Dropdown Callback: " .. tostring(err)) end
-                 isDropped = false
-                 TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play()
-                 Icon.Text = "v" 
-             end
+             local function Set(opt) library.flags[text] = opt; Title.Text = text .. ": " .. opt; callback(opt); isDropped = false; TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play(); Icon.Text = "v" end
              Btn.MouseButton1Click:Connect(function() isDropped = not isDropped; local height = isDropped and (36 + (#options * 30) + 10) or 36; TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, height)}):Play(); Icon.Text = isDropped and "^" or "v" end)
              for _, opt in ipairs(options) do
                  local OptBtn = Create("TextButton", {Parent = OptionContainer, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false})
