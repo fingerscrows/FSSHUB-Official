@@ -1,11 +1,10 @@
--- [[ FSSHUB DATA: UNIVERSAL V6.1 (PHYSICS HARD RESET) ]] --
--- Changelog: Added "Sit-Refresh" Mechanic to clear residual physics jitter
+-- [[ FSSHUB DATA: UNIVERSAL V6.2 (CLEANED) ]] --
+-- Changelog: Removed redundant 'Misc' tab (now handled globally by UIManager)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
-local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = game:GetService("Workspace").CurrentCamera
 
@@ -42,7 +41,7 @@ local State = {
     OriginalLighting = nil
 }
 
--- 3. Logic Functions (Classic Hybrid V6.0 Logic)
+-- 3. Logic Functions (Classic Hybrid)
 
 local function UpdateSpeed()
     while State.SpeedEnabled do
@@ -278,7 +277,7 @@ local function ToggleESP(active)
     end
 end
 
--- [[ 4. DEEP CLEANUP V6.1 (SIT RESET) ]] --
+-- [[ 4. DEEP CLEANUP ]] --
 local function Cleanup()
     print("[FSSHUB] Universal Unload (Physics Reset)...")
 
@@ -296,13 +295,12 @@ local function Cleanup()
     ApplyFullbright(false)
     ToggleESP(false)
     
-    -- Disconnect Loops
     for _, c in pairs(State.Connections) do 
         if c then c:Disconnect() end 
     end
     State.Connections = {}
 
-    -- [[ THE MAGIC FIX: SIT RESET ]] --
+    -- SIT RESET (Anti-Shaking)
     if LocalPlayer.Character then
         local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -319,9 +317,6 @@ local function Cleanup()
             hum.JumpPower = 50
             hum.AutoRotate = true 
             
-            -- INI ADALAH KUNCI PERBAIKANNYA
-            -- Memaksa karakter duduk sekejap akan me-reset physics joint sepenuhnya
-            -- dan menghilangkan micro-stutter pada kamera.
             local wasSitting = hum.Sit
             hum.Sit = true
             task.delay(0.1, function()
@@ -329,7 +324,6 @@ local function Cleanup()
             end)
         end
         
-        -- Reset Camera Subject (Just in Case)
         if Camera and hum then
             Camera.CameraSubject = hum
             Camera.CameraType = Enum.CameraType.Custom
@@ -343,7 +337,7 @@ getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V6.1",
+    Name = "Universal V6.2",
     OnUnload = Cleanup,
 
     Tabs = {
@@ -368,20 +362,6 @@ return {
                 {Type = "Toggle", Title = "Team Check", Default = false, Callback = function(v) State.ESP_TeamCheck = v end},
                 {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1500, Callback = function(v) State.ESP_MaxDistance = v end},
                 {Type = "Toggle", Title = "Fullbright (Soft)", Default = false, Callback = ApplyFullbright},
-            }
-        },
-        {
-            Name = "Misc", Icon = "10888332462",
-            Elements = {
-                {Type = "Button", Title = "Rejoin Server", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end},
-                {Type = "Button", Title = "Server Hop", Callback = function() 
-                    local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-                    for _, s in pairs(servers.data) do
-                        if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
-                            TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer); break
-                        end
-                    end
-                end}
             }
         }
     }
