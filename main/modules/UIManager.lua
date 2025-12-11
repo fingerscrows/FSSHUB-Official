@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.12 (SMOOTH CONFIG) ]] --
--- Changelog: Uses smooth theme updating (No Rebuild/Flicker)
+-- [[ FSSHUB: UI MANAGER V5.13 (EXPIRY PRECISION) ]] --
+-- Changelog: Fixed Permanent Expiry check, Added Seconds to Countdown
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -70,26 +70,42 @@ function UIManager.Build(GameConfig, AuthData)
         
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         
+        -- [LOGIC BARU UNTUK EXPIRY]
         task.spawn(function()
+            -- Ambang batas untuk Permanent (Diatas tahun 2250 dianggap Perm)
+            local PERM_THRESHOLD = 9000000000 
+            
             if not AuthData.Expiry or AuthData.Expiry == 0 then
-                TimerLabel.Text = "Expiry: PERMANENT / DEV"
+                TimerLabel.Text = "Expiry: UNKNOWN / ERROR"
                 return
             end
 
             while true do
-                local t = os.time()
-                local left = AuthData.Expiry - t
+                -- Stop loop jika label hancur (ganti tema/unload)
+                if not TimerLabel or not TimerLabel.Visible then break end
+
+                local currentTime = os.time()
+                local expiryTime = AuthData.Expiry
                 
-                if AuthData.Expiry > 9999999999 then 
-                    TimerLabel.Text = "Expiry: PERMANENT / DEV"
-                    break
-                elseif left <= 0 then 
-                    TimerLabel.Text = "LICENSE EXPIRED"
+                -- Cek Permanent
+                if expiryTime > PERM_THRESHOLD then 
+                    TimerLabel.Text = "Expiry: PERMANENT LICENSE"
+                    break -- Keluar loop, tidak perlu hitung mundur
+                end
+                
+                local timeLeft = expiryTime - currentTime
+                
+                if timeLeft <= 0 then 
+                    TimerLabel.Text = "Status: LICENSE EXPIRED"
+                    -- Disini bisa tambahkan logika kick jika mau
                 else 
-                    local d = math.floor(left / 86400)
-                    local h = math.floor((left % 86400) / 3600)
-                    local m = math.floor((left % 3600) / 60)
-                    TimerLabel.Text = string.format("Expires In: %dd %02dh %02dm", d, h, m)
+                    -- Format: Hari Jam Menit Detik
+                    local d = math.floor(timeLeft / 86400)
+                    local h = math.floor((timeLeft % 86400) / 3600)
+                    local m = math.floor((timeLeft % 3600) / 60)
+                    local s = math.floor(timeLeft % 60)
+                    
+                    TimerLabel.Text = string.format("Expires: %dd %02dh %02dm %02ds", d, h, m, s)
                 end
                 task.wait(1)
             end
@@ -136,9 +152,7 @@ function UIManager.Build(GameConfig, AuthData)
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
-    -- [THEME UPDATE FIX]
     SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
-        -- HANYA panggil SetTheme, jangan Destroy/Rebuild
         Library:SetTheme(selected)
     end)
 
@@ -170,11 +184,10 @@ function UIManager.Build(GameConfig, AuthData)
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
             for title, value in pairs(data) do
-                Library.flags[title] = value -- Load ke memory
+                Library.flags[title] = value 
                 if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
             
-            -- [FIX] Trigger refresh visual tab
             if Library.themeRegistry then 
                for _, item in ipairs(Library.themeRegistry) do if item.Type == "Func" then pcall(item.Func) end end 
             end
