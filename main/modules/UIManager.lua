@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V3.3 (FINAL POLISH) ]] --
--- Fitur: Theme System, Watermark Position, & MOTD
+-- [[ FSSHUB: UI MANAGER V3.4 (ICON STATUS) ]] --
+-- Fitur: Status Icon, Compact Watermark, & MOTD
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -26,10 +26,16 @@ function UIManager.Build(GameConfig, AuthData)
     local Library = LoadLibrary()
     if not Library then warn("FSSHUB: Library Failed to Load") return end
 
-    local userStatus = (AuthData and AuthData.Type) or "Free"
-    local gameName = (AuthData and AuthData.GameName) or GameConfig.Name or "Unknown"
+    -- [ICON LOGIC]
+    local statusIcon = "👤" -- Default Free
+    if AuthData then
+        if AuthData.Type == "Premium" or AuthData.Type == "Unlimited" then statusIcon = "👑" 
+        elseif AuthData.IsDev then statusIcon = "🛠️" end
+    end
     
-    Library:Watermark("FSSHUB " .. userStatus .. " | " .. gameName)
+    -- Watermark: FSSHUB [Icon] (Tanpa Nama Game agar pendek)
+    Library:Watermark("FSSHUB " .. statusIcon)
+    
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
     -- [[ TAB 1: DASHBOARD ]] --
@@ -50,7 +56,7 @@ function UIManager.Build(GameConfig, AuthData)
         )
         
         ProfileTab:Paragraph("User Info", 
-            "License: " .. AuthData.Type .. "\n" ..
+            "License: " .. statusIcon .. " " .. AuthData.Type .. "\n" ..
             "Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden")
         )
 
@@ -100,7 +106,6 @@ function UIManager.Build(GameConfig, AuthData)
     -- [[ SETTINGS ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- [THEME SYSTEM]
     local safePresets = Library.presets or {
         ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
         ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)}
@@ -115,14 +120,12 @@ function UIManager.Build(GameConfig, AuthData)
         UIManager.Build(StoredConfig, StoredAuth)
     end)
 
-    -- [WATERMARK POSITION]
     SettingsTab:Dropdown("Watermark Position", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
         if Library.SetWatermarkAlign then
             Library:SetWatermarkAlign(pos)
         end
     end)
 
-    -- [RENAMED TOGGLE]
     SettingsTab:Toggle("Status & FPS", true, function(state)
         Library:ToggleWatermark(state)
     end)
