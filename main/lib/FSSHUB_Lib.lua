@@ -1,12 +1,12 @@
--- [[ FSSHUB LIBRARY: V12.0 (THEME ENGINE) ]] --
--- Fitur: Multi-Theme Support & Dynamic Color Switching
+-- [[ FSSHUB LIBRARY: V12.2 (SAFE VERBOSE) ]] --
+-- Fitur: Multi-Theme, Dynamic Color, Fixed Dropdown Layout (Full Code Style)
 
 local library = {
     flags = {}, 
     windows = {}, 
     open = true,
     keybinds = {},
-    gui_objects = {} -- [BARU] Menyimpan objek UI untuk live-update
+    gui_objects = {} 
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -19,7 +19,7 @@ library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
     Content     = Color3.fromRGB(25, 25, 30),
-    Accent      = Color3.fromRGB(140, 80, 255), -- Default Ungu
+    Accent      = Color3.fromRGB(140, 80, 255), 
     Text        = Color3.fromRGB(240, 240, 240),
     TextDim     = Color3.fromRGB(150, 150, 150),
     Stroke      = Color3.fromRGB(50, 50, 60),
@@ -38,14 +38,9 @@ library.presets = {
 
 function library:SetTheme(themeName)
     local selected = self.presets[themeName] or self.presets["FSS Purple"]
-    
-    -- Update tabel theme
     for k, v in pairs(selected) do
         self.theme[k] = v
     end
-    
-    -- [NOTE] Untuk update real-time yang sempurna, cara termudah adalah me-rebuild UI.
-    -- Library ini didesain untuk reload UI via UIManager saat tema ganti.
 end
 
 local function Create(class, props)
@@ -55,12 +50,17 @@ local function Create(class, props)
 end
 
 -- [[ HELPER: SMART BIND MANAGER ]] --
+-- Fungsi ini tetap kita taruh luar agar binding tidak error/ghosting
 local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
     if oldKey and tableBinds[oldKey] then
         for i, func in ipairs(tableBinds[oldKey]) do
-            if func == callback then table.remove(tableBinds[oldKey], i) break end
+            if func == callback then
+                table.remove(tableBinds[oldKey], i)
+                break
+            end
         end
     end
+    
     if newKey then
         if not tableBinds[newKey] then tableBinds[newKey] = {} end
         table.insert(tableBinds[newKey], callback)
@@ -294,14 +294,10 @@ function library:Window(title)
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true})
         end
 
-        -- [TOGGLE FIXED]
         function tab:Toggle(text, default, callback)
             local toggled = default or false
             local boundKey = nil 
-            local toggleAction = function() 
-                toggled = not toggled
-                callback(toggled)
-            end
+            local toggleAction = function() toggled = not toggled; callback(toggled) end
 
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
@@ -442,28 +438,65 @@ function library:Window(title)
              UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update(i) end end)
         end
 
+        -- [DROPDOWN LAYOUT FIX HERE]
         function tab:Dropdown(text, options, default, callback)
              local isDropped = false
-             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
+             
+             -- Frame Container Utama
+             local Frame = Create("Frame", {
+                 Parent = Page, 
+                 BackgroundColor3 = library.theme.ItemBg, 
+                 Size = UDim2.new(1, 0, 0, 36), 
+                 ClipsDescendants = true
+             })
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-             local Title = Create("TextLabel", {Parent = Frame, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
-             local Icon = Create("TextLabel", {Parent = Frame, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
-             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""})
-             Create("UIListLayout", {Parent = Frame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
-             Create("Frame", {Parent = Frame, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1, LayoutOrder = -1})
+             
+             -- HEADER FRAME (Wajib dipisah agar tidak kena ListLayout)
+             local Header = Create("Frame", {
+                 Parent = Frame,
+                 Size = UDim2.new(1, 0, 0, 36),
+                 BackgroundTransparency = 1,
+                 Name = "Header"
+             })
+             
+             local Title = Create("TextLabel", {Parent = Header, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+             local Icon = Create("TextLabel", {Parent = Header, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
+             local Btn = Create("TextButton", {Parent = Header, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""})
+             
+             -- OPTIONS CONTAINER (Di bawah header)
+             local OptionContainer = Create("Frame", {
+                 Parent = Frame,
+                 Size = UDim2.new(1, 0, 1, -36),
+                 Position = UDim2.new(0, 0, 0, 36),
+                 BackgroundTransparency = 1,
+                 Name = "OptionList"
+             })
+             Create("UIListLayout", {Parent = OptionContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
+             Create("UIPadding", {Parent = OptionContainer, PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)})
              
              Btn.MouseButton1Click:Connect(function()
                  isDropped = not isDropped
-                 local height = isDropped and (36 + (#options * 30) + 5) or 36
+                 local height = isDropped and (36 + (#options * 30) + 10) or 36
                  TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, height)}):Play()
                  Icon.Text = isDropped and "^" or "v"
              end)
              
              for _, opt in ipairs(options) do
-                 local OptBtn = Create("TextButton", {Parent = Frame, Text = opt, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, -10, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false})
+                 local OptBtn = Create("TextButton", {
+                     Parent = OptionContainer, 
+                     Text = opt, 
+                     Font = Enum.Font.Gotham, 
+                     TextColor3 = library.theme.TextDim, 
+                     TextSize = 12, 
+                     Size = UDim2.new(1, 0, 0, 28), 
+                     BackgroundColor3 = Color3.fromRGB(45,45,50), 
+                     AutoButtonColor = false
+                 })
                  Create("UICorner", {Parent = OptBtn, CornerRadius = UDim.new(0, 4)})
                  OptBtn.MouseButton1Click:Connect(function()
-                     isDropped = false; Title.Text = text .. ": " .. opt; callback(opt)
+                     isDropped = false; 
+                     Title.Text = text .. ": " .. opt; 
+                     callback(opt)
                      TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 36)}):Play()
                      Icon.Text = "v"
                  end)
