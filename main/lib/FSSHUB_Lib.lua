@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.6 (RENDER FIX) ]] --
--- Changelog: Added AutomaticCanvasSize to fix empty pages
+-- [[ FSSHUB LIBRARY: V15.7 (MANUAL RESIZE FIX) ]] --
+-- Changelog: Replaced AutomaticCanvasSize with robust manual calculation
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -17,7 +17,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
--- [[ THEME ENGINE ]] --
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -136,30 +135,15 @@ end
 function library:Init()
     if self.base then return self.base end
     
-    -- [RENDER FIX] Cari Parent yang valid
     local TargetParent = nil
-    pcall(function()
-        if gethui then TargetParent = gethui() end
-    end)
+    pcall(function() if gethui then TargetParent = gethui() end end)
+    if not TargetParent then pcall(function() TargetParent = game:GetService("CoreGui") end) end
+    if not TargetParent then TargetParent = Players.LocalPlayer:WaitForChild("PlayerGui") end
     
-    if not TargetParent then
-        pcall(function() TargetParent = game:GetService("CoreGui") end)
-    end
-    
-    if not TargetParent then
-        TargetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    end
-    
-    if TargetParent:FindFirstChild("FSSHUB_V10") then 
-        TargetParent.FSSHUB_V10:Destroy() 
-    end
+    if TargetParent:FindFirstChild("FSSHUB_V10") then TargetParent.FSSHUB_V10:Destroy() end
     
     local gui = Create("ScreenGui", {
-        Name = "FSSHUB_V10", 
-        Parent = TargetParent, 
-        ResetOnSpawn = false, 
-        IgnoreGuiInset = true,
-        DisplayOrder = 9999
+        Name = "FSSHUB_V10", Parent = TargetParent, ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 9999
     })
     
     self.base = gui
@@ -228,10 +212,17 @@ function library:Window(title)
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.Y -- FIX: Agar konten bisa di-scroll dan muncul
+            AutomaticCanvasSize = Enum.AutomaticSize.None, -- [FIX] Disable Automatic, use Manual
+            CanvasSize = UDim2.new(0, 0, 0, 0)
         })
-        Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
+        
+        local List = Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
+        
+        -- [FIX CRITICAL] Force resize canvas based on content height
+        List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
+        end)
         
         local TabBtn = Create("TextButton", {Parent = Sidebar, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false})
         local textOffset = 0
