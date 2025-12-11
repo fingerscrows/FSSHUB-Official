@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.13 (TRANSPARENCY & EXPIRY FIX) ]] --
--- Changelog: Added Transparency Slider, Improved Expiry Timer
+-- [[ FSSHUB: UI MANAGER V6.0 (CENTRALIZED ICONS) ]] --
+-- Changelog: Added IconLibrary for centralized asset management
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -17,6 +17,23 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
+-- [DATABASE IKON TERPUSAT]
+-- Ganti semua ID ikon di sini saja kedepannya!
+local IconLibrary = {
+    -- Kategori Umum
+    ["Dashboard"] = "10888331510", -- Rumah
+    ["Settings"]  = "10888336262", -- Gerigi
+    ["Player"]    = "10888334695", -- Orang
+    ["Visuals"]   = "10888333282", -- Mata
+    
+    -- Kategori Game
+    ["Farming"]   = "10888335919", -- Daun
+    ["Combat"]    = "10888339056", -- Pedang
+    ["Support"]   = "10888334234", -- Hati
+    ["Misc"]      = "10888338271", -- Tanda Tanya
+    ["Teleport"]  = "10888337728", -- Peta/Pin
+}
+
 -- [AUTO-LOAD PURGE]
 local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
 if isfile(AutoLoadPath) then
@@ -25,9 +42,10 @@ end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
+    print("[FSSHUB] Fetching Library from: " .. LIB_URL)
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
-    
     if success and lib then
+        print("[FSSHUB] Library Fetched Successfully!")
         lib:Init()
         LibraryInstance = lib
         return lib
@@ -38,12 +56,14 @@ local function LoadLibrary()
 end
 
 function UIManager.Build(GameConfig, AuthData)
+    print("[FSSHUB] Building UI for: " .. (GameConfig.Name or "Unknown"))
+    
     StoredConfig = GameConfig
     StoredAuth = AuthData
     
     local Library = LoadLibrary()
     if not Library then 
-        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
+        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load. Check console.", Duration = 5})
         return 
     end
 
@@ -53,14 +73,14 @@ function UIManager.Build(GameConfig, AuthData)
         elseif AuthData.IsDev then statusIcon = "🛠️" end
     end
     
+    Library:Watermark("FSSHUB " .. statusIcon)
+    
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
-    task.delay(0.1, function()
-        Library:Watermark("FSSHUB " .. statusIcon)
-    end)
-    
     -- [[ DASHBOARD ]] --
-    local ProfileTab = Window:Section("Dashboard", "10888331510")
+    -- Panggil ikon menggunakan Nama Kunci dari database di atas
+    local ProfileTab = Window:Section("Dashboard", IconLibrary["Dashboard"])
+    
     if AuthData then
         if AuthData.MOTD and AuthData.MOTD ~= "" then ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) end
         
@@ -69,26 +89,21 @@ function UIManager.Build(GameConfig, AuthData)
         ProfileTab:Paragraph("User Info", "License: " .. statusIcon .. " " .. AuthData.Type .. "\nKey: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
         
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
-        
         task.spawn(function()
             if not AuthData.Expiry or AuthData.Expiry == 0 then
                 TimerLabel.Text = "Expiry: PERMANENT / DEV"
                 return
             end
-
             while true do
                 local t = os.time()
                 local left = AuthData.Expiry - t
-                
                 if AuthData.Expiry > 9000000000 then 
                     TimerLabel.Text = "Expiry: PERMANENT / DEV"
                     break
                 elseif left <= 0 then 
                     TimerLabel.Text = "LICENSE EXPIRED"
                 else 
-                    local d = math.floor(left / 86400)
-                    local h = math.floor((left % 86400) / 3600)
-                    local m = math.floor((left % 3600) / 60)
+                    local d,h,m = math.floor(left/86400), math.floor((left%86400)/3600), math.floor((left%3600)/60)
                     TimerLabel.Text = string.format("Expires In: %dd %02dh %02dm", d, h, m)
                 end
                 task.wait(1)
@@ -102,7 +117,12 @@ function UIManager.Build(GameConfig, AuthData)
 
     if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
         for _, tabData in ipairs(GameConfig.Tabs) do
-            local Tab = Window:Section(tabData.Name, tabData.Icon)
+            -- [SMART ICON SYSTEM]
+            -- Cek apakah nama ikon ada di IconLibrary? Jika ya, pakai ID dari sana.
+            -- Jika tidak, pakai ID mentah dari script game.
+            local finalIcon = IconLibrary[tabData.Icon] or tabData.Icon
+            
+            local Tab = Window:Section(tabData.Name, finalIcon)
             for _, element in ipairs(tabData.Elements) do
                 local newItem = nil
                 if element.Type == "Toggle" then
@@ -129,7 +149,7 @@ function UIManager.Build(GameConfig, AuthData)
     end
     
     -- [[ SETTINGS TAB ]] --
-    local SettingsTab = Window:Section("Settings", "10888332462")
+    local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     
     SettingsTab:Label("Interface Configuration")
     local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)}, ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)} }
@@ -140,9 +160,8 @@ function UIManager.Build(GameConfig, AuthData)
         Library:SetTheme(selected)
     end)
 
-    -- [NEW] SLIDER TRANSPARANSI
     SettingsTab:Slider("Menu Transparency", 0, 90, 0, function(v)
-        Library:SetTransparency(v/100) -- Konversi 0-90 ke 0.0 - 0.9
+        Library:SetTransparency(v/100)
     end)
 
     SettingsTab:Dropdown("Watermark", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
@@ -173,7 +192,7 @@ function UIManager.Build(GameConfig, AuthData)
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
             for title, value in pairs(data) do
-                Library.flags[title] = value -- Load ke memory
+                Library.flags[title] = value 
                 if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
             
