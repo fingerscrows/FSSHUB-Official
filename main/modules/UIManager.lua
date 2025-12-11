@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.11 (THEME & EXPIRY FIX) ]] --
--- Changelog: Fixed Watermark disappearing on theme switch, Fixed Expiry Sync stuck
+-- [[ FSSHUB: UI MANAGER V5.12 (SMOOTH CONFIG) ]] --
+-- Changelog: Uses smooth theme updating (No Rebuild/Flicker)
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -17,7 +17,7 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
--- [AUTO-LOAD PURGE] Bersihkan config auto-load saat start
+-- [AUTO-LOAD PURGE]
 local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
 if isfile(AutoLoadPath) then
     delfile(AutoLoadPath)
@@ -25,7 +25,6 @@ end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
-    -- Menggunakan URL dari GitHub
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
     
     if success and lib then
@@ -54,11 +53,8 @@ function UIManager.Build(GameConfig, AuthData)
         elseif AuthData.IsDev then statusIcon = "🛠️" end
     end
     
-    -- [FIX 1] Buat Window DULUAN agar Base GUI terbentuk
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
-    -- [FIX 1] Baru panggil Watermark setelah Window ada
-    -- Ini mencegah Watermark hilang saat ganti tema karena GUI belum siap
     task.delay(0.1, function()
         Library:Watermark("FSSHUB " .. statusIcon)
     end)
@@ -74,9 +70,7 @@ function UIManager.Build(GameConfig, AuthData)
         
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         
-        -- [FIX 2] Expiry Logic yang Lebih Aman (Anti-Stuck)
         task.spawn(function()
-            -- Cek apakah data expiry ada
             if not AuthData.Expiry or AuthData.Expiry == 0 then
                 TimerLabel.Text = "Expiry: PERMANENT / DEV"
                 return
@@ -86,17 +80,11 @@ function UIManager.Build(GameConfig, AuthData)
                 local t = os.time()
                 local left = AuthData.Expiry - t
                 
-                -- Jika expiry sangat besar, anggap permanen
                 if AuthData.Expiry > 9999999999 then 
                     TimerLabel.Text = "Expiry: PERMANENT / DEV"
                     break
-                
-                -- Jika waktu habis
                 elseif left <= 0 then 
                     TimerLabel.Text = "LICENSE EXPIRED"
-                    -- Opsional: Bisa tambahkan kick atau disable fitur disini
-                
-                -- Update waktu normal
                 else 
                     local d = math.floor(left / 86400)
                     local h = math.floor((left % 86400) / 3600)
@@ -143,26 +131,15 @@ function UIManager.Build(GameConfig, AuthData)
     -- [[ SETTINGS TAB ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- 1. THEME INTERFACE
     SettingsTab:Label("Interface Configuration")
     local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)}, ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)} }
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
+    -- [THEME UPDATE FIX]
     SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
-        -- Matikan loop lama sebelum rebuild
-        if GameConfig.OnUnload then 
-            pcall(GameConfig.OnUnload) 
-        end
-        
+        -- HANYA panggil SetTheme, jangan Destroy/Rebuild
         Library:SetTheme(selected)
-        
-        -- Hancurkan GUI lama
-        if Library.base then Library.base:Destroy(); Library.base = nil end 
-        Library.keybinds = {} 
-        
-        -- Rebuild UI (Watermark akan muncul lagi berkat fix di atas)
-        UIManager.Build(StoredConfig, StoredAuth)
     end)
 
     SettingsTab:Dropdown("Watermark", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
@@ -197,9 +174,11 @@ function UIManager.Build(GameConfig, AuthData)
                 if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
             
-            -- Rebuild UI untuk apply visual keybind
-            if Library.base then Library.base:Destroy(); Library.base = nil end 
-            UIManager.Build(StoredConfig, StoredAuth)
+            -- [FIX] Trigger refresh visual tab
+            if Library.themeRegistry then 
+               for _, item in ipairs(Library.themeRegistry) do if item.Type == "Func" then pcall(item.Func) end end 
+            end
+            
             Library:Notify("Config", "Loaded: " .. selectedConfig, 3)
         end
     end)
