@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V16.0 (FINAL STABLE) ]] --
--- Changelog: Fixed Label return object (Expiry Fix), Manual Canvas (GUI Fix)
+-- [[ FSSHUB LIBRARY: V16.1 (TRANSPARENCY SUPPORT) ]] --
+-- Changelog: Added SetTransparency function and frame tracking
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -9,7 +9,8 @@ local library = {
     keybinds = {},
     gui_objects = {},
     wm_obj = nil,
-    themeRegistry = {}
+    themeRegistry = {},
+    transparencyFrames = {} -- [NEW] Daftar frame yang akan kena efek transparansi
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -39,6 +40,16 @@ library.presets = {
     ["Golden Age"] = {Accent = Color3.fromRGB(255, 215, 0)},
     ["Midnight"]   = {Accent = Color3.fromRGB(80, 80, 255), Main = Color3.fromRGB(10, 10, 15), Content = Color3.fromRGB(15, 15, 20)}
 }
+
+-- [NEW] Fungsi Set Transparansi Global
+function library:SetTransparency(val)
+    self.currentTransparency = val -- Simpan nilai terakhir
+    for _, obj in ipairs(self.transparencyFrames) do
+        if obj and obj.Parent then
+            TweenService:Create(obj, TweenInfo.new(0.2), {BackgroundTransparency = val}):Play()
+        end
+    end
+end
 
 function library:RegisterTheme(obj, prop, key)
     if not obj then return end
@@ -206,6 +217,8 @@ function library:Window(title)
         Position = UDim2.new(0.5, -275, 0.5, -175), BorderSizePixel = 0
     })
     library:RegisterTheme(MainFrame, "BackgroundColor3", "Main")
+    -- [NEW] Register for Transparency
+    table.insert(library.transparencyFrames, MainFrame)
     
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     local MainStroke = Create("UIStroke", {Parent = MainFrame, Thickness = 1})
@@ -215,10 +228,12 @@ function library:Window(title)
 
     local Header = Create("Frame", {Parent = MainFrame, Size = UDim2.new(1, 0, 0, 45)})
     library:RegisterTheme(Header, "BackgroundColor3", "Sidebar")
+    table.insert(library.transparencyFrames, Header) -- [NEW]
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
     
     local HeaderLine = Create("Frame", {Parent = Header, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel=0}) 
     library:RegisterTheme(HeaderLine, "BackgroundColor3", "Sidebar")
+    table.insert(library.transparencyFrames, HeaderLine) -- [NEW]
     
     local Title = Create("TextLabel", {
         Parent = Header, Text = title, Font = Enum.Font.GothamBold,
@@ -234,6 +249,7 @@ function library:Window(title)
         Position = UDim2.new(0, 0, 0, 46), BorderSizePixel = 0, ScrollBarThickness = 0
     })
     library:RegisterTheme(Sidebar, "BackgroundColor3", "Sidebar")
+    table.insert(library.transparencyFrames, Sidebar) -- [NEW]
     
     Create("UICorner", {Parent = Sidebar, CornerRadius = UDim.new(0,0)})
     Create("UIListLayout", {Parent = Sidebar, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})
@@ -244,6 +260,7 @@ function library:Window(title)
         Position = UDim2.new(0, 160, 0, 46), BorderSizePixel = 0, ClipsDescendants = true
     })
     library:RegisterTheme(Content, "BackgroundColor3", "Main")
+    table.insert(library.transparencyFrames, Content) -- [NEW]
     
     MakeDraggable(Header, MainFrame)
     
@@ -254,7 +271,7 @@ function library:Window(title)
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.None, -- Manual Mode (Safe)
+            AutomaticCanvasSize = Enum.AutomaticSize.None, 
             CanvasSize = UDim2.new(0, 0, 0, 0)
         })
         library:RegisterTheme(Page, "ScrollBarImageColor3", "Accent")
@@ -339,7 +356,6 @@ function library:Window(title)
             library:RegisterTheme(C, "TextColor3", "Text")
         end
 
-        -- [FIX CRITICAL] Mengembalikan object label agar text bisa diupdate
         function tab:Label(text)
             local Frame = Create("Frame", {Parent = Page, Size = UDim2.new(1, 0, 0, 30)})
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
@@ -351,7 +367,7 @@ function library:Window(title)
                 BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left
             })
             library:RegisterTheme(T, "TextColor3", "Text")
-            return T -- Return Object (Fix for Expiry)
+            return T
         end
 
         function tab:Toggle(text, default, callback)
@@ -540,10 +556,10 @@ function library:Window(title)
              AddHover(Frame)
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
              local Header = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Name = "Header"})
-             local Title = Create("TextLabel", {Parent = Header, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+             local Title = Create("TextLabel", {Parent = Header, Text = text .. ": " .. (default or "..."), Font = Enum.Font.Gotham, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
              library:RegisterTheme(Title, "TextColor3", "Text")
              
-             local Icon = Create("TextLabel", {Parent = Header, Text = "v", Font = Enum.Font.GothamBold, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
+             local Icon = Create("TextLabel", {Parent = Header, Text = "v", Font = Enum.Font.GothamBold, TextSize = 12, Size = UDim2.new(0, 30, 0, 36), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1})
              library:RegisterTheme(Icon, "TextColor3", "TextDim")
              
              local Btn = Create("TextButton", {Parent = Header, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = ""})
