@@ -1,15 +1,15 @@
--- [[ FSSHUB: UI MANAGER V3.1 (THEME FIX) ]] --
--- Fitur: Theme Dropdown Safety Check & Auto-Reload
+-- [[ FSSHUB: UI MANAGER V3.2 (THEME PERSISTENCE FIX) ]] --
+-- Fitur: Dynamic Theme Switcher, Auto-Reload, & MOTD
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
--- Cache Data untuk Reload UI
+-- Cache Data Global
 local StoredConfig = nil
 local StoredAuth = nil
 local LibraryInstance = nil
 
--- Fungsi Load Library yang Lebih Aman
+-- Fungsi Load Library (Hanya download jika belum ada)
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
     
@@ -25,13 +25,13 @@ end
 
 -- Fungsi Build Utama
 function UIManager.Build(GameConfig, AuthData)
-    -- Simpan data untuk reload
     StoredConfig = GameConfig
     StoredAuth = AuthData
     
     local Library = LoadLibrary()
     if not Library then warn("FSSHUB: Library Failed to Load") return end
 
+    -- Watermark & Window Title
     local userStatus = (AuthData and AuthData.Type) or "Free"
     local gameName = (AuthData and AuthData.GameName) or GameConfig.Name or "Unknown"
     
@@ -42,6 +42,7 @@ function UIManager.Build(GameConfig, AuthData)
     local ProfileTab = Window:Section("Dashboard", "10888331510")
     
     if AuthData then
+        -- MOTD Display
         if AuthData.MOTD and AuthData.MOTD ~= "" then
             ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD)
         end
@@ -106,12 +107,10 @@ function UIManager.Build(GameConfig, AuthData)
     -- [[ SETTINGS ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- [FIX THEME DROPDOWN]
-    -- Kita pastikan 'presets' ada. Jika tidak, kita buat manual di sini.
+    -- [THEME SYSTEM]
     local safePresets = Library.presets or {
         ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
-        ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)},
-        ["Ocean Blue"] = {Accent = Color3.fromRGB(0, 140, 255)}
+        ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)}
     }
     
     local themeNames = {}
@@ -119,16 +118,21 @@ function UIManager.Build(GameConfig, AuthData)
         table.insert(themeNames, name) 
     end
     
-    -- Debugging: Print ke console (F9) untuk memastikan list ada
-    print("[FSSHUB UI] Theme List: ", table.concat(themeNames, ", "))
-
-    SettingsTab:Dropdown("Interface Theme", themeNames, "FSS Purple", function(selected)
+    SettingsTab:Dropdown("Interface Theme", themeNames, "Select Theme", function(selected)
+        -- 1. Set Tema pada Library yang SEDANG AKTIF (jangan download baru)
         Library:SetTheme(selected)
         
-        -- Logic Reload UI
-        if Library.base then Library.base:Destroy() end 
-        LibraryInstance = nil -- Reset library instance agar warna baru teraplikasi
-        UIManager.Build(StoredConfig, StoredAuth) -- Panggil ulang fungsi Build
+        -- 2. Hapus GUI Lama
+        if Library.base then 
+            Library.base:Destroy() 
+            Library.base = nil -- Reset agar Init() membuat GUI baru
+        end 
+        
+        -- 3. Reset Keybinds (Penting agar tidak error saat rebuild)
+        Library.keybinds = {} 
+        
+        -- 4. Rebuild UI menggunakan Library yang sama (Warna sudah berubah)
+        UIManager.Build(StoredConfig, StoredAuth)
     end)
 
     SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
