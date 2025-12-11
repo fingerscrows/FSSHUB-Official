@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.3 (LOGIC SAFE) ]] --
--- Changelog: Added logic cleanup before theme switch to prevent double-looping
+-- [[ FSSHUB: UI MANAGER V5.4 (FULL CONFIG) ]] --
+-- Changelog: Full-state saving (includes Keybinds)
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -155,24 +155,28 @@ function UIManager.Build(GameConfig, AuthData)
         local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
+            -- Update flags langsung ke Library untuk menangkap keybind
             for title, value in pairs(data) do
+                Library.flags[title] = value -- Load ke memory
                 if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
+            -- Rebuild UI agar keybind visual terupdate
+            if Library.base then Library.base:Destroy(); Library.base = nil end 
+            UIManager.Build(StoredConfig, StoredAuth)
             Library:Notify("Config", "Loaded: " .. selectedConfig, 3)
         end
     end)
 
     SettingsTab:Button("Save Config", function()
-        local data = {}
-        for title, _ in pairs(ConfigurableItems) do data[title] = Library.flags[title] end
+        -- FIX: Simpan seluruh Library.flags agar keybind ikut tersimpan
+        local data = Library.flags 
         writefile(ConfigFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(data))
         Library:Notify("Config", "Saved: " .. selectedConfig, 3)
     end)
 
     SettingsTab:Button("Create/Overwrite Config", function()
         local name = selectedConfig == "Default" and "Config_" .. tostring(math.random(1000,9999)) or selectedConfig
-        local data = {}
-        for title, _ in pairs(ConfigurableItems) do data[title] = Library.flags[title] end
+        local data = Library.flags
         writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(data))
         Library:Notify("Config", "Saved as: " .. name, 3)
     end)
@@ -198,8 +202,12 @@ function UIManager.Build(GameConfig, AuthData)
                     task.wait(1)
                     local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. alData.Config .. ".json"))
                     for title, value in pairs(data) do
+                        Library.flags[title] = value
                         if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
                     end
+                    -- Rebuild UI untuk apply keybind auto-load
+                    if Library.base then Library.base:Destroy(); Library.base = nil end 
+                    UIManager.Build(StoredConfig, StoredAuth)
                     Library:Notify("AutoLoad", "Config Loaded", 3)
                 end)
             end
