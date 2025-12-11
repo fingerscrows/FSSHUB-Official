@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.6 (FINAL VISUAL FIX) ]] --
--- Fitur: God Mode, Smart ESP (Tembus Tembok Instan), Anti-Gloomy Fullbright
+-- [[ FSSHUB DATA: UNIVERSAL V4.7 (ESP & VISUAL CONTROL) ]] --
+-- Fitur: God Mode, Smart ESP (Jarak & Interval), Clean Fullbright
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -21,7 +21,10 @@ local State = {
     ESP = false,
     Connections = {},
     
-    -- Cache Post-Effect agar bisa direstore
+    -- [BARU] Kontrol ESP
+    ESP_MaxDistance = 800, -- Jarak maksimum default
+    ESP_UpdateInterval = 0.5, -- Interval update default
+    
     StoredEffects = {},
     ESP_Cache = {}
 }
@@ -101,7 +104,57 @@ local function ToggleSpinbot(active)
     end
 end
 
--- [SMART ESP SYSTEM]
+-- [FULLBRIGHT LOGIC (RESTORE VISUAL)]
+local function RestoreOriginalVisuals()
+    -- Restore Efek yang disembunyikan
+    for obj, enabled in pairs(State.StoredEffects) do
+        if obj and obj.Parent then obj.Enabled = enabled end
+    end
+    State.StoredEffects = {}
+
+    -- Restore Global Lighting (Minimal)
+    Lighting.Brightness = 1
+    Lighting.ClockTime = 12
+    Lighting.GlobalShadows = true
+    Lighting.Ambient = Color3.new(0,0,0)
+    Lighting.OutdoorAmbient = Color3.new(0,0,0)
+    Lighting.FogEnd = 100000 -- Nilai default yang aman
+end
+
+local function ApplyFullbright(active)
+    State.Fullbright = active
+    
+    if active then
+        -- Simpan nilai saat ini sebelum diubah (jika belum pernah disimpan)
+        if not State.StoredEffects.isSetup then
+            Lighting.GlobalShadows = false
+            Lighting.Ambient = Color3.new(0.5,0.5,0.5) -- Lebih moderat
+            Lighting.OutdoorAmbient = Color3.new(0.5,0.5,0.5)
+            Lighting.FogEnd = 9e9
+        end
+
+        task.spawn(function()
+            while State.Fullbright do
+                Lighting.Brightness = 1.5 -- Tidak terlalu terang (turun dari 2)
+                Lighting.ClockTime = 14
+                
+                -- Matikan Efek Post-Processing yang bikin Gloomy
+                for _, v in pairs(Lighting:GetChildren()) do
+                    if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("ColorCorrection") then
+                        if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end
+                        v.Enabled = false
+                    end
+                end
+                task.wait(1)
+            end
+            RestoreOriginalVisuals()
+        end)
+    else
+        -- Restore visual dilakukan oleh loop saat State.Fullbright menjadi false
+    end
+end
+
+-- [ESP SYSTEM]
 local function CreateESP(player)
     if player == LocalPlayer then return end
     
@@ -110,7 +163,7 @@ local function CreateESP(player)
         
         -- Cek apakah Head sudah ada (tanpa delay)
         local head = char:FindFirstChild("Head") 
-        if not head then return end -- Cepat keluar jika belum siap
+        if not head then return end 
         
         local hl = Instance.new("Highlight")
         hl.Name = "FSS_ESP_Box"
@@ -119,7 +172,7 @@ local function CreateESP(player)
         hl.FillTransparency = 0.5
         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
         hl.OutlineTransparency = 0
-        -- [FIX UTAMA] Harus AlwaysOnTop
+        -- [FIX CHAMS UTAMA] Harus AlwaysOnTop untuk tembus tembok
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop 
         hl.Parent = char
         
@@ -150,38 +203,39 @@ local function CreateESP(player)
         end)
     end
     
-    -- [OPTIMASI CHAMS] Jika karakter ada sekarang, langsung panggil.
     if player.Character then AddVisuals(player.Character) end
     player.CharacterAdded:Connect(AddVisuals)
 end
 
 local function UpdateESP_Loop()
-    -- Loop untuk update jarak & manajemen limit Highlight
-    RunService.Heartbeat:Connect(function()
-        if not State.ESP or not LocalPlayer.Character then return end
-        
-        local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
-        
-        for i, item in ipairs(State.ESP_Cache) do
-            if item.char and item.char.Parent and item.txt.Parent then
-                local root = item.char:FindFirstChild("HumanoidRootPart")
-                
-                if root then
-                    local dist = (root.Position - myRoot.Position).Magnitude
-                    item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
+    -- Loop dengan interval yang ditentukan user
+    task.spawn(function()
+        while State.ESP do
+            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not myRoot then task.wait(1) end
+
+            for i, item in ipairs(State.ESP_Cache) do
+                if item.char and item.char.Parent and item.txt.Parent then
+                    local root = item.char:FindFirstChild("HumanoidRootPart")
                     
-                    -- Optimasi Limit (Matikan yang terlalu jauh)
-                    if #State.ESP_Cache > 30 then
-                        item.hl.Enabled = (dist < 500)
+                    if root and myRoot then
+                        local dist = (root.Position - myRoot.Position).Magnitude
+                        item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
+                        
+                        -- [KONTROL JARAK] Matikan Chams/ESP jika terlalu jauh
+                        if dist > State.ESP_MaxDistance then
+                            item.hl.Enabled = false
+                            item.txt.Visible = false
+                        else
+                            item.hl.Enabled = true
+                            item.txt.Visible = true
+                        end
                     else
-                        item.hl.Enabled = true
+                        -- Jika karakter hilang, biarkan loop Heartbeat menghapus dari cache
                     end
                 end
-            else
-                -- Hapus dari cache jika karakter sudah hilang
-                table.remove(State.ESP_Cache, i)
             end
+            task.wait(State.ESP_UpdateInterval)
         end
     end)
 end
@@ -209,7 +263,7 @@ end
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.6",
+    Name = "Universal V4.7",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -219,18 +273,7 @@ return {
         State.Spinbot = false
         State.ESP = false
         
-        if State.Fullbright then
-            State.Fullbright = false
-            Lighting.Brightness = 1
-            Lighting.ClockTime = 12
-            Lighting.GlobalShadows = true
-            Lighting.Ambient = Color3.new(0,0,0)
-            
-            for obj, enabled in pairs(State.StoredEffects) do
-                if obj and obj.Parent then obj.Enabled = enabled end
-            end
-            State.StoredEffects = {}
-        end
+        if State.Fullbright then ApplyFullbright(false) end
         
         for _, c in pairs(State.Connections) do c:Disconnect() end
         ToggleESP(false)
@@ -253,38 +296,13 @@ return {
             Name = "Visuals", Icon = "10888332158",
             Elements = {
                 {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
+                -- [BARU] SLIDER JARAK
+                {Type = "Slider", Title = "ESP Max Distance (Studs)", Min = 100, Max = 2000, Default = 800, Callback = function(v) State.ESP_MaxDistance = v end},
+                -- [BARU] SLIDER INTERVAL UPDATE
+                {Type = "Slider", Title = "ESP Update Interval (Sec)", Min = 0.1, Max = 2, Default = 0.5, Callback = function(v) State.ESP_UpdateInterval = v end},
                 {
-                    Type = "Toggle", Title = "Fullbright (Experimental)", Default = false,
-                    Callback = function(val)
-                        State.Fullbright = val
-                        if val then
-                            task.spawn(function()
-                                while State.Fullbright do
-                                    Lighting.Brightness = 2
-                                    Lighting.ClockTime = 14
-                                    Lighting.GlobalShadows = false
-                                    Lighting.Ambient = Color3.new(1,1,1)
-                                    Lighting.OutdoorAmbient = Color3.new(1,1,1)
-                                    Lighting.FogEnd = 9e9
-                                    
-                                    for _, v in pairs(Lighting:GetChildren()) do
-                                        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
-                                            if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end
-                                            v.Enabled = false
-                                        end
-                                    end
-                                    task.wait(1)
-                                end
-                            end)
-                        else
-                            -- Restore
-                            for obj, enabled in pairs(State.StoredEffects) do
-                                if obj and obj.Parent then obj.Enabled = enabled end
-                            end
-                            State.StoredEffects = {}
-                            Lighting.GlobalShadows = true
-                        end
-                    end
+                    Type = "Toggle", Title = "Fullbright (Anti-Gloomy)", Default = false,
+                    Callback = ApplyFullbright
                 }
             }
         },
