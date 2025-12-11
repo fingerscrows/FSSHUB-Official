@@ -1,5 +1,6 @@
 -- [[ FSSHUB: UI MANAGER V5.2 (COMPLETE) ]] --
 -- Changelog: MERGED Config System AND Theme Interface (No features missing)
+-- Path: main/modules/UIManager.lua
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -18,6 +19,7 @@ if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
+    -- Menggunakan URL dari file lokal jika memungkinkan untuk testing, atau load dari web
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
     if success and lib then
         lib:Init()
