@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.3 (FOV & BRIGHTNESS FIX) ]] --
--- Changelog: Reduced Brightness, Fixed FOV Fighting using BindToRenderStep
+-- [[ FSSHUB DATA: UNIVERSAL V5.4 (FOV FINAL FIX) ]] --
+-- Changelog: FOV Priority set to LAST (Fix Flickering), Brightness Adjusted
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,7 +11,7 @@ local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 -- [[ 1. GLOBAL CLEANUP SYSTEM ]] --
--- Mematikan script versi sebelumnya agar tidak bertabrakan
+-- Wajib ada untuk mematikan script lama yang masih berjalan
 if getgenv().FSS_Universal_Stop then
     pcall(getgenv().FSS_Universal_Stop)
 end
@@ -50,7 +50,7 @@ local State = {
 
 -- [MOVEMENT LOOP]
 local function StartMovementLoop()
-    -- Menggunakan prioritas Character agar movement smooth
+    -- Prioritas Character untuk pergerakan mulus
     RunService:BindToRenderStep("FSS_Movement_Loop", Enum.RenderPriority.Character.Value + 1, function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
@@ -131,19 +131,20 @@ local function ToggleInfJump(active)
     end
 end
 
--- [FOV FIX - HIGH PRIORITY]
+-- [FOV FIX - PRIORITY LAST]
 local function UpdateFOV(active)
     State.FOVEnabled = active
     
-    -- Hapus bind lama jika ada
+    -- Hapus bind lama
     pcall(function() RunService:UnbindFromRenderStep("FSS_FOV_Fix") end)
 
     if not active then
-        Camera.FieldOfView = 70
+        Camera.FieldOfView = 70 -- Reset ke default
     else
-        -- KUNCI UTAMA: Menggunakan prioritas Camera + 1
-        -- Ini memaksa script kita berjalan SETELAH script kamera game, mencegah glitch
-        RunService:BindToRenderStep("FSS_FOV_Fix", Enum.RenderPriority.Camera.Value + 1, function()
+        -- FIX UTAMA DISINI: Menggunakan RenderPriority.Last
+        -- Ini akan memaksa FOV berubah PALING TERAKHIR sebelum frame dirender
+        -- Tidak ada script game yang bisa menimpanya lagi.
+        RunService:BindToRenderStep("FSS_FOV_Fix", Enum.RenderPriority.Last.Value, function()
             if State.FOVEnabled then
                 Camera.FieldOfView = State.FOV
             end
@@ -151,7 +152,7 @@ local function UpdateFOV(active)
     end
 end
 
--- [FULLBRIGHT - ADJUSTED BRIGHTNESS]
+-- [FULLBRIGHT - SOFT]
 local function ApplyFullbright(active)
     State.Fullbright = active
     
@@ -169,8 +170,7 @@ local function ApplyFullbright(active)
 
         task.spawn(function()
             while State.Fullbright do
-                -- Mengubah Brightness dari 2 ke 1 (Lebih nyaman di mata)
-                Lighting.Brightness = 1 
+                Lighting.Brightness = 1 -- Brightness Standard
                 Lighting.ClockTime = 14
                 Lighting.GlobalShadows = false
                 Lighting.Ambient = Color3.fromRGB(170, 170, 170)
@@ -298,7 +298,7 @@ end
 -- Init Global Loops
 StartMovementLoop()
 
--- 4. CLEANUP FUNCTION (CRITICAL)
+-- 4. CLEANUP FUNCTION
 local function Cleanup()
     State.SpeedEnabled = false
     State.JumpEnabled = false
@@ -306,11 +306,10 @@ local function Cleanup()
     State.Spinbot = false
     
     ToggleNoclip(false)
-    UpdateFOV(false) -- Ini akan mematikan BindToRenderStep FOV
+    UpdateFOV(false)
     ApplyFullbright(false)
     ToggleESP(false)
     
-    -- Unbind semua RenderStep kustom
     pcall(function() RunService:UnbindFromRenderStep("FSS_Movement_Loop") end)
     pcall(function() RunService:UnbindFromRenderStep("FSS_FOV_Fix") end)
     
@@ -324,7 +323,7 @@ getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V5.3",
+    Name = "Universal V5.4",
     OnUnload = Cleanup,
 
     Tabs = {
