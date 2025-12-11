@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.13 (EXPIRY PRECISION) ]] --
--- Changelog: Fixed Permanent Expiry check, Added Seconds to Countdown
+-- [[ FSSHUB: UI MANAGER V5.14 (EXPIRY DEBUG) ]] --
+-- Changelog: Added VERBOSE LOGGING for Expiry System
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -38,6 +38,9 @@ local function LoadLibrary()
 end
 
 function UIManager.Build(GameConfig, AuthData)
+    print("------------------------------------------------")
+    print("[FSS-DEBUG] Building UI Manager...")
+    
     StoredConfig = GameConfig
     StoredAuth = AuthData
     
@@ -70,42 +73,70 @@ function UIManager.Build(GameConfig, AuthData)
         
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         
-        -- [LOGIC BARU UNTUK EXPIRY]
+        -- [[ DEBUGGING EXPIRY ]] --
         task.spawn(function()
-            -- Ambang batas untuk Permanent (Diatas tahun 2250 dianggap Perm)
-            local PERM_THRESHOLD = 9000000000 
+            print("[FSS-DEBUG] Starting Expiry Logic...")
             
-            if not AuthData.Expiry or AuthData.Expiry == 0 then
-                TimerLabel.Text = "Expiry: UNKNOWN / ERROR"
+            -- 1. Cek Apakah AuthData Ada
+            if not AuthData then
+                print("[FSS-DEBUG] ERROR: AuthData is NIL")
+                TimerLabel.Text = "Error: No Auth Data"
                 return
             end
 
+            -- 2. Cek Nilai Raw Expiry
+            print("[FSS-DEBUG] Raw Expiry Value: ", AuthData.Expiry)
+            print("[FSS-DEBUG] Raw Expiry Type: ", type(AuthData.Expiry))
+
+            -- 3. Konversi ke Number (Jaga-jaga jika String)
+            local finalExpiry = tonumber(AuthData.Expiry)
+            print("[FSS-DEBUG] Converted Expiry: ", finalExpiry)
+
+            if not finalExpiry or finalExpiry == 0 then
+                print("[FSS-DEBUG] Expiry is 0 or Invalid. Stopping.")
+                TimerLabel.Text = "Expiry: PERMANENT / DEV"
+                return
+            end
+
+            local PERM_THRESHOLD = 9000000000 
+
+            print("[FSS-DEBUG] Entering Loop. Current Time: ", os.time())
+
             while true do
                 -- Stop loop jika label hancur (ganti tema/unload)
-                if not TimerLabel or not TimerLabel.Visible then break end
+                if not TimerLabel or not TimerLabel.Visible then 
+                    print("[FSS-DEBUG] Loop Stopped (Label Gone)")
+                    break 
+                end
 
                 local currentTime = os.time()
-                local expiryTime = AuthData.Expiry
                 
                 -- Cek Permanent
-                if expiryTime > PERM_THRESHOLD then 
+                if finalExpiry > PERM_THRESHOLD then 
                     TimerLabel.Text = "Expiry: PERMANENT LICENSE"
-                    break -- Keluar loop, tidak perlu hitung mundur
+                    print("[FSS-DEBUG] Detected Permanent License. Loop End.")
+                    break 
                 end
                 
-                local timeLeft = expiryTime - currentTime
+                local timeLeft = finalExpiry - currentTime
                 
+                -- Log sekali saja jika selisih waktu aneh
+                if timeLeft < -999999 then
+                     print("[FSS-DEBUG] WEIRD TIME DIFF: " .. timeLeft)
+                end
+
                 if timeLeft <= 0 then 
                     TimerLabel.Text = "Status: LICENSE EXPIRED"
-                    -- Disini bisa tambahkan logika kick jika mau
                 else 
-                    -- Format: Hari Jam Menit Detik
                     local d = math.floor(timeLeft / 86400)
                     local h = math.floor((timeLeft % 86400) / 3600)
                     local m = math.floor((timeLeft % 3600) / 60)
                     local s = math.floor(timeLeft % 60)
                     
-                    TimerLabel.Text = string.format("Expires: %dd %02dh %02dm %02ds", d, h, m, s)
+                    -- Update Teks
+                    pcall(function()
+                        TimerLabel.Text = string.format("Expires: %dd %02dh %02dm %02ds", d, h, m, s)
+                    end)
                 end
                 task.wait(1)
             end
