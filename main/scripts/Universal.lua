@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V6.0 (CLASSIC HYBRID) ]] --
--- Changelog: Reverted to V4.7 Loop Logic (Fix Shaking), Kept V5.8 Features (Clean Unload, Team Check)
+-- [[ FSSHUB DATA: UNIVERSAL V6.1 (PHYSICS HARD RESET) ]] --
+-- Changelog: Added "Sit-Refresh" Mechanic to clear residual physics jitter
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = game:GetService("Workspace").CurrentCamera
 
 -- [[ 1. GLOBAL CLEANUP ]] --
 if getgenv().FSS_Universal_Stop then
@@ -30,7 +31,7 @@ local State = {
     -- ESP
     ESP = false,
     ESP_MaxDistance = 1500, 
-    ESP_UpdateInterval = 0.5, -- Kembali ke 0.5 agar tidak berat
+    ESP_UpdateInterval = 0.5,
     ESP_TeamCheck = false,
     
     -- System
@@ -41,22 +42,19 @@ local State = {
     OriginalLighting = nil
 }
 
--- 3. Logic Functions (KEMBALI KE LOGIKA CLASSIC V4.7)
+-- 3. Logic Functions (Classic Hybrid V6.0 Logic)
 
 local function UpdateSpeed()
-    -- Menggunakan 'while task.wait()' agar smooth dan tidak jitter
     while State.SpeedEnabled do
         task.wait()
         pcall(function()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                -- Cek dulu agar tidak spam property jika nilainya sudah sama
                 if LocalPlayer.Character.Humanoid.WalkSpeed ~= State.Speed then
                     LocalPlayer.Character.Humanoid.WalkSpeed = State.Speed
                 end
             end
         end)
     end
-    -- Reset saat loop mati
     pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
 end
 
@@ -72,7 +70,6 @@ local function UpdateJump()
             end
         end)
     end
-    -- Reset saat loop mati
     pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
 end
 
@@ -91,10 +88,9 @@ local function ToggleSpinbot(active)
                         spin:Clone().Parent = root 
                     end
                 end)
-                task.wait(0.5) -- Cek setiap 0.5 detik, bukan setiap frame (Anti-Lag/Jitter)
+                task.wait(0.5)
             end
             
-            -- Cleanup saat loop mati
             pcall(function()
                 if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
                     LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
@@ -104,7 +100,6 @@ local function ToggleSpinbot(active)
     end
 end
 
--- [ROBUST NOCLIP]
 local function ToggleNoclip(active)
     State.Noclip = active
     if active then
@@ -129,7 +124,6 @@ local function ToggleNoclip(active)
     end
 end
 
--- [INF JUMP]
 local function ToggleInfJump(active)
     State.InfJump = active
     if active then
@@ -143,7 +137,6 @@ local function ToggleInfJump(active)
     end
 end
 
--- [FULLBRIGHT]
 local function ApplyFullbright(active)
     State.Fullbright = active
     
@@ -183,7 +176,6 @@ local function ApplyFullbright(active)
     end
 end
 
--- [ESP SYSTEM]
 local function CreateESP(player)
     if player == LocalPlayer then return end
     
@@ -286,11 +278,10 @@ local function ToggleESP(active)
     end
 end
 
--- [[ 4. CLEANUP (CLASSIC SAFE MODE) ]] --
+-- [[ 4. DEEP CLEANUP V6.1 (SIT RESET) ]] --
 local function Cleanup()
-    print("[FSSHUB] Unloading Universal (Classic Mode)...")
+    print("[FSSHUB] Universal Unload (Physics Reset)...")
 
-    -- 1. Matikan Flag (Ini akan menghentikan loop 'while' secara otomatis)
     State.SpeedEnabled = false
     State.JumpEnabled = false
     State.InfJump = false
@@ -299,50 +290,66 @@ local function Cleanup()
     State.Fullbright = false
     State.Noclip = false
     
-    -- 2. Tunggu sebentar agar loop sempat berhenti
     task.wait(0.1)
     
-    -- 3. Paksa Matikan Fitur yang mungkin nyangkut
     ToggleNoclip(false)
     ApplyFullbright(false)
     ToggleESP(false)
     
-    -- 4. Reset Humanoid
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = 16
-        LocalPlayer.Character.Humanoid.JumpPower = 50
-    end
-    
-    -- 5. Hapus Objek Fisika (PENTING UNTUK MENCEGAH SHAKING)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
-        if s then s:Destroy() end
-        
-        -- Reset Momentum (Opsional, tapi aman)
-        LocalPlayer.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0,0,0)
-    end
-
-    -- 6. Disconnect semua event listener
+    -- Disconnect Loops
     for _, c in pairs(State.Connections) do 
         if c then c:Disconnect() end 
     end
     State.Connections = {}
+
+    -- [[ THE MAGIC FIX: SIT RESET ]] --
+    if LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        if root then
+            local s = root:FindFirstChild("FSS_Spin")
+            if s then s:Destroy() end
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+        end
+
+        if hum then
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+            hum.AutoRotate = true 
+            
+            -- INI ADALAH KUNCI PERBAIKANNYA
+            -- Memaksa karakter duduk sekejap akan me-reset physics joint sepenuhnya
+            -- dan menghilangkan micro-stutter pada kamera.
+            local wasSitting = hum.Sit
+            hum.Sit = true
+            task.delay(0.1, function()
+                if hum then hum.Sit = false end
+            end)
+        end
+        
+        -- Reset Camera Subject (Just in Case)
+        if Camera and hum then
+            Camera.CameraSubject = hum
+            Camera.CameraType = Enum.CameraType.Custom
+        end
+    end
     
-    print("[FSSHUB] Universal Unloaded Successfully.")
+    print("[FSSHUB] Physics Hard-Reset Complete.")
 end
 
 getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V6.0",
+    Name = "Universal V6.1",
     OnUnload = Cleanup,
 
     Tabs = {
         {
             Name = "Player", Icon = "10888331510",
             Elements = {
-                -- Menggunakan task.spawn untuk memanggil fungsi loop (V4.7 Style)
                 {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v; if v then task.spawn(UpdateSpeed) end end},
                 {Type = "Slider", Title = "Speed Value", Min = 16, Max = 500, Default = 16, Callback = function(v) State.Speed = v end},
                 
