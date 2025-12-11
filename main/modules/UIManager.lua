@@ -1,40 +1,47 @@
--- [[ FSSHUB: UI MANAGER V3.0 (THEME SYSTEM) ]] --
--- Fitur: Dynamic Theme Switcher & Auto-Reload GUI
+-- [[ FSSHUB: UI MANAGER V3.1 (THEME FIX) ]] --
+-- Fitur: Theme Dropdown, Auto-Reload UI, & MOTD Display
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
--- Variabel untuk menyimpan data agar bisa di-reload
-local StoredConfig = nil
-local StoredAuth = nil
+-- Cache Data untuk Reload UI
+local cachedConfig = nil
+local cachedAuth = nil
+local CurrentLibrary = nil
 
 -- Fungsi Load Library
-local function GetLib()
-    local s, l = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
-    if s then return l else warn("Lib Failed") return nil end
+local function LoadLibrary()
+    if CurrentLibrary then return CurrentLibrary end
+    local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
+    if success then 
+        CurrentLibrary = lib
+        CurrentLibrary:Init()
+        return lib
+    end
+    return nil
 end
 
-local Library = GetLib()
-if Library then Library:Init() end
-
--- Fungsi Utama Build
 function UIManager.Build(GameConfig, AuthData)
-    -- Simpan data untuk fitur ganti tema
-    StoredConfig = GameConfig
-    StoredAuth = AuthData
+    -- Simpan data ke cache global
+    cachedConfig = GameConfig
+    cachedAuth = AuthData
     
-    if not Library then return end
+    local Library = LoadLibrary()
+    if not Library then warn("FSSHUB: Library Failed") return end
 
     local userStatus = (AuthData and AuthData.Type) or "Free"
     local gameName = (AuthData and AuthData.GameName) or GameConfig.Name
     
     Library:Watermark("FSSHUB " .. userStatus .. " | " .. gameName)
+    
+    -- Window Title (Berdasarkan Script Name)
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name))
     
     -- [[ TAB 1: DASHBOARD ]] --
     local ProfileTab = Window:Section("Dashboard", "10888331510")
     
     if AuthData then
+        -- MOTD (Pengumuman)
         if AuthData.MOTD and AuthData.MOTD ~= "" then
             ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD)
         end
@@ -99,16 +106,16 @@ function UIManager.Build(GameConfig, AuthData)
     -- [[ SETTINGS ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- [NEW] THEME SELECTOR
-    local themeList = {}
-    for name, _ in pairs(Library.presets) do table.insert(themeList, name) end
+    -- [FITUR TEMA] Dropdown ini sekarang ada di posisi paling atas
+    local themeNames = {}
+    for name, _ in pairs(Library.presets) do table.insert(themeNames, name) end
     
-    SettingsTab:Dropdown("Interface Theme", themeList, "FSS Purple", function(selectedTheme)
-        Library:SetTheme(selectedTheme)
+    SettingsTab:Dropdown("Interface Theme", themeNames, "FSS Purple", function(selected)
+        Library:SetTheme(selected)
         -- Reload UI Logic
-        if Library.base then Library.base:Destroy() end -- Hapus GUI lama
-        Library:Init() -- Re-init ScreenGui
-        UIManager.Build(StoredConfig, StoredAuth) -- Re-build UI dengan tema baru
+        if Library.base then Library.base:Destroy() end 
+        Library:Init()
+        UIManager.Build(cachedConfig, cachedAuth) -- Panggil diri sendiri
     end)
 
     SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
@@ -136,10 +143,12 @@ function UIManager.Build(GameConfig, AuthData)
         if Library.base then 
             if typeof(Library.base) == "Instance" then Library.base:Destroy() end 
             Library.base = nil 
+            CurrentLibrary = nil -- Reset library instance
         end
     end)
 
-    -- Hanya notif jika pertama load (optional)
+    -- Notifikasi Load (Hanya jika bukan reload)
+    -- game.StarterGui:SetCore("SendNotification", {Title = "FSSHUB", Text = "UI Ready", Duration = 3})
 end
 
 return UIManager
