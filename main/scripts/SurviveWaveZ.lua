@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: WAVE Z V5.0 (TORA FEATURES) ]] --
--- Changelog: Added Head-First Bring, Auto Loot, Auto Revive, & HipHeight
+-- [[ FSSHUB DATA: WAVE Z V5.1 (FIX PATCH) ]] --
+-- Changelog: Fixed Revive Clipping (Void Fall), Fixed Auto Attack Logic
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -25,8 +25,11 @@ local State = {
     
     -- Settings
     BringDist = 10,
-    LevitateHeight = 1, -- Tinggi melayang zombie
+    LevitateHeight = 1,
     TargetMode = "All",
+    
+    -- Internal Flags
+    IsReviving = false, -- Flag untuk mencegah konflik
     
     -- Cache
     Connections = {},
@@ -47,32 +50,26 @@ local function StartAutoFarm()
         local zFolder = Workspace:FindFirstChild("ServerZombies")
         if not zFolder then return end
         
-        -- Kalkulasi Posisi Target (Depan Muka + Levitasi)
         local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * State.BringDist) + Vector3.new(0, State.LevitateHeight, 0)
         local facePlayer = CFrame.lookAt(targetPos, myRoot.Position + Vector3.new(0, State.LevitateHeight, 0))
-        local finalCFrame = facePlayer * CFrame.Angles(math.rad(-90), 0, 0) -- Rotasi Tidur (-90 derajat)
+        local finalCFrame = facePlayer * CFrame.Angles(math.rad(-90), 0, 0)
         
         for _, z in ipairs(zFolder:GetChildren()) do
             local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
             local zHum = z:FindFirstChild("Humanoid")
             
             if zRoot and zHum and zHum.Health > 0 then
-                -- Filter Target
                 local validTarget = true
                 if State.TargetMode == "Boss" and not z.Name:lower():find("boss") then validTarget = false end
                 
                 if validTarget then
-                    -- Cek Jarak (Max 300 Studs)
                     if (zRoot.Position - myRoot.Position).Magnitude < 300 then
-                        -- Set Posisi & Matikan Fisika
                         zRoot.CFrame = finalCFrame
                         zRoot.AssemblyLinearVelocity = Vector3.zero
                         zRoot.AssemblyAngularVelocity = Vector3.zero
                         
-                        -- Logic Fisika Zombie (Agar tidak bangun)
                         if not z:GetAttribute("FSS_Physics") then
                             z.PlatformStand = true
-                            -- Matikan Collision Part Zombie
                             for _, p in ipairs(z:GetChildren()) do 
                                 if p:IsA("BasePart") then p.CanCollide = false end 
                             end
@@ -86,36 +83,21 @@ local function StartAutoFarm()
     table.insert(State.Connections, conn)
 end
 
--- [AUTO ATTACK: ATTRIBUTE BYPASS]
+-- [AUTO ATTACK FIX: DIRECT ACTIVATE]
 local function StartAutoAttack()
     task.spawn(function()
         while State.AutoAttack do
             local char = LocalPlayer.Character
             if char then
-                local gun = char:FindFirstChildOfClass("Tool")
-                
-                -- Cek apakah ada zombie hidup
-                local hasTarget = false
-                local zFolder = Workspace:FindFirstChild("ServerZombies")
-                if zFolder then
-                    for _, z in ipairs(zFolder:GetChildren()) do
-                        local h = z:FindFirstChild("Humanoid")
-                        if h and h.Health > 0 then hasTarget = true break end
-                    end
-                end
-
-                if gun and hasTarget then
-                    -- Manipulasi Attribute (Bypass Cooldown di beberapa script game)
-                    gun:SetAttribute("IsShooting", true)
-                    
-                    if gun:FindFirstChild("Activate") then gun:Activate() end
-                    gun:Activate()
-                    
-                    task.wait()
-                    gun:SetAttribute("IsShooting", false)
+                local tool = char:FindFirstChildOfClass("Tool")
+                -- Hanya menembak jika ada tool yang dipegang
+                if tool then
+                    -- Metode Langsung (Lebih Stabil)
+                    tool:Activate()
                 end
             end
-            task.wait()
+            -- Interval cepat tapi aman agar tidak lag
+            task.wait(0.1)
         end
     end)
 end
@@ -130,9 +112,7 @@ local function StartAutoLoot()
             if root then
                 for _, p in ipairs(Workspace:GetChildren()) do
                     if not State.AutoLoot then break end
-                    
                     local n = p.Name
-                    -- Daftar Item yang diambil
                     if n == "RewardChest" or n == "AmmoBox" or n == "MysteryBox" or n == "Pickup" then
                         if p:IsA("Model") and p.PrimaryPart then
                             p:SetPrimaryPartCFrame(root.CFrame)
@@ -147,8 +127,18 @@ local function StartAutoLoot()
     end)
 end
 
--- [AUTO REVIVE: HYBRID TP]
+-- [AUTO REVIVE FIX: ANTI-VOID / SAFE MODE]
 local function StartAutoRevive()
+    -- Loop Noclip Khusus saat Revive (Mencegah jatuh ke void)
+    local noclipReviveConn = RunService.Stepped:Connect(function()
+        if State.IsReviving and LocalPlayer.Character then
+            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
+            end
+        end
+    end)
+    table.insert(State.Connections, noclipReviveConn)
+
     task.spawn(function()
         while State.AutoRevive do
             task.wait(0.5)
@@ -157,7 +147,6 @@ local function StartAutoRevive()
                 local myRoot = char and char:FindFirstChild("HumanoidRootPart")
                 local myHum = char and char:FindFirstChild("Humanoid")
                 
-                -- Hanya revive jika kita hidup
                 if myRoot and myHum and myHum.Health > 0 then
                     for _, plr in pairs(Players:GetPlayers()) do
                         if not State.AutoRevive then break end
@@ -166,32 +155,40 @@ local function StartAutoRevive()
                             local tHum = plr.Character:FindFirstChild("Humanoid")
                             local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
                             
-                            -- Cek jika teman sekarat/down
+                            -- Deteksi teman knock
                             if tHum and tRoot and tHum.Health <= 0 then 
-                                -- Cari Prompt Revive
                                 local prompt = nil
                                 for _, v in pairs(plr.Character:GetDescendants()) do
                                     if v:IsA("ProximityPrompt") and v.Enabled then prompt = v break end
                                 end
                                 
                                 if prompt then
-                                    -- Teleport ke teman
-                                    local oldPos = myRoot.CFrame
-                                    myRoot.CFrame = tRoot.CFrame + Vector3.new(0, 3, 0)
+                                    State.IsReviving = true -- Aktifkan Mode Aman
+                                    
+                                    -- 1. Teleport AMAN (Lebih tinggi 5 studs dari tanah agar tidak nyangkut)
+                                    myRoot.CFrame = tRoot.CFrame + Vector3.new(0, 5, 0)
+                                    myRoot.AssemblyLinearVelocity = Vector3.zero
                                     myRoot.Anchored = true
                                     
-                                    -- Spam Prompt
+                                    -- 2. Proses Revive
                                     local start = tick()
-                                    prompt.HoldDuration = 0 -- Bypass Hold Time visual
+                                    prompt.HoldDuration = 0 
                                     
-                                    while tHum.Health <= 0 and (tick() - start < 2) and State.AutoRevive do
+                                    -- Loop tahan tombol E
+                                    while tHum.Health <= 0 and (tick() - start < 3) and State.AutoRevive do
                                         fireproximityprompt(prompt)
+                                        -- Pastikan posisi tetap di atas (Anti-Jatuh)
+                                        myRoot.CFrame = tRoot.CFrame + Vector3.new(0, 5, 0)
                                         task.wait(0.1)
                                     end
                                     
-                                    -- Kembalikan Status
+                                    -- 3. Finishing Aman (Anti-Void)
+                                    -- Teleport sedikit ke atas lagi sebelum lepas Anchor
+                                    myRoot.CFrame = myRoot.CFrame + Vector3.new(0, 2, 0)
+                                    task.wait(0.1) 
+                                    
                                     myRoot.Anchored = false
-                                    -- Opsional: Balik ke posisi asal? (Biasanya tidak perlu di mode wave)
+                                    State.IsReviving = false -- Matikan Noclip Revive
                                 end
                             end
                         end
@@ -199,6 +196,7 @@ local function StartAutoRevive()
                 end
             end)
         end
+        State.IsReviving = false
     end)
 end
 
@@ -285,6 +283,7 @@ local function Cleanup()
     State.AutoAttack = false
     State.AutoLoot = false
     State.AutoRevive = false
+    State.IsReviving = false -- Pastikan flag revive mati
     State.Aimbot = false
     State.ESP = false
     
@@ -297,7 +296,11 @@ local function Cleanup()
     
     -- Reset HipHeight
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.HipHeight = 0 -- Default Roblox
+        LocalPlayer.Character.Humanoid.HipHeight = 0 
+        -- Safety Unanchor jika mati saat revive
+        if LocalPlayer.Character.PrimaryPart then
+            LocalPlayer.Character.PrimaryPart.Anchored = false
+        end
     end
     
     print("[FSSHUB] Wave Z Unloaded.")
@@ -307,14 +310,14 @@ getgenv().FSS_WaveZ_Stop = Cleanup
 
 -- RETURN CONFIGURATION
 return {
-    Name = "Wave Z V5.0",
+    Name = "Wave Z V5.1",
     OnUnload = Cleanup,
     Tabs = {
         {
             Name = "Farming", Icon = "10888331510",
             Elements = {
                 {Type = "Toggle", Title = "Enable Auto Farm (Magnet)", Default = false, Callback = function(v) State.AutoFarm = v; if v then StartAutoFarm() end end},
-                {Type = "Toggle", Title = "Auto Attack (Fast)", Default = false, Callback = function(v) State.AutoAttack = v; if v then StartAutoAttack() end end},
+                {Type = "Toggle", Title = "Auto Attack (Direct)", Default = false, Callback = function(v) State.AutoAttack = v; if v then StartAutoAttack() end end},
                 {Type = "Toggle", Title = "Auto Collect Loot", Default = false, Callback = function(v) State.AutoLoot = v; if v then StartAutoLoot() end end},
                 
                 {Type = "Slider", Title = "Magnet Distance", Min = 5, Max = 20, Default = 10, Callback = function(v) State.BringDist = v end},
