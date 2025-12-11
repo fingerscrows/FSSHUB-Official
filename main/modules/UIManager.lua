@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V4.1 (IMPROVED HOP) ]] --
--- Changelog: Fixed Server Hop Fetching (Pagination support), Added Debug Console Toggle
+-- [[ FSSHUB: UI MANAGER V4.2 (HOP FIX & UTILS) ]] --
+-- Changelog: Robust Server Hop (Retry Logic), Settings Cleanup
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -136,55 +136,58 @@ function UIManager.Build(GameConfig, AuthData)
 
     SettingsTab:Label("Global Utilities")
     
-    -- [GLOBAL REJOIN]
     SettingsTab:Button("Rejoin Server", function()
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end)
 
-    -- [GLOBAL SERVER HOP FIX V4.1]
-    SettingsTab:Button("Server Hop (Smart)", function()
-        Library:Notify("System", "Scanning servers...", 2)
+    -- [FIXED & ROBUST SERVER HOP]
+    SettingsTab:Button("Server Hop", function()
+        Library:Notify("System", "Scanning servers...", 3)
         
         task.spawn(function()
             local cursor = ""
             local found = false
-            local attempts = 0
+            local retryCount = 0
             
-            while not found and attempts < 10 do -- Limit 10 halaman agar tidak crash
-                attempts = attempts + 1
-                
-                -- Menggunakan Descending (Terbanyak) untuk mencari server aktif tapi belum penuh
-                -- Ascending (Sedikit) seringkali error/buggy server
-                local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100&cursor="..cursor
+            while not found and retryCount < 5 do
+                -- Gunakan Descending untuk mencari server yang aktif (bukan server kosong/buggy)
+                local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&cursor=" .. cursor
                 
                 local success, result = pcall(function()
                     return HttpService:JSONDecode(game:HttpGet(url))
                 end)
                 
                 if success and result and result.data then
-                    for _, s in pairs(result.data) do
-                        if s.playing < s.maxPlayers and s.id ~= game.JobId then
-                            found = true
-                            Library:Notify("Hop", "Joining: " .. s.id, 3)
-                            TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
-                            break
+                    for _, s in ipairs(result.data) do
+                        -- Logic: Server tidak penuh DAN tidak sama dengan server sekarang
+                        if type(s) == "table" and s.playing and s.maxPlayers and s.id then
+                            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                                found = true
+                                Library:Notify("Hop", "Joining Server...", 3)
+                                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                                return -- Stop loop dan fungsi
+                            end
                         end
                     end
                     
-                    if result.nextPageCursor then
+                    -- Pagination Logic
+                    if result.nextPageCursor and result.nextPageCursor ~= cursor then
                         cursor = result.nextPageCursor
                     else
-                        break -- Habis halaman
+                        -- Jika habis halaman, reset cursor atau stop (opsional: stop untuk mencegah infinite loop)
+                        break 
                     end
                 else
-                    Library:Notify("Error", "Fetch Failed. Retrying...", 2)
+                    retryCount = retryCount + 1
+                    warn("[FSSHUB] Hop Fetch Failed: " .. tostring(result))
+                    Library:Notify("System", "Fetch Error. Retrying ("..retryCount..")...", 1)
                     task.wait(1)
                 end
-                task.wait(0.1)
+                task.wait(0.2)
             end
             
             if not found then
-                Library:Notify("System", "No better server found.", 3)
+                Library:Notify("System", "No suitable server found.", 3)
             end
         end)
     end)
