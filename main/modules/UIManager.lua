@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V5.0 (CONFIG & PERSISTENCE) ]] --
--- Changelog: Config System (Save/Load/Auto), Persistence (QueueOnTeleport)
+-- [[ FSSHUB: UI MANAGER V5.2 (COMPLETE) ]] --
+-- Changelog: MERGED Config System AND Theme Interface (No features missing)
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -14,7 +14,6 @@ local StoredAuth = nil
 local LibraryInstance = nil
 local ConfigFolder = "FSSHUB_Settings"
 
--- Ensure Config Folder Exists
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
 local function LoadLibrary()
@@ -35,8 +34,7 @@ function UIManager.Build(GameConfig, AuthData)
     local Library = LoadLibrary()
     if not Library then warn("FSSHUB: Library Failed to Load") return end
 
-    -- [PERSISTENCE LOGIC]
-    -- Script ini akan otomatis dieksekusi ulang saat pindah server
+    -- Persistence (Queue on Teleport)
     if syn and syn.queue_on_teleport then
         syn.queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/src/loader.lua"))()')
     elseif queue_on_teleport then
@@ -60,6 +58,7 @@ function UIManager.Build(GameConfig, AuthData)
         local statusText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Script Supported"
         ProfileTab:Paragraph("Game Info", "Detected: " .. (AuthData.GameName or "Unknown") .. "\nStatus: " .. statusText)
         ProfileTab:Paragraph("User Info", "License: " .. statusIcon .. " " .. AuthData.Type .. "\nKey: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
+        
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         task.spawn(function()
             while true do
@@ -74,7 +73,6 @@ function UIManager.Build(GameConfig, AuthData)
     ProfileTab:Label("Credits: FingersCrows")
 
     -- [[ GAME FEATURES GENERATOR ]] --
-    -- Kita simpan referensi elemen UI ke dalam tabel agar bisa di-load nanti
     local ConfigurableItems = {} 
 
     if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
@@ -98,7 +96,6 @@ function UIManager.Build(GameConfig, AuthData)
                     Tab:Label(element.Title)
                 end
                 
-                -- Simpan referensi jika elemen tersebut memiliki method :Set()
                 if newItem and newItem.Set then
                     ConfigurableItems[element.Title] = newItem
                 end
@@ -106,90 +103,91 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end
     
-    -- [[ SETTINGS & CONFIG ]] --
+    -- [[ SETTINGS TAB ]] --
     local SettingsTab = Window:Section("Settings", "10888332462")
     
-    -- Config System
-    SettingsTab:Label("Configuration System")
-    local selectedConfig = "Default"
-    local configList = listfiles(ConfigFolder)
-    local configNames = {}
+    -- 1. THEME INTERFACE (DIKEMBALIKAN)
+    SettingsTab:Label("Interface Configuration")
+    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)}, ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)} }
+    local themeNames = {}
+    for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
-    for _, path in ipairs(configList) do
-        local name = path:match("^.+/(.+)$"):gsub(".json", "")
-        table.insert(configNames, name)
-    end
-    if #configNames == 0 then table.insert(configNames, "Default") end
-
-    local DropdownConfig = SettingsTab:Dropdown("Select Config", configNames, "Default", function(val) selectedConfig = val end)
-    
-    SettingsTab:Button("Refresh Config List", function()
-        local newNames = {}
-        for _, path in ipairs(listfiles(ConfigFolder)) do
-            local name = path:match("^.+/(.+)$"):gsub(".json", "")
-            table.insert(newNames, name)
-        end
-        if #newNames == 0 then table.insert(newNames, "Default") end
-        -- NOTE: Library perlu fitur update dropdown, tapi untuk sekarang restart UI adalah opsi termudah
-        -- Atau kita bisa sekadar notif bahwa list sudah refresh di internal
-        Library:Notify("Config", "List Refreshed (Reopen Menu)", 2)
+    SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
+        Library:SetTheme(selected)
+        if Library.base then Library.base:Destroy(); Library.base = nil end 
+        Library.keybinds = {} 
+        UIManager.Build(StoredConfig, StoredAuth)
     end)
 
+    SettingsTab:Dropdown("Watermark", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
+        if Library.SetWatermarkAlign then Library:SetWatermarkAlign(pos) end
+    end)
+
+    SettingsTab:Toggle("Show FPS & Ping", true, function(state) Library:ToggleWatermark(state) end)
+
+    -- 2. CONFIGURATION SYSTEM
+    SettingsTab:Label("Configuration System")
+    local selectedConfig = "Default"
+    
+    local function GetConfigs()
+        local list = {}
+        for _, path in ipairs(listfiles(ConfigFolder)) do
+            if path:sub(-5) == ".json" and not path:find("_AutoLoad") then
+                table.insert(list, path:match("^.+/(.+)$"):gsub(".json", ""))
+            end
+        end
+        if #list == 0 then table.insert(list, "Default") end
+        return list
+    end
+
+    local ConfigDropdown = SettingsTab:Dropdown("Select Config", GetConfigs(), "Default", function(val) selectedConfig = val end)
+    
     SettingsTab:Button("Load Config", function()
         local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
             for title, value in pairs(data) do
-                if ConfigurableItems[title] then
-                    ConfigurableItems[title].Set(value)
-                end
+                if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
             end
             Library:Notify("Config", "Loaded: " .. selectedConfig, 3)
-        else
-            Library:Notify("Error", "Config Not Found", 3)
         end
     end)
 
     SettingsTab:Button("Save Config", function()
         local data = {}
-        -- Ambil data dari library.flags yang otomatis terupdate
-        for title, _ in pairs(ConfigurableItems) do
-            data[title] = Library.flags[title]
-        end
+        for title, _ in pairs(ConfigurableItems) do data[title] = Library.flags[title] end
         writefile(ConfigFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(data))
         Library:Notify("Config", "Saved: " .. selectedConfig, 3)
     end)
 
-    SettingsTab:Button("Create New Config", function()
-        -- Karena tidak ada TextBox input di Library versi ini, kita pakai input prompt sederhana atau nama random
-        local name = "Config_" .. tostring(math.random(1000,9999))
-        selectedConfig = name
+    SettingsTab:Button("Create/Overwrite Config", function()
+        -- Save as new random name if Default, else overwrite current
+        local name = selectedConfig == "Default" and "Config_" .. tostring(math.random(1000,9999)) or selectedConfig
         local data = {}
         for title, _ in pairs(ConfigurableItems) do data[title] = Library.flags[title] end
         writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(data))
-        Library:Notify("Config", "Created: " .. name, 3)
+        Library:Notify("Config", "Saved as: " .. name, 3)
     end)
 
     SettingsTab:Button("Delete Config", function()
         local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
-        if isfile(path) then
+        if isfile(path) and selectedConfig ~= "Default" then
             delfile(path)
             Library:Notify("Config", "Deleted: " .. selectedConfig, 3)
             selectedConfig = "Default"
         end
     end)
 
-    -- Auto Load Logic
+    -- Auto Load
     local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
     local autoLoadState = false
     if isfile(AutoLoadPath) then
         local alData = HttpService:JSONDecode(readfile(AutoLoadPath))
         if alData.GameId == game.GameId and alData.Enabled then
             autoLoadState = true
-            -- Auto load the config specified
             if isfile(ConfigFolder .. "/" .. alData.Config .. ".json") then
                 task.spawn(function()
-                    task.wait(1) -- Tunggu UI stabil
+                    task.wait(1)
                     local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. alData.Config .. ".json"))
                     for title, value in pairs(data) do
                         if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
@@ -201,15 +199,11 @@ function UIManager.Build(GameConfig, AuthData)
     end
 
     SettingsTab:Toggle("Auto Load This Game", autoLoadState, function(state)
-        local data = {
-            GameId = game.GameId,
-            Config = selectedConfig,
-            Enabled = state
-        }
+        local data = { GameId = game.GameId, Config = selectedConfig, Enabled = state }
         writefile(AutoLoadPath, HttpService:JSONEncode(data))
     end)
 
-    -- Standard Settings
+    -- 3. GLOBAL UTILITIES
     SettingsTab:Label("Utilities")
     SettingsTab:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
     
