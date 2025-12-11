@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V12.6 (COMPACT WATERMARK) ]] --
--- Fitur: Multi-Theme, Dynamic Color, Fixed Dropdown, & Compact Stats
+-- [[ FSSHUB LIBRARY: V13.0 (ULTIMATE UX) ]] --
+-- Features: Bi-Directional Sliders, Hover Dot, Enhanced Hitbox, Mouse Fix
 
 local library = {
     flags = {}, 
@@ -16,7 +16,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
--- [[ DEFAULT THEME ]] --
+-- [[ THEME ENGINE ]] --
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -28,7 +28,6 @@ library.theme = {
     ItemBg      = Color3.fromRGB(30, 30, 35)
 }
 
--- [[ THEME PRESETS ]] --
 library.presets = {
     ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
     ["Blood Red"]  = {Accent = Color3.fromRGB(255, 65, 65)},
@@ -86,24 +85,17 @@ function library:Notify(title, text, duration)
     pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
 end
 
--- [COMPACT WATERMARK]
 function library:Watermark(headerText)
     if not self.base then return end
     if self.base:FindFirstChild("FSS_Watermark") then self.base.FSS_Watermark:Destroy() end
 
     local wm = Create("Frame", {
-        Name = "FSS_Watermark",
-        Parent = self.base, 
-        BackgroundColor3 = library.theme.Main, 
-        Size = UDim2.new(0, 0, 0, 26), 
-        AnchorPoint = Vector2.new(1, 0), 
-        Position = UDim2.new(0.99, 0, 0.01, 0), 
-        BorderSizePixel = 0,
-        Visible = true
+        Name = "FSS_Watermark", Parent = self.base, BackgroundColor3 = library.theme.Main, 
+        Size = UDim2.new(0, 0, 0, 26), AnchorPoint = Vector2.new(1, 0), 
+        Position = UDim2.new(0.99, 0, 0.01, 0), BorderSizePixel = 0, Visible = true
     })
     
     self.wm_obj = wm 
-    
     Create("UICorner", {Parent = wm, CornerRadius = UDim.new(0, 4)})
     Create("UIStroke", {Parent = wm, Color = library.theme.Accent, Thickness = 1, Transparency = 0.5})
     
@@ -116,41 +108,22 @@ function library:Watermark(headerText)
     
     task.spawn(function()
         while wm.Parent do
-            -- FPS
             local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001))
-            
-            -- Ping (Safe Mode)
-            local ping = 0
-            pcall(function()
-                ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1])
-            end)
-            
-            -- Jam User (Local Time)
-            local timeString = os.date("%H:%M:%S")
-            
-            -- Format Baru: [Icon Header] | FPS | Ping | Jam
-            label.Text = string.format("%s | FPS: %d | Ping: %dms | %s", headerText, fps, ping, timeString)
+            local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
+            label.Text = string.format("%s | FPS: %d | Ping: %dms | %s", headerText, fps, ping, os.date("%H:%M:%S"))
             wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
             task.wait(1)
         end
     end)
 end
 
-function library:ToggleWatermark(state)
-    if self.wm_obj then self.wm_obj.Visible = state end
-end
-
+function library:ToggleWatermark(state) if self.wm_obj then self.wm_obj.Visible = state end end
 function library:SetWatermarkAlign(align)
     if not self.wm_obj then return end
-    if align == "Top Left" then
-        self.wm_obj.AnchorPoint = Vector2.new(0, 0); self.wm_obj.Position = UDim2.new(0.01, 0, 0.01, 0)
-    elseif align == "Top Right" then
-        self.wm_obj.AnchorPoint = Vector2.new(1, 0); self.wm_obj.Position = UDim2.new(0.99, 0, 0.01, 0)
-    elseif align == "Bottom Left" then
-        self.wm_obj.AnchorPoint = Vector2.new(0, 1); self.wm_obj.Position = UDim2.new(0.01, 0, 0.99, 0)
-    elseif align == "Bottom Right" then
-        self.wm_obj.AnchorPoint = Vector2.new(1, 1); self.wm_obj.Position = UDim2.new(0.99, 0, 0.99, 0)
-    end
+    if align == "Top Left" then self.wm_obj.AnchorPoint = Vector2.new(0, 0); self.wm_obj.Position = UDim2.new(0.01, 0, 0.01, 0)
+    elseif align == "Top Right" then self.wm_obj.AnchorPoint = Vector2.new(1, 0); self.wm_obj.Position = UDim2.new(0.99, 0, 0.01, 0)
+    elseif align == "Bottom Left" then self.wm_obj.AnchorPoint = Vector2.new(0, 1); self.wm_obj.Position = UDim2.new(0.01, 0, 0.99, 0)
+    elseif align == "Bottom Right" then self.wm_obj.AnchorPoint = Vector2.new(1, 1); self.wm_obj.Position = UDim2.new(0.99, 0, 0.99, 0) end
 end
 
 function library:Init()
@@ -166,34 +139,21 @@ function library:Init()
     local gui = Create("ScreenGui", {Name = "FSSHUB_V10", Parent = self.base, ResetOnSpawn = false, IgnoreGuiInset = true})
     self.base = gui
     
-    if getgenv().FSS_InputConnection then
-        getgenv().FSS_InputConnection:Disconnect()
-        getgenv().FSS_InputConnection = nil
-    end
-
+    if getgenv().FSS_InputConnection then getgenv().FSS_InputConnection:Disconnect(); getgenv().FSS_InputConnection = nil end
     getgenv().FSS_InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode ~= Enum.KeyCode.Unknown then
             if library.keybinds[input.KeyCode] then
-                for _, bindCallback in ipairs(library.keybinds[input.KeyCode]) do
-                    pcall(bindCallback)
-                end
+                for _, bindCallback in ipairs(library.keybinds[input.KeyCode]) do pcall(bindCallback) end
             end
         end
     end)
 
     if UserInputService.TouchEnabled then
-        local ToggleFrame = Create("Frame", {
-            Parent = gui, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 40, 0, 40),
-            Position = UDim2.new(0, 20, 0.5, -20)
-        })
+        local ToggleFrame = Create("Frame", {Parent = gui, BackgroundColor3 = library.theme.Main, Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(0, 20, 0.5, -20)})
         Create("UICorner", {Parent = ToggleFrame, CornerRadius = UDim.new(0, 8)})
         Create("UIStroke", {Parent = ToggleFrame, Color = library.theme.Accent, Thickness = 2})
         local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", TextColor3 = library.theme.Accent, Font = Enum.Font.GothamBlack})
-        Btn.MouseButton1Click:Connect(function() 
-            if gui:FindFirstChild("MainFrame") then
-                gui.MainFrame.Visible = not gui.MainFrame.Visible
-            end
-        end)
+        Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
     end
     return gui
 end
@@ -207,6 +167,9 @@ function library:Window(title)
     })
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = library.theme.Stroke, Thickness = 1})
+
+    -- [MOUSE UNLOCK FIX]
+    Create("TextButton", {Parent = MainFrame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(0,0,0,0), Modal = true})
 
     local Header = Create("Frame", {Parent = MainFrame, BackgroundColor3 = library.theme.Sidebar, Size = UDim2.new(1, 0, 0, 45)})
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
@@ -275,13 +238,11 @@ function library:Window(title)
 
         TabBtn.MouseButton1Click:Connect(function()
             for _, t in ipairs(window.tabs) do
-                t.page.Visible = false
-                t.indicator.Visible = false
+                t.page.Visible = false; t.indicator.Visible = false
                 TweenService:Create(t.label, TweenInfo.new(0.2), {TextColor3 = library.theme.TextDim}):Play()
                 if t.icon then TweenService:Create(t.icon, TweenInfo.new(0.2), {ImageColor3 = library.theme.TextDim}):Play() end
             end
-            Page.Visible = true
-            Indicator.Visible = true
+            Page.Visible = true; Indicator.Visible = true
             TweenService:Create(TabLabel, TweenInfo.new(0.2), {TextColor3 = library.theme.Text}):Play()
             if tabObj.icon then TweenService:Create(tabObj.icon, TweenInfo.new(0.2), {ImageColor3 = library.theme.Text}):Play() end
         end)
@@ -297,8 +258,7 @@ function library:Window(title)
         function tab:Label(text)
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 30)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-            local Lbl = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.GothamBold, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
-            return Lbl
+            Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.GothamBold, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
         end
 
         function tab:Paragraph(title, text)
@@ -312,47 +272,32 @@ function library:Window(title)
 
         function tab:Toggle(text, default, callback)
             local toggled = default or false
-            local boundKey = nil 
             local toggleAction = function() toggled = not toggled; callback(toggled) end
-
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
-            
             local CheckBox = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 42, 0, 22), Position = UDim2.new(1, -50, 0.5, -11), BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)})
             Create("UICorner", {Parent = CheckBox, CornerRadius = UDim.new(1, 0)})
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
-            
             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
-            
-            local BindBtn = Create("TextButton", {
-                Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
-                TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9),
-                BackgroundColor3 = library.theme.Main,
-                ZIndex = 10
-            })
+            local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
-
             local function UpdateToggleState()
-                toggled = not toggled
                 TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)}):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
-                callback(toggled)
             end
-            toggleAction = UpdateToggleState
-            Btn.MouseButton1Click:Connect(function() UpdateToggleState() end)
-            if default then toggled = not default; UpdateToggleState() end
-            
-            local binding = false
+            Btn.MouseButton1Click:Connect(function() toggleAction(); UpdateToggleState() end)
+            if default then toggled = true; UpdateToggleState(); callback(true) end
+            local binding = false; local boundKey = nil
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             UserInputService.InputBegan:Connect(function(input)
                 if binding and input.UserInputType == Enum.UserInputType.Keyboard then
                     binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim
-                    UpdateKeybind(library.keybinds, boundKey, input.KeyCode, toggleAction); boundKey = input.KeyCode
+                    UpdateKeybind(library.keybinds, boundKey, input.KeyCode, function() toggleAction(); UpdateToggleState() end); boundKey = input.KeyCode
                 end
             end)
-            return { SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, toggleAction); boundKey = key end }
+            return { SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() toggleAction(); UpdateToggleState() end); boundKey = key end }
         end
 
         function tab:Button(text, callback)
@@ -375,19 +320,73 @@ function library:Window(title)
             UserInputService.InputBegan:Connect(function(input) if binding and input.UserInputType == Enum.UserInputType.Keyboard then binding = false; BindBtn.Text = input.KeyCode.Name; BindBtn.TextColor3 = library.theme.TextDim; UpdateKeybind(library.keybinds, boundKey, input.KeyCode, callback); boundKey = input.KeyCode end end)
         end
         
+        -- [[ UPDATED SLIDER WITH DOT & CENTER ZERO & EXPANDED HITBOX ]] --
         function tab:Slider(text, min, max, default, callback)
              local val = default or min
              local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 48)})
              Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
              Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Position = UDim2.new(0, 12, 0, 10), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
              local ValLbl = Create("TextLabel", {Parent = Frame, Text = tostring(val), Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 12, Position = UDim2.new(1, -50, 0, 10), Size = UDim2.new(0, 40, 0, 15), BackgroundTransparency = 1})
+             
              local BarBg = Create("Frame", {Parent = Frame, BackgroundColor3 = Color3.fromRGB(20,20,25), Size = UDim2.new(1, -24, 0, 4), Position = UDim2.new(0, 12, 0, 34)})
              Create("UICorner", {Parent = BarBg, CornerRadius = UDim.new(1, 0)})
-             local Fill = Create("Frame", {Parent = BarBg, BackgroundColor3 = library.theme.Accent, Size = UDim2.new((val - min)/(max - min), 0, 1, 0)})
+             
+             local Fill = Create("Frame", {Parent = BarBg, BackgroundColor3 = library.theme.Accent, Size = UDim2.new(0, 0, 1, 0)})
              Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)})
-             local Trigger = Create("TextButton", {Parent = BarBg, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = ""})
-             local function update(input) local pos = math.clamp((input.Position.X - BarBg.AbsolutePosition.X) / BarBg.AbsoluteSize.X, 0, 1); TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pos, 0, 1, 0)}):Play(); local newVal = math.floor(min + ((max - min) * pos)); ValLbl.Text = tostring(newVal); callback(newVal) end
-             local dragging = false; Trigger.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=true; update(i) end end); Trigger.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=false end end); UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update(i) end end)
+             
+             -- Dot Handle (Hidden by default, shows on hover/drag)
+             local Dot = Create("Frame", {
+                 Parent = BarBg, BackgroundColor3 = library.theme.Text, Size = UDim2.new(0, 10, 0, 10), 
+                 AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), BackgroundTransparency = 1
+             })
+             Create("UICorner", {Parent = Dot, CornerRadius = UDim.new(1, 0)})
+             
+             -- BIG HITBOX TRIGGER (Area sentuh lebih besar)
+             local Trigger = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.new(0, 12, 0, 24), BackgroundTransparency = 1, Text = ""})
+
+             -- Bi-Directional Logic (For -5 to 5 type sliders)
+             local isBiDirectional = (min < 0 and max > 0)
+             local range = max - min
+             local zeroPct = (0 - min) / range
+
+             if isBiDirectional then
+                 -- Center Marker
+                 Create("Frame", {Parent = BarBg, BackgroundColor3 = Color3.fromRGB(60,60,70), Size = UDim2.new(0, 2, 1, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(zeroPct, 0, 0.5, 0), ZIndex = 1})
+             end
+
+             local function updateVisual(pct)
+                 TweenService:Create(Dot, TweenInfo.new(0.1), {Position = UDim2.new(pct, 0, 0.5, 0)}):Play()
+                 if isBiDirectional then
+                     if pct > zeroPct then
+                         TweenService:Create(Fill, TweenInfo.new(0.1), {Position = UDim2.new(zeroPct, 0, 0, 0), Size = UDim2.new(pct - zeroPct, 0, 1, 0)}):Play()
+                     else
+                         TweenService:Create(Fill, TweenInfo.new(0.1), {Position = UDim2.new(pct, 0, 0, 0), Size = UDim2.new(zeroPct - pct, 0, 1, 0)}):Play()
+                     end
+                 else
+                     TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+                 end
+             end
+
+             local function setValue(v)
+                 local pct = math.clamp((v - min) / (max - min), 0, 1)
+                 updateVisual(pct)
+                 ValLbl.Text = tostring(v)
+                 callback(v)
+             end
+             setValue(val)
+
+             local dragging = false
+             local function input(inputObj)
+                 local pos = math.clamp((inputObj.Position.X - BarBg.AbsolutePosition.X) / BarBg.AbsoluteSize.X, 0, 1)
+                 local newVal = math.floor(min + ((max - min) * pos))
+                 setValue(newVal)
+             end
+
+             Trigger.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true; input(i); TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end end)
+             Trigger.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false; TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end end)
+             Trigger.MouseEnter:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end)
+             Trigger.MouseLeave:Connect(function() if not dragging then TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end end)
+             UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then input(i) end end)
         end
 
         function tab:Dropdown(text, options, default, callback)
