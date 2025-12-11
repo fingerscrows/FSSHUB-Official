@@ -1,5 +1,6 @@
 -- [[ FSSHUB LIBRARY: V15.1 (UX MASTER) ]] --
 -- Features: Bi-Directional Sliders, Hover Dot, Enhanced Hitbox, Mouse Fix, Theme Engine
+-- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
     flags = {}, 
@@ -292,7 +293,7 @@ function library:Window(title)
                     UpdateKeybind(library.keybinds, boundKey, input.KeyCode, function() SetState(not toggled) end); boundKey = input.KeyCode
                 end
             end)
-            return { Set = SetState, SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end); boundKey = key end }
+            return { Set = Set, SetKeybind = function(key) BindBtn.Text = key.Name; UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end); boundKey = key end }
         end
 
         function tab:Button(text, callback)
