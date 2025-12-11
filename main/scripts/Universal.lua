@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.0 (GOD MODE) ]] --
--- Fitur: ESP Player, Infinite Jump, Spinbot, & Physics Bypass
+-- [[ FSSHUB DATA: UNIVERSAL V4.2 (VISUAL FIX) ]] --
+-- Fitur: ESP Player, Infinite Jump, Spinbot, & Better Fullbright
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,6 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 -- 1. State Variables
 local State = {
@@ -21,12 +20,19 @@ local State = {
     Fullbright = false,
     ESP = false,
     Connections = {},
-    ESP_Objects = {} -- Menyimpan container ESP
+    
+    -- Penyimpanan Setting Cahaya Asli
+    OriginalLighting = {
+        Ambient = Color3.new(0,0,0),
+        OutdoorAmbient = Color3.new(0,0,0),
+        Brightness = 1,
+        ClockTime = 12,
+        GlobalShadows = true
+    }
 }
 
 -- 2. Logic Functions
 
--- [SPEED & JUMP]
 local function UpdateSpeed()
     while State.SpeedEnabled do
         task.wait()
@@ -52,30 +58,24 @@ local function UpdateJump()
     pcall(function() LocalPlayer.Character.Humanoid.JumpPower = 50 end)
 end
 
--- [INFINITE JUMP]
 local function ToggleInfJump(active)
     if active then
         local conn = UserInputService.JumpRequest:Connect(function()
             if State.InfJump and LocalPlayer.Character then
                 local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum:ChangeState("Jumping")
-                end
+                if hum then hum:ChangeState("Jumping") end
             end
         end)
         table.insert(State.Connections, conn)
     end
 end
 
--- [NOCLIP]
 local function ToggleNoclip(active)
     if active then
         local conn = RunService.Stepped:Connect(function()
             if State.Noclip and LocalPlayer.Character then
                 for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then 
-                        part.CanCollide = false 
-                    end
+                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
                 end
             end
         end)
@@ -83,7 +83,6 @@ local function ToggleNoclip(active)
     end
 end
 
--- [SPINBOT]
 local function ToggleSpinbot(active)
     if active then
         task.spawn(function()
@@ -91,17 +90,13 @@ local function ToggleSpinbot(active)
             spin.Name = "FSS_Spin"
             spin.MaxTorque = Vector3.new(0, math.huge, 0)
             spin.AngularVelocity = Vector3.new(0, 50, 0)
-            
             while State.Spinbot do
                 pcall(function()
                     local root = LocalPlayer.Character.HumanoidRootPart
-                    if root and not root:FindFirstChild("FSS_Spin") then
-                        spin:Clone().Parent = root
-                    end
+                    if root and not root:FindFirstChild("FSS_Spin") then spin:Clone().Parent = root end
                 end)
                 task.wait(0.5)
             end
-            -- Cleanup
             pcall(function()
                 if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
                     LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
@@ -114,11 +109,8 @@ end
 -- [ESP SYSTEM]
 local function CreateESP(player)
     if player == LocalPlayer then return end
-    
     local function AddVisuals(char)
         if not State.ESP then return end
-        
-        -- 1. Highlight (Chams)
         local hl = Instance.new("Highlight")
         hl.Name = "FSS_ESP_Box"
         hl.Adornee = char
@@ -127,7 +119,6 @@ local function CreateESP(player)
         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
         hl.Parent = char
         
-        -- 2. Text Name
         local bg = Instance.new("BillboardGui")
         bg.Name = "FSS_ESP_Text"
         bg.Adornee = char:FindFirstChild("Head")
@@ -145,15 +136,10 @@ local function CreateESP(player)
         text.Font = Enum.Font.GothamBold
         text.TextSize = 14
         
-        -- Cleanup saat mati/hilang
         char.AncestryChanged:Connect(function(_, parent)
-            if not parent then 
-                hl:Destroy() 
-                bg:Destroy()
-            end
+            if not parent then hl:Destroy(); bg:Destroy() end
         end)
     end
-
     if player.Character then AddVisuals(player.Character) end
     player.CharacterAdded:Connect(AddVisuals)
 end
@@ -161,11 +147,9 @@ end
 local function ToggleESP(active)
     if active then
         for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
-        
         local conn = Players.PlayerAdded:Connect(CreateESP)
         table.insert(State.Connections, conn)
     else
-        -- Clear ESP
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -179,7 +163,7 @@ end
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.0",
+    Name = "Universal V4.2",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -188,120 +172,84 @@ return {
         State.Noclip = false
         State.Spinbot = false
         State.ESP = false
-        State.Fullbright = false
         
-        -- Matikan semua koneksi
+        -- Matikan Fullbright & Restore Cahaya
+        if State.Fullbright then
+            State.Fullbright = false
+            Lighting.Ambient = State.OriginalLighting.Ambient
+            Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
+            Lighting.Brightness = State.OriginalLighting.Brightness
+            Lighting.ClockTime = State.OriginalLighting.ClockTime
+            Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
+        end
+        
         for _, c in pairs(State.Connections) do c:Disconnect() end
-        ToggleESP(false) -- Bersihkan Visual
+        ToggleESP(false)
     end,
 
     Tabs = {
-        -- [TAB: LOCAL PLAYER]
         {
-            Name = "Player",
-            Icon = "10888331510",
+            Name = "Player", Icon = "10888331510",
             Elements = {
-                {
-                    Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V,
-                    Callback = function(val)
-                        State.SpeedEnabled = val
-                        if val then task.spawn(UpdateSpeed) end
-                    end
-                },
-                {
-                    Type = "Slider", Title = "Speed Value", Min = 16, Max = 500, Default = 16,
-                    Callback = function(val) State.Speed = val end
-                },
-                {
-                    Type = "Toggle", Title = "Enable JumpPower", Default = false,
-                    Callback = function(val)
-                        State.JumpEnabled = val
-                        if val then task.spawn(UpdateJump) end
-                    end
-                },
-                {
-                    Type = "Slider", Title = "Jump Value", Min = 50, Max = 500, Default = 50,
-                    Callback = function(val) State.Jump = val end
-                },
-                {
-                    Type = "Toggle", Title = "Infinite Jump", Default = false,
-                    Callback = function(val)
-                        State.InfJump = val
-                        ToggleInfJump(val)
-                    end
-                },
-                {
-                    Type = "Toggle", Title = "Noclip (Wall Hack)", Default = false,
-                    Callback = function(val)
-                        State.Noclip = val
-                        ToggleNoclip(val)
-                    end
-                },
-                {
-                    Type = "Toggle", Title = "Spinbot (Troll)", Default = false,
-                    Callback = function(val)
-                        State.Spinbot = val
-                        ToggleSpinbot(val)
-                    end
-                }
+                {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v; if v then task.spawn(UpdateSpeed) end end},
+                {Type = "Slider", Title = "Speed Value", Min = 16, Max = 500, Default = 16, Callback = function(v) State.Speed = v end},
+                {Type = "Toggle", Title = "Enable JumpPower", Default = false, Callback = function(v) State.JumpEnabled = v; if v then task.spawn(UpdateJump) end end},
+                {Type = "Slider", Title = "Jump Value", Min = 50, Max = 500, Default = 50, Callback = function(v) State.Jump = v end},
+                {Type = "Toggle", Title = "Infinite Jump", Default = false, Callback = function(v) State.InfJump = v; ToggleInfJump(v) end},
+                {Type = "Toggle", Title = "Noclip (Wall Hack)", Default = false, Callback = function(v) State.Noclip = v; ToggleNoclip(v) end},
+                {Type = "Toggle", Title = "Spinbot (Troll)", Default = false, Callback = function(v) State.Spinbot = v; ToggleSpinbot(v) end}
             }
         },
-        -- [TAB: VISUALS]
         {
-            Name = "Visuals",
-            Icon = "10888332158",
+            Name = "Visuals", Icon = "10888332158",
             Elements = {
+                {Type = "Toggle", Title = "Player ESP (Chams)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
                 {
-                    Type = "Toggle", Title = "Player ESP (Chams)", Default = false,
-                    Callback = function(val)
-                        State.ESP = val
-                        ToggleESP(val)
-                    end
-                },
-                {
-                    Type = "Toggle", Title = "Fullbright (No Shadows)", Default = false,
+                    Type = "Toggle", Title = "Fullbright (Clean Mode)", Default = false,
                     Callback = function(val)
                         State.Fullbright = val
                         if val then
+                            -- Simpan Kondisi Awal
+                            State.OriginalLighting.Ambient = Lighting.Ambient
+                            State.OriginalLighting.OutdoorAmbient = Lighting.OutdoorAmbient
+                            State.OriginalLighting.Brightness = Lighting.Brightness
+                            State.OriginalLighting.ClockTime = Lighting.ClockTime
+                            State.OriginalLighting.GlobalShadows = Lighting.GlobalShadows
+                            
                             task.spawn(function()
                                 while State.Fullbright do
-                                    Lighting.Brightness = 2; Lighting.ClockTime = 14
+                                    Lighting.Brightness = 2
+                                    Lighting.ClockTime = 14
                                     Lighting.GlobalShadows = false
-                                    Lighting.Ambient = Color3.new(1,1,1)
+                                    Lighting.Ambient = Color3.new(1,1,1) -- Putih Terang
+                                    Lighting.OutdoorAmbient = Color3.new(1,1,1) -- Putih Terang
                                     task.wait(1)
                                 end
                             end)
                         else
-                            Lighting.GlobalShadows = true
+                            -- Restore Kondisi Awal (Fix Gloomy)
+                            Lighting.Ambient = State.OriginalLighting.Ambient
+                            Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
+                            Lighting.Brightness = State.OriginalLighting.Brightness
+                            Lighting.ClockTime = State.OriginalLighting.ClockTime
+                            Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
                         end
                     end
                 }
             }
         },
-        -- [TAB: MISC]
         {
-            Name = "Misc",
-            Icon = "10888332462",
+            Name = "Misc", Icon = "10888332462",
             Elements = {
-                {
-                    Type = "Button", Title = "Rejoin Server",
-                    Callback = function()
-                        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-                    end
-                },
-                {
-                    Type = "Button", Title = "Server Hop (Random)",
-                    Callback = function()
-                        -- Logic sederhana server hop
-                        local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-                        for _, s in pairs(servers.data) do
-                            if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
-                                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
-                                break
-                            end
+                {Type = "Button", Title = "Rejoin Server", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end},
+                {Type = "Button", Title = "Server Hop", Callback = function() 
+                    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+                    for _, s in pairs(servers.data) do
+                        if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
+                            TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer); break
                         end
                     end
-                }
+                end}
             }
         }
     }
