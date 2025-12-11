@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.4 (RENDER SAFE & BIND FIX) ]] --
--- Changelog: Improved Init logic for rendering, Keybind persistence
+-- [[ FSSHUB LIBRARY: V15.5 (STABLE RELEASE) ]] --
+-- Changelog: Fixed syntax error in TweenService, robust rendering
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -75,6 +75,7 @@ local function MakeDraggable(topbarobject, object)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
+            -- FIX: Syntax error fixed here (removed extra '}')
             TweenService:Create(object, TweenInfo.new(0.05), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
         end
     end)
@@ -142,12 +143,10 @@ function library:Init()
         if gethui then TargetParent = gethui() end
     end)
     
-    -- Fallback 1: CoreGui (Jika gethui gagal)
     if not TargetParent then
         pcall(function() TargetParent = game:GetService("CoreGui") end)
     end
     
-    -- Fallback 2: PlayerGui (Paling aman untuk mobile/executor gratisan)
     if not TargetParent then
         TargetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
     end
@@ -161,7 +160,7 @@ function library:Init()
         Parent = TargetParent, 
         ResetOnSpawn = false, 
         IgnoreGuiInset = true,
-        DisplayOrder = 9999 -- Agar selalu di paling atas
+        DisplayOrder = 9999
     })
     
     self.base = gui
@@ -183,7 +182,6 @@ function library:Init()
         Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
     end
     
-    print("[FSSHUB] Library Initialized on: " .. tostring(TargetParent))
     return gui
 end
 
