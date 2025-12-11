@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.3 (FULLBRIGHT FIX) ]] --
--- Fitur: God Mode, ESP, Clean Fullbright
+-- [[ FSSHUB DATA: UNIVERSAL V4.4 (NUCLEAR FULLBRIGHT) ]] --
+-- Fitur: God Mode, ESP, Anti-Gloomy, Physics Bypass
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -21,15 +21,8 @@ local State = {
     ESP = false,
     Connections = {},
     
-    -- Penyimpanan Setting Cahaya Asli (Agar bisa restore)
-    OriginalLighting = {
-        Ambient = Color3.new(0,0,0),
-        OutdoorAmbient = Color3.new(0,0,0),
-        Brightness = 1,
-        ClockTime = 12,
-        GlobalShadows = true,
-        FogEnd = 100000
-    }
+    -- Cache Post-Effect agar bisa direstore
+    StoredEffects = {}
 }
 
 -- 2. Logic Functions
@@ -164,7 +157,7 @@ end
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.3",
+    Name = "Universal V4.4",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -174,15 +167,19 @@ return {
         State.Spinbot = false
         State.ESP = false
         
-        -- Restore Lighting
+        -- Matikan Fullbright & Restore Efek
         if State.Fullbright then
             State.Fullbright = false
-            Lighting.Ambient = State.OriginalLighting.Ambient
-            Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
-            Lighting.Brightness = State.OriginalLighting.Brightness
-            Lighting.ClockTime = State.OriginalLighting.ClockTime
-            Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
-            Lighting.FogEnd = State.OriginalLighting.FogEnd
+            Lighting.Brightness = 1
+            Lighting.ClockTime = 12
+            Lighting.GlobalShadows = true
+            Lighting.Ambient = Color3.new(0,0,0)
+            
+            -- Kembalikan efek yang disembunyikan
+            for obj, enabled in pairs(State.StoredEffects) do
+                if obj and obj.Parent then obj.Enabled = enabled end
+            end
+            State.StoredEffects = {}
         end
         
         for _, c in pairs(State.Connections) do c:Disconnect() end
@@ -207,37 +204,37 @@ return {
             Elements = {
                 {Type = "Toggle", Title = "Player ESP (Chams)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
                 {
-                    Type = "Toggle", Title = "Fullbright (Anti-Gloomy)", Default = false,
+                    Type = "Toggle", Title = "Fullbright (Experimental)", Default = false,
                     Callback = function(val)
                         State.Fullbright = val
                         if val then
-                            -- Simpan Kondisi Awal
-                            State.OriginalLighting.Ambient = Lighting.Ambient
-                            State.OriginalLighting.OutdoorAmbient = Lighting.OutdoorAmbient
-                            State.OriginalLighting.Brightness = Lighting.Brightness
-                            State.OriginalLighting.ClockTime = Lighting.ClockTime
-                            State.OriginalLighting.GlobalShadows = Lighting.GlobalShadows
-                            State.OriginalLighting.FogEnd = Lighting.FogEnd
-                            
+                            -- Loop aggressive untuk mematikan Atmosphere/Blur
                             task.spawn(function()
                                 while State.Fullbright do
                                     Lighting.Brightness = 2
                                     Lighting.ClockTime = 14
                                     Lighting.GlobalShadows = false
-                                    Lighting.Ambient = Color3.new(1,1,1) -- Kunci agar tidak gloomy
+                                    Lighting.Ambient = Color3.new(1,1,1)
                                     Lighting.OutdoorAmbient = Color3.new(1,1,1)
-                                    Lighting.FogEnd = 100000 -- Hapus kabut
+                                    Lighting.FogEnd = 9e9
+                                    
+                                    -- Matikan Efek Post-Processing yang bikin Gloomy
+                                    for _, v in pairs(Lighting:GetChildren()) do
+                                        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+                                            if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end -- Simpan state asli
+                                            v.Enabled = false
+                                        end
+                                    end
                                     task.wait(1)
                                 end
                             end)
                         else
-                            -- Restore
-                            Lighting.Ambient = State.OriginalLighting.Ambient
-                            Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
-                            Lighting.Brightness = State.OriginalLighting.Brightness
-                            Lighting.ClockTime = State.OriginalLighting.ClockTime
-                            Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
-                            Lighting.FogEnd = State.OriginalLighting.FogEnd
+                            -- Restore Efek
+                            for obj, enabled in pairs(State.StoredEffects) do
+                                if obj and obj.Parent then obj.Enabled = enabled end
+                            end
+                            State.StoredEffects = {}
+                            Lighting.GlobalShadows = true
                         end
                     end
                 }
