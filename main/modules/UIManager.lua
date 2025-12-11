@@ -1,20 +1,16 @@
--- [[ FSSHUB: UI MANAGER V3.2 (THEME PERSISTENCE FIX) ]] --
--- Fitur: Dynamic Theme Switcher, Auto-Reload, & MOTD
+-- [[ FSSHUB: UI MANAGER V3.3 (FINAL POLISH) ]] --
+-- Fitur: Theme System, Watermark Position, & MOTD
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
 
--- Cache Data Global
 local StoredConfig = nil
 local StoredAuth = nil
 local LibraryInstance = nil
 
--- Fungsi Load Library (Hanya download jika belum ada)
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
-    
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
-    
     if success and lib then
         lib:Init()
         LibraryInstance = lib
@@ -23,7 +19,6 @@ local function LoadLibrary()
     return nil
 end
 
--- Fungsi Build Utama
 function UIManager.Build(GameConfig, AuthData)
     StoredConfig = GameConfig
     StoredAuth = AuthData
@@ -31,7 +26,6 @@ function UIManager.Build(GameConfig, AuthData)
     local Library = LoadLibrary()
     if not Library then warn("FSSHUB: Library Failed to Load") return end
 
-    -- Watermark & Window Title
     local userStatus = (AuthData and AuthData.Type) or "Free"
     local gameName = (AuthData and AuthData.GameName) or GameConfig.Name or "Unknown"
     
@@ -42,7 +36,6 @@ function UIManager.Build(GameConfig, AuthData)
     local ProfileTab = Window:Section("Dashboard", "10888331510")
     
     if AuthData then
-        -- MOTD Display
         if AuthData.MOTD and AuthData.MOTD ~= "" then
             ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD)
         end
@@ -112,30 +105,25 @@ function UIManager.Build(GameConfig, AuthData)
         ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
         ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)}
     }
-    
     local themeNames = {}
-    for name, _ in pairs(safePresets) do 
-        table.insert(themeNames, name) 
-    end
+    for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
     SettingsTab:Dropdown("Interface Theme", themeNames, "Select Theme", function(selected)
-        -- 1. Set Tema pada Library yang SEDANG AKTIF (jangan download baru)
         Library:SetTheme(selected)
-        
-        -- 2. Hapus GUI Lama
-        if Library.base then 
-            Library.base:Destroy() 
-            Library.base = nil -- Reset agar Init() membuat GUI baru
-        end 
-        
-        -- 3. Reset Keybinds (Penting agar tidak error saat rebuild)
+        if Library.base then Library.base:Destroy(); Library.base = nil end 
         Library.keybinds = {} 
-        
-        -- 4. Rebuild UI menggunakan Library yang sama (Warna sudah berubah)
         UIManager.Build(StoredConfig, StoredAuth)
     end)
 
-    SettingsTab:Toggle("Show FPS/Watermark", true, function(state)
+    -- [WATERMARK POSITION]
+    SettingsTab:Dropdown("Watermark Position", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
+        if Library.SetWatermarkAlign then
+            Library:SetWatermarkAlign(pos)
+        end
+    end)
+
+    -- [RENAMED TOGGLE]
+    SettingsTab:Toggle("Status & FPS", true, function(state)
         Library:ToggleWatermark(state)
     end)
 
