@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V12.5 (WATERMARK CRASH FIX) ]] --
--- Fitur: Safe Stats Reading & Fixed Layout
+-- [[ FSSHUB LIBRARY: V12.6 (COMPACT WATERMARK) ]] --
+-- Fitur: Multi-Theme, Dynamic Color, Fixed Dropdown, & Compact Stats
 
 local library = {
     flags = {}, 
@@ -14,7 +14,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Stats = game:GetService("Stats") -- Service Stats
+local Stats = game:GetService("Stats")
 
 -- [[ DEFAULT THEME ]] --
 library.theme = {
@@ -49,7 +49,6 @@ local function Create(class, props)
     return inst
 end
 
--- [[ HELPER: SMART BIND MANAGER ]] --
 local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
     if oldKey and tableBinds[oldKey] then
         for i, func in ipairs(tableBinds[oldKey]) do
@@ -87,8 +86,8 @@ function library:Notify(title, text, duration)
     pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
 end
 
--- [SAFE WATERMARK SYSTEM]
-function library:Watermark(text)
+-- [COMPACT WATERMARK]
+function library:Watermark(headerText)
     if not self.base then return end
     if self.base:FindFirstChild("FSS_Watermark") then self.base.FSS_Watermark:Destroy() end
 
@@ -109,28 +108,28 @@ function library:Watermark(text)
     Create("UIStroke", {Parent = wm, Color = library.theme.Accent, Thickness = 1, Transparency = 0.5})
     
     local label = Create("TextLabel", {
-        Parent = wm, Text = text, Font = Enum.Font.Code, TextColor3 = library.theme.Text,
+        Parent = wm, Text = headerText, Font = Enum.Font.Code, TextColor3 = library.theme.Text,
         TextSize = 12, Size = UDim2.new(0, 0, 1, 0), Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X
     })
     wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
     
     task.spawn(function()
-        local startTime = os.time()
         while wm.Parent do
+            -- FPS
             local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001))
             
-            -- [FIX CRASH] Ambil Ping dengan Pcall
+            -- Ping (Safe Mode)
             local ping = 0
             pcall(function()
                 ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1])
             end)
             
-            local playedTime = os.time() - startTime
-            local h = math.floor(playedTime / 3600)
-            local m = math.floor((playedTime % 3600) / 60)
+            -- Jam User (Local Time)
+            local timeString = os.date("%H:%M:%S")
             
-            label.Text = string.format("%s | FPS: %d | Ping: %dms | Time: %02dh %02dm", text, fps, ping, h, m)
+            -- Format Baru: [Icon Header] | FPS | Ping | Jam
+            label.Text = string.format("%s | FPS: %d | Ping: %dms | %s", headerText, fps, ping, timeString)
             wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
             task.wait(1)
         end
@@ -319,12 +318,20 @@ function library:Window(title)
             local Frame = Create("Frame", {Parent = Page, BackgroundColor3 = library.theme.ItemBg, Size = UDim2.new(1, 0, 0, 38)})
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+            
             local CheckBox = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 42, 0, 22), Position = UDim2.new(1, -50, 0.5, -11), BackgroundColor3 = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)})
             Create("UICorner", {Parent = CheckBox, CornerRadius = UDim.new(1, 0)})
             local Circle = Create("Frame", {Parent = CheckBox, Size = UDim2.new(0, 18, 0, 18), Position = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), BackgroundColor3 = library.theme.Text})
             Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
+            
             local Btn = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 5})
-            local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
+            
+            local BindBtn = Create("TextButton", {
+                Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim,
+                TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9),
+                BackgroundColor3 = library.theme.Main,
+                ZIndex = 10
+            })
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
 
             local function UpdateToggleState()
@@ -336,6 +343,7 @@ function library:Window(title)
             toggleAction = UpdateToggleState
             Btn.MouseButton1Click:Connect(function() UpdateToggleState() end)
             if default then toggled = not default; UpdateToggleState() end
+            
             local binding = false
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
             UserInputService.InputBegan:Connect(function(input)
