@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.1 (STABLE FIX) ]] --
--- Fixes: FOV Glitch, Fullbright Reset, Noclip Cleanup, & Performance
+-- [[ FSSHUB DATA: UNIVERSAL V5.2 (AUTO-CLEAN & BUG FIX) ]] --
+-- Changelog: Added Global Overwrite Protection, Fixed FOV Fighting, Robust Noclip
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,7 +10,13 @@ local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- 1. State Variables
+-- [[ 1. GLOBAL CLEANUP SYSTEM ]] --
+-- Ini akan mematikan script lama secara otomatis jika kamu meng-execute ulang
+if getgenv().FSS_Universal_Stop then
+    pcall(getgenv().FSS_Universal_Stop)
+end
+
+-- 2. State Variables
 local State = {
     -- Movement
     Speed = 16,
@@ -28,73 +34,68 @@ local State = {
     
     -- ESP
     ESP = false,
-    ESP_MaxDistance = 1000, 
-    ESP_UpdateInterval = 0.5,
+    ESP_MaxDistance = 1500, 
+    ESP_UpdateInterval = 0.2, -- Lebih cepat untuk respon lebih baik
     ESP_TeamCheck = false,
     
     -- System
     Connections = {},
     ESP_Cache = {},
     
-    -- Backup Values (Untuk Restore)
-    OriginalLighting = {
-        Brightness = Lighting.Brightness,
-        ClockTime = Lighting.ClockTime,
-        GlobalShadows = Lighting.GlobalShadows,
-        Ambient = Lighting.Ambient,
-        OutdoorAmbient = Lighting.OutdoorAmbient,
-        FogEnd = Lighting.FogEnd
-    }
+    -- Backup Values
+    OriginalLighting = nil -- Kita set nil dulu agar tidak menyimpan lighting yang sudah ter-modifikasi
 }
 
--- 2. Logic Functions
+-- 3. Logic Functions
 
--- [FIXED MOVEMENT LOOP]
+-- [MOVEMENT & PHYSICS LOOP]
 local function StartMovementLoop()
-    local conn = RunService.Heartbeat:Connect(function()
+    -- Gunakan Unique Name untuk bind agar tidak duplikat
+    RunService:BindToRenderStep("FSS_Movement_Loop", Enum.RenderPriority.Character.Value + 1, function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
         
         if char and hum then
-            -- WalkSpeed Logic
+            -- WalkSpeed (Force Set)
             if State.SpeedEnabled and hum.WalkSpeed ~= State.Speed then
                 hum.WalkSpeed = State.Speed
             end
             
-            -- JumpPower Logic
+            -- JumpPower (Force Set)
             if State.JumpEnabled then
                 hum.UseJumpPower = true
                 if hum.JumpPower ~= State.Jump then
                     hum.JumpPower = State.Jump
                 end
             end
-            
-            -- Spinbot Logic
-            if State.Spinbot then
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local spin = root:FindFirstChild("FSS_Spin")
-                    if not spin then
-                        spin = Instance.new("BodyAngularVelocity")
-                        spin.Name = "FSS_Spin"
-                        spin.MaxTorque = Vector3.new(0, math.huge, 0)
-                        spin.AngularVelocity = Vector3.new(0, 50, 0)
-                        spin.Parent = root
-                    else
-                        spin.AngularVelocity = Vector3.new(0, 50, 0)
-                    end
+        end
+    end)
+    
+    -- Spinbot Logic (Heartbeat lebih baik untuk fisika)
+    local conn = RunService.Heartbeat:Connect(function()
+        if State.Spinbot and LocalPlayer.Character then
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local spin = root:FindFirstChild("FSS_Spin")
+                if not spin then
+                    spin = Instance.new("BodyAngularVelocity")
+                    spin.Name = "FSS_Spin"
+                    spin.MaxTorque = Vector3.new(0, math.huge, 0)
+                    spin.AngularVelocity = Vector3.new(0, 50, 0)
+                    spin.Parent = root
+                else
+                    spin.AngularVelocity = Vector3.new(0, 50, 0)
                 end
-            elseif char:FindFirstChild("HumanoidRootPart") then
-                -- Cleanup Spinbot jika mati
-                local s = char.HumanoidRootPart:FindFirstChild("FSS_Spin")
-                if s then s:Destroy() end
             end
+        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local s = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
+            if s then s:Destroy() end
         end
     end)
     table.insert(State.Connections, conn)
 end
 
--- [FIXED NOCLIP] Restore Collision saat dimatikan
+-- [ROBUST NOCLIP]
 local function ToggleNoclip(active)
     State.Noclip = active
     if active then
@@ -109,7 +110,7 @@ local function ToggleNoclip(active)
         end)
         table.insert(State.Connections, conn)
     else
-        -- Paksa kembalikan collision segera setelah dimatikan
+        -- Force Restore Collision
         if LocalPlayer.Character then
             for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
                 if part:IsA("BasePart") then
@@ -134,35 +135,37 @@ local function ToggleInfJump(active)
     end
 end
 
--- [FIXED FOV] Tidak spamming setiap frame jika tidak perlu
+-- [FOV FIX]
 local function UpdateFOV(active)
     State.FOVEnabled = active
-    if active then
-        -- Gunakan RenderStepped untuk mengunci FOV agar tidak di-override game lain
+    if not active then
+        Camera.FieldOfView = 70 -- Reset ke default
+    else
         local conn = RunService.RenderStepped:Connect(function()
             if State.FOVEnabled then
                 Camera.FieldOfView = State.FOV
             end
         end)
         table.insert(State.Connections, conn)
-    else
-        -- Reset ke default Roblox saat mati
-        Camera.FieldOfView = 70 
     end
 end
 
--- [FIXED FULLBRIGHT] Restore ke nilai asli, bukan nilai hardcoded
+-- [FULLBRIGHT ROBUST]
 local function ApplyFullbright(active)
     State.Fullbright = active
     
     if active then
-        -- Simpan state lighting saat ini sebelum diubah (jika belum tersimpan)
-        State.OriginalLighting.Brightness = Lighting.Brightness
-        State.OriginalLighting.ClockTime = Lighting.ClockTime
-        State.OriginalLighting.GlobalShadows = Lighting.GlobalShadows
-        State.OriginalLighting.Ambient = Lighting.Ambient
-        State.OriginalLighting.OutdoorAmbient = Lighting.OutdoorAmbient
-        State.OriginalLighting.FogEnd = Lighting.FogEnd
+        -- Hanya simpan backup JIKA belum pernah disimpan (agar tidak membackup lighting yang sudah terang)
+        if not State.OriginalLighting then
+            State.OriginalLighting = {
+                Brightness = Lighting.Brightness,
+                ClockTime = Lighting.ClockTime,
+                GlobalShadows = Lighting.GlobalShadows,
+                Ambient = Lighting.Ambient,
+                OutdoorAmbient = Lighting.OutdoorAmbient,
+                FogEnd = Lighting.FogEnd
+            }
+        end
 
         task.spawn(function()
             while State.Fullbright do
@@ -176,17 +179,22 @@ local function ApplyFullbright(active)
             end
         end)
     else
-        -- Restore persis ke nilai awal game
-        Lighting.Brightness = State.OriginalLighting.Brightness
-        Lighting.ClockTime = State.OriginalLighting.ClockTime
-        Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
-        Lighting.Ambient = State.OriginalLighting.Ambient
-        Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
-        Lighting.FogEnd = State.OriginalLighting.FogEnd
+        -- Restore hanya jika backup ada
+        if State.OriginalLighting then
+            Lighting.Brightness = State.OriginalLighting.Brightness
+            Lighting.ClockTime = State.OriginalLighting.ClockTime
+            Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
+            Lighting.Ambient = State.OriginalLighting.Ambient
+            Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
+            Lighting.FogEnd = State.OriginalLighting.FogEnd
+            
+            -- Reset backup agar pengambilan berikutnya segar
+            State.OriginalLighting = nil
+        end
     end
 end
 
--- [ESP SYSTEM]
+-- [ESP SYSTEM OPTIMIZED]
 local function CreateESP(player)
     if player == LocalPlayer then return end
     
@@ -238,6 +246,7 @@ local function UpdateESP_Loop()
         while State.ESP do
             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             
+            -- Loop mundur agar aman saat menghapus item dari table
             for i = #State.ESP_Cache, 1, -1 do
                 local item = State.ESP_Cache[i]
                 if not item.char or not item.char.Parent or not item.plr or not item.plr.Parent then
@@ -252,6 +261,7 @@ local function UpdateESP_Loop()
                             item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
                             
                             local isTeammate = (State.ESP_TeamCheck and item.plr.Team == LocalPlayer.Team)
+                            
                             if dist > State.ESP_MaxDistance or isTeammate then
                                 item.hl.Enabled = false
                                 item.txt.Visible = false
@@ -291,26 +301,34 @@ end
 -- Init Global Loops
 StartMovementLoop()
 
--- 3. Return Configuration Table
-return {
-    Name = "Universal V5.1",
+-- 4. CLEANUP FUNCTION
+local function Cleanup()
+    State.SpeedEnabled = false
+    State.JumpEnabled = false
+    State.InfJump = false
+    State.Spinbot = false
     
-    OnUnload = function()
-        -- Reset Semua State
-        State.SpeedEnabled = false
-        State.JumpEnabled = false
-        State.InfJump = false
-        State.Spinbot = false
-        
-        -- Fix Noclip & FOV saat unload
-        ToggleNoclip(false)
-        UpdateFOV(false)
-        ApplyFullbright(false)
-        ToggleESP(false)
-        
-        -- Disconnect semua event
-        for _, c in pairs(State.Connections) do c:Disconnect() end
-    end,
+    -- Reset Visuals
+    ToggleNoclip(false)
+    UpdateFOV(false)
+    ApplyFullbright(false)
+    ToggleESP(false)
+    
+    -- Kill Loops
+    RunService:UnbindFromRenderStep("FSS_Movement_Loop")
+    for _, c in pairs(State.Connections) do c:Disconnect() end
+    State.Connections = {}
+    
+    print("[FSSHUB] Universal Script Cleaned Up.")
+end
+
+-- Simpan fungsi cleanup ke Global Environment
+getgenv().FSS_Universal_Stop = Cleanup
+
+-- 5. Return Configuration
+return {
+    Name = "Universal V5.2",
+    OnUnload = Cleanup,
 
     Tabs = {
         {
@@ -333,11 +351,10 @@ return {
                 {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) ToggleESP(v) end},
                 {Type = "Toggle", Title = "Team Check", Default = false, Callback = function(v) State.ESP_TeamCheck = v end},
                 
-                {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1000, Callback = function(v) State.ESP_MaxDistance = v end},
+                {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1500, Callback = function(v) State.ESP_MaxDistance = v end},
                 
                 {Type = "Toggle", Title = "Fullbright", Default = false, Callback = ApplyFullbright},
                 
-                -- [FOV FIXED]
                 {Type = "Toggle", Title = "Enable FOV Changer", Default = false, Callback = function(v) UpdateFOV(v) end},
                 {Type = "Slider", Title = "Field of View", Min = 30, Max = 120, Default = 70, Callback = function(v) State.FOV = v end},
             }
