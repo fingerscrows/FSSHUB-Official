@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V15.3 (KEYBIND PERSISTENCE) ]] --
--- Changelog: Keybinds now saved to flags, restored on rebuild
+-- [[ FSSHUB LIBRARY: V15.4 (RENDER SAFE & BIND FIX) ]] --
+-- Changelog: Improved Init logic for rendering, Keybind persistence
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -75,7 +75,7 @@ local function MakeDraggable(topbarobject, object)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            TweenService:Create(object, TweenInfo.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
+            TweenService:Create(object, TweenInfo.new(0.05), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
@@ -135,15 +135,35 @@ end
 
 function library:Init()
     if self.base then return self.base end
-    local success, _ = pcall(function()
-        if gethui then self.base = gethui()
-        elseif game:GetService("CoreGui") then self.base = game:GetService("CoreGui")
-        else self.base = Players.LocalPlayer:WaitForChild("PlayerGui") end
-    end)
-    if not success or not self.base then self.base = Players.LocalPlayer:WaitForChild("PlayerGui") end
     
-    if self.base:FindFirstChild("FSSHUB_V10") then self.base.FSSHUB_V10:Destroy() end
-    local gui = Create("ScreenGui", {Name = "FSSHUB_V10", Parent = self.base, ResetOnSpawn = false, IgnoreGuiInset = true})
+    -- [RENDER FIX] Cari Parent yang valid
+    local TargetParent = nil
+    pcall(function()
+        if gethui then TargetParent = gethui() end
+    end)
+    
+    -- Fallback 1: CoreGui (Jika gethui gagal)
+    if not TargetParent then
+        pcall(function() TargetParent = game:GetService("CoreGui") end)
+    end
+    
+    -- Fallback 2: PlayerGui (Paling aman untuk mobile/executor gratisan)
+    if not TargetParent then
+        TargetParent = Players.LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    if TargetParent:FindFirstChild("FSSHUB_V10") then 
+        TargetParent.FSSHUB_V10:Destroy() 
+    end
+    
+    local gui = Create("ScreenGui", {
+        Name = "FSSHUB_V10", 
+        Parent = TargetParent, 
+        ResetOnSpawn = false, 
+        IgnoreGuiInset = true,
+        DisplayOrder = 9999 -- Agar selalu di paling atas
+    })
+    
     self.base = gui
     
     if getgenv().FSS_InputConnection then getgenv().FSS_InputConnection:Disconnect(); getgenv().FSS_InputConnection = nil end
@@ -162,6 +182,8 @@ function library:Init()
         local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", TextColor3 = library.theme.Accent, Font = Enum.Font.GothamBlack})
         Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
     end
+    
+    print("[FSSHUB] Library Initialized on: " .. tostring(TargetParent))
     return gui
 end
 
@@ -287,21 +309,18 @@ function library:Window(title)
             elseif default then SetState(true) 
             else library.flags[text] = false end
             
-            -- KEYBIND TOGGLE
             local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextColor3 = library.theme.TextDim, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             local binding, boundKey = false, nil
-            
             local bindFlag = text .. "_Bind"
             
             local function SetBind(key)
                 boundKey = key
                 BindBtn.Text = key.Name
-                library.flags[bindFlag] = key.Name -- Simpan ke flags
+                library.flags[bindFlag] = key.Name 
                 UpdateKeybind(library.keybinds, boundKey, key, function() SetState(not toggled) end)
             end
 
-            -- Restore Bind if exists
             if library.flags[bindFlag] then
                 local s, k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end)
                 if s and k then SetBind(k) end
@@ -314,7 +333,6 @@ function library:Window(title)
                     SetBind(input.KeyCode)
                 end
             end)
-            
             return { Set = SetState, SetKeybind = SetBind }
         end
 
@@ -362,19 +380,13 @@ function library:Window(title)
             
             if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end
             
-            -- Restore
             if library.flags[bindFlag] then
                 local s, k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end)
                 if s and k then SetBind(k) end
             end
 
             BindBtn.MouseButton1Click:Connect(function() binding = true; BindBtn.Text = "..."; BindBtn.TextColor3 = library.theme.Accent end)
-            UserInputService.InputBegan:Connect(function(input) 
-                if binding and input.UserInputType == Enum.UserInputType.Keyboard then 
-                    binding = false; BindBtn.TextColor3 = library.theme.TextDim; 
-                    SetBind(input.KeyCode)
-                end 
-            end)
+            UserInputService.InputBegan:Connect(function(input) if binding and input.UserInputType == Enum.UserInputType.Keyboard then binding = false; BindBtn.TextColor3 = library.theme.TextDim; SetBind(input.KeyCode) end end)
             
             return { SetKeybind = SetBind }
         end
