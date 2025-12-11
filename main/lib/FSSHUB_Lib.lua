@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V12.3 (FINAL OPTIMIZED) ]] --
--- Fitur: Multi-Theme, Dynamic Color, Fixed Dropdown, Moveable Watermark
+-- [[ FSSHUB LIBRARY: V12.4 (ADVANCED STATUS) ]] --
+-- Fitur: Multi-Theme, Dynamic Color, Fixed Dropdown, & Advanced Stats
 
 local library = {
     flags = {}, 
@@ -7,13 +7,15 @@ local library = {
     open = true,
     keybinds = {},
     gui_objects = {},
-    wm_obj = nil
+    wm_obj = nil,
+    wm_text = nil -- Simpan referensi teks watermark
 }
 
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
 -- [[ DEFAULT THEME ]] --
 library.theme = {
@@ -48,8 +50,7 @@ local function Create(class, props)
     return inst
 end
 
--- [[ OPTIMIZED HELPER: SMART BIND MANAGER ]] --
--- Ini adalah kode yang membuat script terlihat lebih pendek tapi lebih pintar
+-- [[ HELPER: SMART BIND MANAGER ]] --
 local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
     if oldKey and tableBinds[oldKey] then
         for i, func in ipairs(tableBinds[oldKey]) do
@@ -87,7 +88,7 @@ function library:Notify(title, text, duration)
     pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
 end
 
--- [WATERMARK SYSTEM]
+-- [ADVANCED WATERMARK SYSTEM]
 function library:Watermark(text)
     if not self.base then return end
     if self.base:FindFirstChild("FSS_Watermark") then self.base.FSS_Watermark:Destroy() end
@@ -113,12 +114,24 @@ function library:Watermark(text)
         TextSize = 12, Size = UDim2.new(0, 0, 1, 0), Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X
     })
+    self.wm_text = label -- Simpan referensi text
+    
     wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
     
+    -- Loop Stats Realtime
     task.spawn(function()
+        local startTime = os.time()
         while wm.Parent do
-            local fps = math.floor(1 / RunService.RenderStepped:Wait())
-            label.Text = text .. " | FPS: " .. fps
+            local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001)) -- Anti division by zero
+            local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1] or 0)
+            
+            -- Hitung Waktu Main
+            local playedTime = os.time() - startTime
+            local h = math.floor(playedTime / 3600)
+            local m = math.floor((playedTime % 3600) / 60)
+            
+            -- Update Text
+            label.Text = string.format("%s | FPS: %d | Ping: %dms | Time: %02dh %02dm", text, fps, ping, h, m)
             wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
             task.wait(1)
         end
@@ -129,7 +142,6 @@ function library:ToggleWatermark(state)
     if self.wm_obj then self.wm_obj.Visible = state end
 end
 
--- [POSITION FIX]
 function library:SetWatermarkAlign(align)
     if not self.wm_obj then return end
     if align == "Top Left" then
@@ -300,7 +312,6 @@ function library:Window(title)
             Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextColor3 = library.theme.TextDim, TextSize = 12, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true})
         end
 
-        -- [TOGGLE FIXED: Menggunakan helper UpdateKeybind]
         function tab:Toggle(text, default, callback)
             local toggled = default or false
             local boundKey = nil 
@@ -372,7 +383,6 @@ function library:Window(title)
              local dragging = false; Trigger.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=true; update(i) end end); Trigger.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging=false end end); UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update(i) end end)
         end
 
-        -- [DROPDOWN FIXED LAYOUT]
         function tab:Dropdown(text, options, default, callback)
              local isDropped = false
              
