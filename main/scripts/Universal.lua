@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.4 (NUCLEAR FULLBRIGHT) ]] --
--- Fitur: God Mode, ESP, Anti-Gloomy, Physics Bypass
+-- [[ FSSHUB DATA: UNIVERSAL V4.5 (ESP FIXED) ]] --
+-- Fitur: God Mode, Smart ESP (Anti-Limit), Clean Fullbright
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 -- 1. State Variables
 local State = {
@@ -22,7 +23,9 @@ local State = {
     Connections = {},
     
     -- Cache Post-Effect agar bisa direstore
-    StoredEffects = {}
+    StoredEffects = {},
+    -- Cache ESP Objects untuk manajemen limit
+    ESP_Cache = {}
 }
 
 -- 2. Logic Functions
@@ -36,7 +39,7 @@ local function UpdateSpeed()
             end
         end)
     end
-    pcall(function() LocalPlayer.Character.Humanoid.WalkSpeed = 16 end)
+    pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
 end
 
 local function UpdateJump()
@@ -49,7 +52,7 @@ local function UpdateJump()
             end
         end)
     end
-    pcall(function() LocalPlayer.Character.Humanoid.JumpPower = 50 end)
+    pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
 end
 
 local function ToggleInfJump(active)
@@ -100,26 +103,37 @@ local function ToggleSpinbot(active)
     end
 end
 
--- [ESP SYSTEM]
+-- [SMART ESP SYSTEM]
 local function CreateESP(player)
     if player == LocalPlayer then return end
+    
     local function AddVisuals(char)
         if not State.ESP then return end
+        
+        -- Tunggu sampai Head ada agar tidak error
+        local head = char:WaitForChild("Head", 5)
+        if not head then return end
+        
+        -- 1. Highlight (Chams)
         local hl = Instance.new("Highlight")
         hl.Name = "FSS_ESP_Box"
         hl.Adornee = char
         hl.FillColor = Color3.fromRGB(140, 80, 255)
         hl.FillTransparency = 0.5
         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.OutlineTransparency = 0
+        -- [FIX UTAMA] Agar tembus tembok
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop 
         hl.Parent = char
         
+        -- 2. Nama & Jarak
         local bg = Instance.new("BillboardGui")
         bg.Name = "FSS_ESP_Text"
-        bg.Adornee = char:FindFirstChild("Head")
+        bg.Adornee = head
         bg.Size = UDim2.new(0, 200, 0, 50)
         bg.StudsOffset = Vector3.new(0, 3, 0)
         bg.AlwaysOnTop = true
-        bg.Parent = char:FindFirstChild("Head")
+        bg.Parent = head
         
         local text = Instance.new("TextLabel", bg)
         text.BackgroundTransparency = 1
@@ -128,22 +142,68 @@ local function CreateESP(player)
         text.TextColor3 = Color3.fromRGB(255, 255, 255)
         text.TextStrokeTransparency = 0
         text.Font = Enum.Font.GothamBold
-        text.TextSize = 14
+        text.TextSize = 12
         
+        -- Simpan ke cache untuk manajemen
+        table.insert(State.ESP_Cache, {hl = hl, txt = text, plr = player, char = char})
+        
+        -- Cleanup saat mati
         char.AncestryChanged:Connect(function(_, parent)
-            if not parent then hl:Destroy(); bg:Destroy() end
+            if not parent then 
+                hl:Destroy()
+                bg:Destroy()
+            end
         end)
     end
+
     if player.Character then AddVisuals(player.Character) end
     player.CharacterAdded:Connect(AddVisuals)
 end
 
+local function UpdateESP_Loop()
+    -- Loop untuk update jarak & manajemen limit Highlight (Max 31)
+    RunService.Heartbeat:Connect(function()
+        if not State.ESP then return end
+        
+        for i, item in ipairs(State.ESP_Cache) do
+            if item.char and item.char.Parent and item.txt.Parent then
+                local root = item.char:FindFirstChild("HumanoidRootPart")
+                local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                
+                if root and myRoot then
+                    local dist = (root.Position - myRoot.Position).Magnitude
+                    item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
+                    
+                    -- [OPTIMASI LIMIT 31]
+                    -- Jika highlight lebih dari 30, matikan yang jauh (> 500 stud)
+                    -- agar yang dekat tetap menyala.
+                    if #State.ESP_Cache > 30 then
+                        item.hl.Enabled = (dist < 500)
+                    else
+                        item.hl.Enabled = true
+                    end
+                end
+            else
+                -- Hapus dari cache jika karakter sudah hilang
+                table.remove(State.ESP_Cache, i)
+            end
+        end
+    end)
+end
+
 local function ToggleESP(active)
     if active then
+        -- Init ESP untuk player yang sudah ada
         for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
-        local conn = Players.PlayerAdded:Connect(CreateESP)
-        table.insert(State.Connections, conn)
+        
+        -- Koneksi player baru
+        local conn1 = Players.PlayerAdded:Connect(CreateESP)
+        table.insert(State.Connections, conn1)
+        
+        -- Jalankan Loop Update Jarak
+        UpdateESP_Loop()
     else
+        -- Bersihkan semua visual
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -152,12 +212,13 @@ local function ToggleESP(active)
                 end
             end
         end
+        State.ESP_Cache = {} -- Reset cache
     end
 end
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.4",
+    Name = "Universal V4.5",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -167,7 +228,6 @@ return {
         State.Spinbot = false
         State.ESP = false
         
-        -- Matikan Fullbright & Restore Efek
         if State.Fullbright then
             State.Fullbright = false
             Lighting.Brightness = 1
@@ -175,7 +235,6 @@ return {
             Lighting.GlobalShadows = true
             Lighting.Ambient = Color3.new(0,0,0)
             
-            -- Kembalikan efek yang disembunyikan
             for obj, enabled in pairs(State.StoredEffects) do
                 if obj and obj.Parent then obj.Enabled = enabled end
             end
@@ -202,13 +261,12 @@ return {
         {
             Name = "Visuals", Icon = "10888332158",
             Elements = {
-                {Type = "Toggle", Title = "Player ESP (Chams)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
+                {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
                 {
-                    Type = "Toggle", Title = "Fullbright (Experimental)", Default = false,
+                    Type = "Toggle", Title = "Fullbright (Clean)", Default = false,
                     Callback = function(val)
                         State.Fullbright = val
                         if val then
-                            -- Loop aggressive untuk mematikan Atmosphere/Blur
                             task.spawn(function()
                                 while State.Fullbright do
                                     Lighting.Brightness = 2
@@ -218,10 +276,9 @@ return {
                                     Lighting.OutdoorAmbient = Color3.new(1,1,1)
                                     Lighting.FogEnd = 9e9
                                     
-                                    -- Matikan Efek Post-Processing yang bikin Gloomy
                                     for _, v in pairs(Lighting:GetChildren()) do
                                         if v:IsA("PostEffect") or v:IsA("Atmosphere") then
-                                            if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end -- Simpan state asli
+                                            if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end
                                             v.Enabled = false
                                         end
                                     end
@@ -229,7 +286,6 @@ return {
                                 end
                             end)
                         else
-                            -- Restore Efek
                             for obj, enabled in pairs(State.StoredEffects) do
                                 if obj and obj.Parent then obj.Enabled = enabled end
                             end
