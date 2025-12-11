@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V4.2 (VISUAL FIX) ]] --
--- Fitur: ESP Player, Infinite Jump, Spinbot, & Better Fullbright
+-- [[ FSSHUB DATA: UNIVERSAL V4.3 (FULLBRIGHT FIX) ]] --
+-- Fitur: God Mode, ESP, Clean Fullbright
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -21,13 +21,14 @@ local State = {
     ESP = false,
     Connections = {},
     
-    -- Penyimpanan Setting Cahaya Asli
+    -- Penyimpanan Setting Cahaya Asli (Agar bisa restore)
     OriginalLighting = {
         Ambient = Color3.new(0,0,0),
         OutdoorAmbient = Color3.new(0,0,0),
         Brightness = 1,
         ClockTime = 12,
-        GlobalShadows = true
+        GlobalShadows = true,
+        FogEnd = 100000
     }
 }
 
@@ -163,7 +164,7 @@ end
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V4.2",
+    Name = "Universal V4.3",
     
     OnUnload = function()
         State.SpeedEnabled = false
@@ -173,7 +174,7 @@ return {
         State.Spinbot = false
         State.ESP = false
         
-        -- Matikan Fullbright & Restore Cahaya
+        -- Restore Lighting
         if State.Fullbright then
             State.Fullbright = false
             Lighting.Ambient = State.OriginalLighting.Ambient
@@ -181,6 +182,7 @@ return {
             Lighting.Brightness = State.OriginalLighting.Brightness
             Lighting.ClockTime = State.OriginalLighting.ClockTime
             Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
+            Lighting.FogEnd = State.OriginalLighting.FogEnd
         end
         
         for _, c in pairs(State.Connections) do c:Disconnect() end
@@ -205,7 +207,7 @@ return {
             Elements = {
                 {Type = "Toggle", Title = "Player ESP (Chams)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
                 {
-                    Type = "Toggle", Title = "Fullbright (Clean Mode)", Default = false,
+                    Type = "Toggle", Title = "Fullbright (Anti-Gloomy)", Default = false,
                     Callback = function(val)
                         State.Fullbright = val
                         if val then
@@ -215,24 +217,27 @@ return {
                             State.OriginalLighting.Brightness = Lighting.Brightness
                             State.OriginalLighting.ClockTime = Lighting.ClockTime
                             State.OriginalLighting.GlobalShadows = Lighting.GlobalShadows
+                            State.OriginalLighting.FogEnd = Lighting.FogEnd
                             
                             task.spawn(function()
                                 while State.Fullbright do
                                     Lighting.Brightness = 2
                                     Lighting.ClockTime = 14
                                     Lighting.GlobalShadows = false
-                                    Lighting.Ambient = Color3.new(1,1,1) -- Putih Terang
-                                    Lighting.OutdoorAmbient = Color3.new(1,1,1) -- Putih Terang
+                                    Lighting.Ambient = Color3.new(1,1,1) -- Kunci agar tidak gloomy
+                                    Lighting.OutdoorAmbient = Color3.new(1,1,1)
+                                    Lighting.FogEnd = 100000 -- Hapus kabut
                                     task.wait(1)
                                 end
                             end)
                         else
-                            -- Restore Kondisi Awal (Fix Gloomy)
+                            -- Restore
                             Lighting.Ambient = State.OriginalLighting.Ambient
                             Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
                             Lighting.Brightness = State.OriginalLighting.Brightness
                             Lighting.ClockTime = State.OriginalLighting.ClockTime
                             Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
+                            Lighting.FogEnd = State.OriginalLighting.FogEnd
                         end
                     end
                 }
