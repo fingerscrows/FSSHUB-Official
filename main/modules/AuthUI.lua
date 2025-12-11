@@ -1,4 +1,5 @@
--- [[ FSSHUB AUTH UI V7.6 (PREMIUM VISUALS) ]] --
+-- [[ FSSHUB AUTH UI V7.7 (SMART INPUT) ]] --
+-- Changelog: Auto-trim input spaces, Enhanced feedback visuals
 -- Path: main/modules/AuthUI.lua
 
 local AuthUI = {}
@@ -63,6 +64,7 @@ function AuthUI.Show(options)
     Input.PlaceholderText = "Paste Key Here..."
     Input.Font = Enum.Font.Code
     Input.TextSize = 14
+    Input.Text = "" -- Pastikan kosong
     
     local function CreateBtn(text, posScale, func)
         local Btn = Instance.new("TextButton", Main)
@@ -86,38 +88,46 @@ function AuthUI.Show(options)
         local hwid = GetHWID()
         local link = "https://fingerscrows.github.io/fsshub-official/?hwid=" .. hwid
         
-        setclipboard(link)
-        btn.Text = "COPIED!"
-        task.delay(1.5, function() btn.Text = "GET KEY" end)
+        if setclipboard then
+            setclipboard(link)
+            btn.Text = "COPIED!"
+            task.delay(1.5, function() btn.Text = "GET KEY" end)
+        else
+            Input.Text = link -- Fallback jika setclipboard tidak support
+            btn.Text = "COPY FROM BOX"
+        end
     end)
     
-    -- TOMBOL LOGIN (UPDATED LOGIC)
+    -- TOMBOL LOGIN
     CreateBtn("LOGIN", 0.525, function(btn)
-        local txt = string.gsub(Input.Text, "%s+", "")
+        -- FIX: Bersihkan spasi depan/belakang/tengah yang tidak sengaja tercopy
+        local txt = Input.Text
+        txt = string.gsub(txt, "^%s+", "") -- Hapus spasi depan
+        txt = string.gsub(txt, "%s+$", "") -- Hapus spasi belakang
+        
         local oldTxt = btn.Text
         local oldColor = btn.BackgroundColor3
         
         btn.Text = "CHECKING..."
         
-        -- Menerima object result {success, info}
+        -- Menerima object result {success, info} dari Core
         local result = options.OnSuccess(txt)
         
         if result and result.success then
             Stroke.Color = Theme.Accent
             Title.Text = "ACCESS GRANTED"
             
-            -- Cek apakah Premium
+            -- Cek status user
             if result.info and (string.find(result.info, "Premium") or string.find(result.info, "Unlimited")) then
-                btn.Text = "👑 PREMIUM USER"
+                btn.Text = "👑 PREMIUM"
                 btn.BackgroundColor3 = Theme.Premium
-                btn.TextColor3 = Color3.fromRGB(0,0,0) -- Text hitam biar kontras dengan emas
+                btn.TextColor3 = Color3.fromRGB(0,0,0)
                 Stroke.Color = Theme.Premium
             else
-                -- User Biasa (Tampilkan Sisa Waktu)
-                btn.Text = result.info and string.upper(result.info) or "ALLOWED"
+                btn.Text = "WELCOME"
             end
             
-            task.wait(1.5)
+            task.wait(1)
             Screen:Destroy()
         else
             btn.Text = oldTxt
