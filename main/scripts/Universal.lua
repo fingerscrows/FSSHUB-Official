@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V5.0 (OPTIMIZED & IMPROVED) ]] --
--- Changelog: Noclip Optimized, Heartbeat Speed Logic, Team Check ESP, Added FOV Changer
+-- [[ FSSHUB DATA: UNIVERSAL V5.1 (STABLE FIX) ]] --
+-- Fixes: FOV Glitch, Fullbright Reset, Noclip Cleanup, & Performance
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -29,18 +29,27 @@ local State = {
     -- ESP
     ESP = false,
     ESP_MaxDistance = 1000, 
-    ESP_UpdateInterval = 0.1, -- Dipercepat sedikit agar text lebih responsif
-    ESP_TeamCheck = false,    -- [BARU] Fitur Team Check
+    ESP_UpdateInterval = 0.5,
+    ESP_TeamCheck = false,
     
     -- System
     Connections = {},
-    StoredEffects = {},
-    ESP_Cache = {}
+    ESP_Cache = {},
+    
+    -- Backup Values (Untuk Restore)
+    OriginalLighting = {
+        Brightness = Lighting.Brightness,
+        ClockTime = Lighting.ClockTime,
+        GlobalShadows = Lighting.GlobalShadows,
+        Ambient = Lighting.Ambient,
+        OutdoorAmbient = Lighting.OutdoorAmbient,
+        FogEnd = Lighting.FogEnd
+    }
 }
 
 -- 2. Logic Functions
 
--- [OPTIMIZED SPEED & JUMP] Menggunakan Heartbeat agar lebih smooth dan anti-override
+-- [FIXED MOVEMENT LOOP]
 local function StartMovementLoop()
     local conn = RunService.Heartbeat:Connect(function()
         local char = LocalPlayer.Character
@@ -48,10 +57,8 @@ local function StartMovementLoop()
         
         if char and hum then
             -- WalkSpeed Logic
-            if State.SpeedEnabled then
-                if hum.WalkSpeed ~= State.Speed then
-                    hum.WalkSpeed = State.Speed
-                end
+            if State.SpeedEnabled and hum.WalkSpeed ~= State.Speed then
+                hum.WalkSpeed = State.Speed
             end
             
             -- JumpPower Logic
@@ -77,20 +84,19 @@ local function StartMovementLoop()
                         spin.AngularVelocity = Vector3.new(0, 50, 0)
                     end
                 end
-            else
-                -- Cleanup Spinbot jika dimatikan saat loop berjalan
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    local s = char.HumanoidRootPart:FindFirstChild("FSS_Spin")
-                    if s then s:Destroy() end
-                end
+            elseif char:FindFirstChild("HumanoidRootPart") then
+                -- Cleanup Spinbot jika mati
+                local s = char.HumanoidRootPart:FindFirstChild("FSS_Spin")
+                if s then s:Destroy() end
             end
         end
     end)
     table.insert(State.Connections, conn)
 end
 
--- [OPTIMIZED NOCLIP] Hanya loop BasePart karakter, bukan Descendants (Lag reduction)
+-- [FIXED NOCLIP] Restore Collision saat dimatikan
 local function ToggleNoclip(active)
+    State.Noclip = active
     if active then
         local conn = RunService.Stepped:Connect(function()
             if State.Noclip and LocalPlayer.Character then
@@ -102,11 +108,21 @@ local function ToggleNoclip(active)
             end
         end)
         table.insert(State.Connections, conn)
+    else
+        -- Paksa kembalikan collision segera setelah dimatikan
+        if LocalPlayer.Character then
+            for _, part in ipairs(LocalPlayer.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
     end
 end
 
 -- [INF JUMP]
 local function ToggleInfJump(active)
+    State.InfJump = active
     if active then
         local conn = UserInputService.JumpRequest:Connect(function()
             if State.InfJump and LocalPlayer.Character then
@@ -118,75 +134,69 @@ local function ToggleInfJump(active)
     end
 end
 
--- [FOV CHANGER]
-local function UpdateFOV()
-    local conn = RunService.RenderStepped:Connect(function()
-        if State.FOVEnabled then
-            Camera.FieldOfView = State.FOV
-        end
-    end)
-    table.insert(State.Connections, conn)
-end
-
--- [FULLBRIGHT LOGIC]
-local function RestoreOriginalVisuals()
-    for obj, enabled in pairs(State.StoredEffects) do
-        if obj and obj.Parent then obj.Enabled = enabled end
+-- [FIXED FOV] Tidak spamming setiap frame jika tidak perlu
+local function UpdateFOV(active)
+    State.FOVEnabled = active
+    if active then
+        -- Gunakan RenderStepped untuk mengunci FOV agar tidak di-override game lain
+        local conn = RunService.RenderStepped:Connect(function()
+            if State.FOVEnabled then
+                Camera.FieldOfView = State.FOV
+            end
+        end)
+        table.insert(State.Connections, conn)
+    else
+        -- Reset ke default Roblox saat mati
+        Camera.FieldOfView = 70 
     end
-    State.StoredEffects = {}
-    
-    Lighting.Brightness = 1
-    Lighting.ClockTime = 12
-    Lighting.GlobalShadows = true
-    Lighting.Ambient = Color3.fromRGB(0,0,0)
-    Lighting.OutdoorAmbient = Color3.fromRGB(0,0,0)
-    Lighting.FogEnd = 100000
 end
 
+-- [FIXED FULLBRIGHT] Restore ke nilai asli, bukan nilai hardcoded
 local function ApplyFullbright(active)
     State.Fullbright = active
+    
     if active then
-        if not State.StoredEffects.isSetup then
-            Lighting.GlobalShadows = false
-            Lighting.Ambient = Color3.fromRGB(150, 150, 150)
-            Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
-            Lighting.FogEnd = 9e9
-            State.StoredEffects.isSetup = true
-        end
+        -- Simpan state lighting saat ini sebelum diubah (jika belum tersimpan)
+        State.OriginalLighting.Brightness = Lighting.Brightness
+        State.OriginalLighting.ClockTime = Lighting.ClockTime
+        State.OriginalLighting.GlobalShadows = Lighting.GlobalShadows
+        State.OriginalLighting.Ambient = Lighting.Ambient
+        State.OriginalLighting.OutdoorAmbient = Lighting.OutdoorAmbient
+        State.OriginalLighting.FogEnd = Lighting.FogEnd
 
         task.spawn(function()
             while State.Fullbright do
                 Lighting.Brightness = 2
                 Lighting.ClockTime = 14
-                for _, v in pairs(Lighting:GetChildren()) do
-                    if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("ColorCorrection") then
-                        if State.StoredEffects[v] == nil then State.StoredEffects[v] = v.Enabled end
-                        v.Enabled = false
-                    end
-                end
+                Lighting.GlobalShadows = false
+                Lighting.Ambient = Color3.fromRGB(170, 170, 170)
+                Lighting.OutdoorAmbient = Color3.fromRGB(170, 170, 170)
+                Lighting.FogEnd = 9e9
                 task.wait(1)
             end
-            RestoreOriginalVisuals()
         end)
     else
-        RestoreOriginalVisuals()
+        -- Restore persis ke nilai awal game
+        Lighting.Brightness = State.OriginalLighting.Brightness
+        Lighting.ClockTime = State.OriginalLighting.ClockTime
+        Lighting.GlobalShadows = State.OriginalLighting.GlobalShadows
+        Lighting.Ambient = State.OriginalLighting.Ambient
+        Lighting.OutdoorAmbient = State.OriginalLighting.OutdoorAmbient
+        Lighting.FogEnd = State.OriginalLighting.FogEnd
     end
 end
 
--- [ESP SYSTEM IMPROVED]
+-- [ESP SYSTEM]
 local function CreateESP(player)
     if player == LocalPlayer then return end
     
     local function AddVisuals(char)
         if not State.ESP then return end
-        
-        -- Team Check
         if State.ESP_TeamCheck and player.Team == LocalPlayer.Team then return end
         
         local head = char:WaitForChild("Head", 5) 
         if not head then return end 
         
-        -- Hapus ESP lama jika ada (prevent duplicate)
         if char:FindFirstChild("FSS_ESP_Box") then char.FSS_ESP_Box:Destroy() end
         
         local hl = Instance.new("Highlight")
@@ -228,32 +238,27 @@ local function UpdateESP_Loop()
         while State.ESP do
             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             
-            -- Clean Cache (Hapus entry yang invalid)
             for i = #State.ESP_Cache, 1, -1 do
                 local item = State.ESP_Cache[i]
                 if not item.char or not item.char.Parent or not item.plr or not item.plr.Parent then
                     if item.hl then item.hl:Destroy() end
                     if item.txt and item.txt.Parent then item.txt.Parent:Destroy() end
                     table.remove(State.ESP_Cache, i)
-                end
-            end
-
-            for _, item in ipairs(State.ESP_Cache) do
-                if myRoot and item.char and item.txt.Parent then
-                    local root = item.char:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local dist = (root.Position - myRoot.Position).Magnitude
-                        item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
-                        
-                        -- Visibility Check berdasarkan Jarak & Team Check Realtime
-                        local isTeammate = (State.ESP_TeamCheck and item.plr.Team == LocalPlayer.Team)
-                        
-                        if dist > State.ESP_MaxDistance or isTeammate then
-                            item.hl.Enabled = false
-                            item.txt.Visible = false
-                        else
-                            item.hl.Enabled = true
-                            item.txt.Visible = true
+                else
+                    if myRoot and item.txt.Parent then
+                        local root = item.char:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            local dist = (root.Position - myRoot.Position).Magnitude
+                            item.txt.Text = string.format("%s\n[%d m]", item.plr.Name, math.floor(dist))
+                            
+                            local isTeammate = (State.ESP_TeamCheck and item.plr.Team == LocalPlayer.Team)
+                            if dist > State.ESP_MaxDistance or isTeammate then
+                                item.hl.Enabled = false
+                                item.txt.Visible = false
+                            else
+                                item.hl.Enabled = true
+                                item.txt.Visible = true
+                            end
                         end
                     end
                 end
@@ -264,15 +269,13 @@ local function UpdateESP_Loop()
 end
 
 local function ToggleESP(active)
+    State.ESP = active
     if active then
         for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
-        
         local conn1 = Players.PlayerAdded:Connect(CreateESP)
         table.insert(State.Connections, conn1)
-        
         UpdateESP_Loop()
     else
-        -- Bersihkan semua Visual
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 if p.Character:FindFirstChild("FSS_ESP_Box") then p.Character.FSS_ESP_Box:Destroy() end
@@ -290,25 +293,23 @@ StartMovementLoop()
 
 -- 3. Return Configuration Table
 return {
-    Name = "Universal V5.0",
+    Name = "Universal V5.1",
     
     OnUnload = function()
+        -- Reset Semua State
         State.SpeedEnabled = false
         State.JumpEnabled = false
         State.InfJump = false
-        State.Noclip = false
         State.Spinbot = false
-        State.ESP = false
-        State.FOVEnabled = false
         
-        if State.Fullbright then ApplyFullbright(false) end
-        
-        -- Restore Camera FOV
-        Camera.FieldOfView = 70
-        
-        -- Disconnect semua event (Heartbeat, RenderStepped, Input)
-        for _, c in pairs(State.Connections) do c:Disconnect() end
+        -- Fix Noclip & FOV saat unload
+        ToggleNoclip(false)
+        UpdateFOV(false)
+        ApplyFullbright(false)
         ToggleESP(false)
+        
+        -- Disconnect semua event
+        for _, c in pairs(State.Connections) do c:Disconnect() end
     end,
 
     Tabs = {
@@ -321,26 +322,23 @@ return {
                 {Type = "Toggle", Title = "Enable JumpPower", Default = false, Callback = function(v) State.JumpEnabled = v end},
                 {Type = "Slider", Title = "Jump Value", Min = 50, Max = 500, Default = 50, Callback = function(v) State.Jump = v end},
                 
-                {Type = "Toggle", Title = "Infinite Jump", Default = false, Callback = function(v) State.InfJump = v; ToggleInfJump(v) end},
-                {Type = "Toggle", Title = "Noclip (Wall Hack)", Default = false, Callback = function(v) State.Noclip = v; ToggleNoclip(v) end},
+                {Type = "Toggle", Title = "Infinite Jump", Default = false, Callback = function(v) ToggleInfJump(v) end},
+                {Type = "Toggle", Title = "Noclip (Wall Hack)", Default = false, Callback = function(v) ToggleNoclip(v) end},
                 {Type = "Toggle", Title = "Spinbot (Troll)", Default = false, Callback = function(v) State.Spinbot = v end}
             }
         },
         {
             Name = "Visuals", Icon = "10888332158",
             Elements = {
-                {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) State.ESP = v; ToggleESP(v) end},
-                {Type = "Toggle", Title = "Team Check", Default = false, Callback = function(v) State.ESP_TeamCheck = v end}, -- [BARU]
+                {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = function(v) ToggleESP(v) end},
+                {Type = "Toggle", Title = "Team Check", Default = false, Callback = function(v) State.ESP_TeamCheck = v end},
                 
                 {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1000, Callback = function(v) State.ESP_MaxDistance = v end},
                 
                 {Type = "Toggle", Title = "Fullbright", Default = false, Callback = ApplyFullbright},
                 
-                -- [BARU] FOV Changer Controls
-                {Type = "Toggle", Title = "Enable FOV Changer", Default = false, Callback = function(v) 
-                    State.FOVEnabled = v 
-                    if v then UpdateFOV() else Camera.FieldOfView = 70 end 
-                end},
+                -- [FOV FIXED]
+                {Type = "Toggle", Title = "Enable FOV Changer", Default = false, Callback = function(v) UpdateFOV(v) end},
                 {Type = "Slider", Title = "Field of View", Min = 30, Max = 120, Default = 70, Callback = function(v) State.FOV = v end},
             }
         },
@@ -348,7 +346,7 @@ return {
             Name = "Misc", Icon = "10888332462",
             Elements = {
                 {Type = "Button", Title = "Rejoin Server", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end},
-                {Type = "Button", Title = "Server Hop (Low Player)", Callback = function() 
+                {Type = "Button", Title = "Server Hop", Callback = function() 
                     local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
                     for _, s in pairs(servers.data) do
                         if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
