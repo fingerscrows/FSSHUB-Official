@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V6.2 (CLEANED) ]] --
--- Changelog: Removed redundant 'Misc' tab (now handled globally by UIManager)
+-- [[ FSSHUB DATA: UNIVERSAL V6.3 (STABLE) ]] --
+-- Changelog: Enhanced cleanup protocol and connection handling
 -- Path: main/scripts/Universal.lua
 
 local Players = game:GetService("Players")
@@ -10,6 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = game:GetService("Workspace").CurrentCamera
 
 -- [[ 1. GLOBAL CLEANUP ]] --
+-- Matikan instance script universal yang lama jika ada
 if getgenv().FSS_Universal_Stop then
     pcall(getgenv().FSS_Universal_Stop)
 end
@@ -42,7 +43,7 @@ local State = {
     OriginalLighting = nil
 }
 
--- 3. Logic Functions (Classic Hybrid)
+-- 3. Logic Functions
 
 local function UpdateSpeed()
     while State.SpeedEnabled do
@@ -55,6 +56,7 @@ local function UpdateSpeed()
             end
         end)
     end
+    -- Reset saat dimatikan
     pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
 end
 
@@ -70,6 +72,7 @@ local function UpdateJump()
             end
         end)
     end
+    -- Reset saat dimatikan
     pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
 end
 
@@ -97,6 +100,8 @@ local function ToggleSpinbot(active)
                 end
             end)
         end)
+    else
+        State.Spinbot = false
     end
 end
 
@@ -318,10 +323,10 @@ local function Cleanup()
             hum.JumpPower = 50
             hum.AutoRotate = true 
             
-            local wasSitting = hum.Sit
+            -- FIX: Safety Sit Reset
             hum.Sit = true
             task.delay(0.1, function()
-                if hum then hum.Sit = false end
+                if hum and hum.Parent then hum.Sit = false end
             end)
         end
         
@@ -338,7 +343,7 @@ getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V6.2",
+    Name = "Universal V6.3",
     OnUnload = Cleanup,
 
     Tabs = {
