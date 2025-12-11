@@ -1,5 +1,5 @@
--- [[ FSSHUB MODULE: UTILS V1.0 (CORE HELPER) ]] --
--- Fitur: Loop Manager, ESP Handler, Physics Tools
+-- [[ FSSHUB MODULE: UTILS V1.1 (MEMORY SAFE) ]] --
+-- Fitur: Loop Manager, ESP Handler, Physics Tools, Safe Cleanup
 -- Path: main/modules/Utils.lua
 
 local Utils = {}
@@ -12,8 +12,7 @@ Utils.Loops = {}
 Utils.Connections = {}
 
 function Utils:BindLoop(name, type, callback)
-    -- Hapus loop lama jika ada nama yang sama
-    self:UnbindLoop(name)
+    self:UnbindLoop(name) -- Bersihkan loop lama dengan nama yang sama
     
     local conn
     if type == "Heartbeat" then
@@ -65,11 +64,13 @@ function Utils.ESP:Add(model, settings)
     self.Cache[model] = hl
     
     -- Auto remove jika model hancur
-    model.AncestryChanged:Connect(function(_, parent)
+    local conn; conn = model.AncestryChanged:Connect(function(_, parent)
         if not parent then 
             self:Remove(model)
+            if conn then conn:Disconnect() end
         end
     end)
+    table.insert(Utils.Connections, conn) -- Track connection ini juga
 end
 
 function Utils.ESP:Remove(model)
@@ -92,6 +93,7 @@ function Utils.ESP:Clear()
     for model, _ in pairs(self.Cache) do
         self:Remove(model)
     end
+    self.Cache = {}
 end
 
 -- [[ 3. PHYSICS HELPER ]] --
@@ -106,7 +108,6 @@ function Utils:Noclip(state)
             end
         end)
     else
-        -- Restore Collision
         if LocalPlayer.Character then
             for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
                 if v:IsA("BasePart") then v.CanCollide = true end
@@ -120,7 +121,9 @@ function Utils:DeepClean()
     for name, _ in pairs(self.Loops) do self:UnbindLoop(name) end
     
     -- 2. Putus semua Event
-    for _, conn in ipairs(self.Connections) do conn:Disconnect() end
+    for _, conn in ipairs(self.Connections) do 
+        if conn.Connected then conn:Disconnect() end 
+    end
     self.Connections = {}
     
     -- 3. Bersihkan ESP
@@ -139,9 +142,19 @@ function Utils:DeepClean()
         if hum then
             hum.WalkSpeed = 16
             hum.JumpPower = 50
-            -- Teknik Sit-Reset
+            
+            -- FIX: Safety Check sebelum reset posisi duduk
+            if hum.Sit then
+                hum.Sit = false -- Force berdiri dulu
+            end
+            
+            -- Reset Sit State dengan delay aman
             hum.Sit = true
-            task.delay(0.1, function() if hum then hum.Sit = false end end)
+            task.delay(0.1, function() 
+                if hum and hum.Parent and hum.Sit then 
+                    hum.Sit = false 
+                end 
+            end)
         end
     end
     
