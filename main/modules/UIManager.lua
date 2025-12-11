@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V2.4 (SMART PROFILE) ]] --
--- Fitur: Menampilkan Status Dukungan Script (Supported/Universal)
+-- [[ FSSHUB: UI MANAGER V2.5 (SAFE MODE) ]] --
+-- Fitur: Anti-Crash jika Script Game tidak memiliki Tabs
 
 local UIManager = {}
 local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
@@ -14,44 +14,43 @@ Library:Init()
 
 function UIManager.Build(GameConfig, AuthData)
     local userStatus = (AuthData and AuthData.Type) or "Free"
-    -- Watermark tetap menampilkan Nama Game Asli (karena GameConfig.Name sudah di-override Core)
-    Library:Watermark("FSSHUB " .. userStatus .. " | " .. GameConfig.Name)
-    local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name))
+    local gameName = (AuthData and AuthData.GameName) or GameConfig.Name or "Unknown"
     
-  -- [[ TAB 1: DASHBOARD ]] --
+    Library:Watermark("FSSHUB " .. userStatus .. " | " .. gameName)
+    
+    -- Judul Window (Safe Check)
+    local windowTitle = GameConfig.Name or "FSSHUB LOADING..."
+    local Window = Library:Window("FSSHUB | " .. string.upper(windowTitle))
+    
+    -- [[ TAB 1: DASHBOARD ]] --
     local ProfileTab = Window:Section("Dashboard", "10888331510")
     
     if AuthData then
-        -- [BARU] Tampilkan MOTD Paling Atas (Jika ada isinya)
-        if AuthData.MOTD and AuthData.MOTD ~= "" then
-            ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD)
-        end
-
         local statusText = "✅ Official Script Supported"
-        -- ... (Kode selanjutnya sama)
-        if AuthData.IsUniversal then
-            scriptStatusText = "⚠️ Script Not Supported (Universal Mode)"
-            -- Tambahkan info ini agar user sadar
+        if AuthData.IsUniversal then statusText = "⚠️ Universal Mode" end
+        
+        -- [DIAGNOSTIC INFO]
+        if not GameConfig.Tabs then
+            statusText = "❌ ERROR: NO TABS FOUND!"
         end
 
-        ProfileTab:Paragraph("Game Information", 
-            "Current Game: " .. gameNameText .. "\n" ..
-            "Status: " .. scriptStatusText
+        ProfileTab:Paragraph("Game Info", 
+            "Detected: " .. (AuthData.GameName or "Unknown") .. "\n" ..
+            "Status: " .. statusText
         )
         
-        ProfileTab:Paragraph("User Information", 
-            "License Type: " .. AuthData.Type .. "\n" ..
-            "Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 10) .. "..." or "Hidden")
+        ProfileTab:Paragraph("User Info", 
+            "License: " .. AuthData.Type .. "\n" ..
+            "Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden")
         )
 
-        -- Expiry Countdown
         local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
         task.spawn(function()
             while true do
                 local currentTime = os.time()
                 local timeLeft = AuthData.Expiry - currentTime
                 if AuthData.Expiry > 9000000000 then
-                    TimerLabel.Text = "Expiry: LIFETIME / UNLIMITED"
+                    TimerLabel.Text = "Expiry: PERMANENT / DEV"
                     break
                 elseif timeLeft > 0 then
                     local d = math.floor(timeLeft / 86400)
@@ -66,28 +65,33 @@ function UIManager.Build(GameConfig, AuthData)
             end
         end)
     else
-        ProfileTab:Paragraph("Status", "Developer Mode / No Auth Data")
+        ProfileTab:Paragraph("Status", "Dev Mode / Bypass")
     end
     
-    ProfileTab:Paragraph("Quick Guide", "• Right Ctrl: Hide/Show Menu\n• Use [Settings] tab to Unload Script")
-    ProfileTab:Label("Credits: FingersCrows & FSSHUB Team")
+    ProfileTab:Label("Credits: FingersCrows")
 
-    -- [[ GAME TABS ]] --
-    for _, tabData in ipairs(GameConfig.Tabs) do
-        local Tab = Window:Section(tabData.Name, tabData.Icon)
-        for _, element in ipairs(tabData.Elements) do
-            if element.Type == "Toggle" then
-                local t = Tab:Toggle(element.Title, element.Default, element.Callback)
-                if element.Keybind then t.SetKeybind(element.Keybind) end
-            elseif element.Type == "Button" then 
-                local b = Tab:Button(element.Title, element.Callback)
-                if element.Keybind then b.SetKeybind(element.Keybind) end
-            elseif element.Type == "Slider" then Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
-            elseif element.Type == "Dropdown" then Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
-            elseif element.Type == "Keybind" then Tab:Keybind(element.Title, element.Default, element.Callback)
-            elseif element.Type == "Label" then Tab:Label(element.Title) 
+    -- [[ TAB 2+: GAME FEATURES (SAFE LOOP) ]] --
+    -- [FIX] Cek apakah Tabs ada isinya sebelum looping
+    if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
+        for _, tabData in ipairs(GameConfig.Tabs) do
+            local Tab = Window:Section(tabData.Name, tabData.Icon)
+            for _, element in ipairs(tabData.Elements) do
+                if element.Type == "Toggle" then
+                    local t = Tab:Toggle(element.Title, element.Default, element.Callback)
+                    if element.Keybind then t.SetKeybind(element.Keybind) end
+                elseif element.Type == "Button" then 
+                    local b = Tab:Button(element.Title, element.Callback)
+                    if element.Keybind then b.SetKeybind(element.Keybind) end
+                elseif element.Type == "Slider" then Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
+                elseif element.Type == "Dropdown" then Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
+                elseif element.Type == "Keybind" then Tab:Keybind(element.Title, element.Default, element.Callback)
+                elseif element.Type == "Label" then Tab:Label(element.Title) 
+                end
             end
         end
+    else
+        -- Jika Tabs Kosong, Tampilkan Pesan Error
+        ProfileTab:Paragraph("⚠️ SYSTEM ERROR", "Script berhasil di-load, tapi tidak ada fitur (Tabs) yang ditemukan.\nCek console (F9) untuk detail.")
     end
     
     -- [[ SETTINGS ]] --
@@ -121,7 +125,7 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
 
-    game.StarterGui:SetCore("SendNotification", {Title = "FSSHUB", Text = GameConfig.Name .. " Loaded!", Duration = 5})
+    game.StarterGui:SetCore("SendNotification", {Title = "FSSHUB", Text = "UI Loaded!", Duration = 5})
 end
 
 return UIManager
