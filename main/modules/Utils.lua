@@ -1,5 +1,6 @@
 -- [[ FSSHUB MODULE: UTILS V1.0 (CORE HELPER) ]] --
 -- Fitur: Loop Manager, ESP Handler, Physics Tools
+-- Path: main/modules/Utils.lua
 
 local Utils = {}
 local RunService = game:GetService("RunService")
