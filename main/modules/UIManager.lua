@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V6.2 (GROUPS & ICONS) ]] --
--- Changelog: Grouped settings, Validated Icons, Restored Universal Features
+-- [[ FSSHUB: UI MANAGER V7.0 (FULL DASHBOARD) ]] --
+-- Changelog: Restored Dashboard Script Type & Theme Presets
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -17,7 +17,7 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
--- [LUCIDE ICONS - VERIFIED]
+-- [LUCIDE ICONS]
 local IconLibrary = {
     ["Dashboard"] = "10888331510",
     ["Settings"]  = "10888336262",
@@ -30,11 +30,8 @@ local IconLibrary = {
     ["Teleport"]  = "10888337728"
 }
 
--- [AUTO-LOAD PURGE]
 local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
-if isfile(AutoLoadPath) then
-    delfile(AutoLoadPath)
-end
+if isfile(AutoLoadPath) then delfile(AutoLoadPath) end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
@@ -52,10 +49,7 @@ function UIManager.Build(GameConfig, AuthData)
     StoredAuth = AuthData
     
     local Library = LoadLibrary()
-    if not Library then 
-        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
-        return 
-    end
+    if not Library then return end
 
     local statusIcon = "👤"
     if AuthData then
@@ -67,19 +61,27 @@ function UIManager.Build(GameConfig, AuthData)
     
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
-    -- [[ DASHBOARD ]] --
+    -- [[ DASHBOARD RESTORED ]] --
     local ProfileTab = Window:Section("Dashboard", IconLibrary["Dashboard"])
     
     if AuthData then
-        if AuthData.MOTD and AuthData.MOTD ~= "" then ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) end
+        -- Announcement
+        if AuthData.MOTD and AuthData.MOTD ~= "" then 
+            ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) 
+        end
         
-        local statusText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Script Supported"
-        local InfoGroup = ProfileTab:Group("Information")
-        InfoGroup:Label("Game: " .. (AuthData.GameName or "Unknown"))
-        InfoGroup:Label("License: " .. statusIcon .. " " .. AuthData.Type)
-        InfoGroup:Label("Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
+        -- Game Information Group
+        local GameGroup = ProfileTab:Group("Game Information")
+        local modeText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Support"
+        GameGroup:Label("Game Name: " .. (AuthData.GameName or "Unknown"))
+        GameGroup:Label("Script Type: " .. modeText)
         
-        local TimerLabel = InfoGroup:Label("Expiry: Syncing...")
+        -- User Information Group
+        local UserGroup = ProfileTab:Group("User Information")
+        UserGroup:Label("License Type: " .. statusIcon .. " " .. AuthData.Type)
+        UserGroup:Label("Access Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
+        
+        local TimerLabel = UserGroup:Label("Expiry: Syncing...")
         task.spawn(function()
             if not AuthData.Expiry or AuthData.Expiry == 0 then TimerLabel.Text = "Expiry: PERMANENT"; return end
             while true do
@@ -95,8 +97,9 @@ function UIManager.Build(GameConfig, AuthData)
             end
         end)
     end
+    ProfileTab:Label("Credits: FingersCrows")
 
-    -- [[ GAME FEATURES ]] --
+    -- [[ GAME FEATURES GENERATOR ]] --
     if GameConfig.Tabs then
         for _, tabData in ipairs(GameConfig.Tabs) do
             local finalIcon = IconLibrary[tabData.Icon] or tabData.Icon
@@ -117,19 +120,21 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end
     
-    -- [[ SETTINGS TAB (GROUPED) ]] --
+    -- [[ SETTINGS TAB (GROUPED RESTORED) ]] --
     local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     
+    -- Interface Group
     local UI_Group = SettingsTab:Group("Interface Settings")
     local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
     UI_Group:Dropdown("Theme", themeNames, "Select Theme", function(selected) Library:SetTheme(selected) end)
-    UI_Group:Slider("Transparency", 0, 90, 0, function(v) Library:SetTransparency(v/100) end)
+    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v) Library:SetTransparency(v/100) end)
     UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
-    UI_Group:Dropdown("Watermark Position", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p) if Library.SetWatermarkAlign then Library:SetWatermarkAlign(p) end end)
+    UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p) if Library.SetWatermarkAlign then Library:SetWatermarkAlign(p) end end)
 
+    -- Config Group
     local Config_Group = SettingsTab:Group("Configuration System")
     local selectedConfig = "Default"
     local function GetConfigs()
@@ -154,6 +159,7 @@ function UIManager.Build(GameConfig, AuthData)
         Library:Notify("Config", "Saved", 3)
     end)
     
+    -- Utils Group
     local Utils_Group = SettingsTab:Group("Utilities")
     Utils_Group:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
     Utils_Group:Button("Unload Script", function()
