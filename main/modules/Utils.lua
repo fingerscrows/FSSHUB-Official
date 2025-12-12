@@ -61,22 +61,28 @@ function Utils.ESP:Add(model, settings)
     hl.OutlineTransparency = settings.OutlineTransparency or 0.5
     hl.Parent = model
     
-    self.Cache[model] = hl
-    
     -- Auto remove jika model hancur
     local conn; conn = model.AncestryChanged:Connect(function(_, parent)
         if not parent then 
             self:Remove(model)
-            if conn then conn:Disconnect() end
         end
     end)
-    table.insert(Utils.Connections, conn) -- Track connection ini juga
+
+    -- Store both Highlight and Connection for clean removal
+    self.Cache[model] = {
+        Highlight = hl,
+        Connection = conn
+    }
 end
 
 function Utils.ESP:Remove(model)
-    if self.Cache[model] then
-        if self.Cache[model].Parent then
-            self.Cache[model]:Destroy()
+    local entry = self.Cache[model]
+    if entry then
+        if entry.Highlight then
+            entry.Highlight:Destroy()
+        end
+        if entry.Connection then
+            entry.Connection:Disconnect()
         end
         self.Cache[model] = nil
     end
@@ -84,8 +90,10 @@ end
 
 function Utils.ESP:Toggle(state)
     self.Enabled = state
-    for _, hl in pairs(self.Cache) do
-        hl.Enabled = state
+    for _, entry in pairs(self.Cache) do
+        if entry.Highlight then
+            entry.Highlight.Enabled = state
+        end
     end
 end
 

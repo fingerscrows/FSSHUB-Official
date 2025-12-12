@@ -5,7 +5,7 @@
 - **Optimization**: Cached `Character` and `Humanoid` in local variables inside the loop.
 - **Why**: Reduces Lua bridge overhead and property indexing cost in critical `Heartbeat` loops (60+ FPS).
 
-## 2024-05-22 - Memory Leak Discovery (Pending)
-- **Discovery**: `Utils.ESP:Add` in `main/modules/Utils.lua` inserts a connection into `Utils.Connections` but `Utils.ESP:Remove` does not remove it.
-- **Impact**: Toggling ESP repeatedly creates accumulated connections on the character that are only cleared on `DeepClean` or script unload.
-- **Action Required**: Refactor `Utils.ESP` to manage its own connections map to allow precise disconnection.
+## 2024-05-22 - Memory Leak Fix: Utils ESP
+- **Discovery**: `Utils.ESP:Add` in `main/modules/Utils.lua` inserted a connection into `Utils.Connections` but `Utils.ESP:Remove` never removed it. Repeated toggling caused connection accumulation.
+- **Optimization**: Refactored `Utils.ESP` to store connections in a local `Cache` table (struct: `{Highlight, Connection}`) and explicitly disconnect them in `ESP:Remove`.
+- **Why**: Prevents event listener leaks that degrade server performance and memory over time.
