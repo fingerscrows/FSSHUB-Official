@@ -23,6 +23,22 @@ local function GetHWID()
     return s and id or "UNKNOWN"
 end
 
+local function Shake(frame)
+    local originalPos = frame.Position
+    local intensity = 6
+    local duration = 0.05
+
+    task.spawn(function()
+        for i = 1, 6 do
+            local offset = (i % 2 == 0) and intensity or -intensity
+            local targetPos = UDim2.new(originalPos.X.Scale, originalPos.X.Offset + offset, originalPos.Y.Scale, originalPos.Y.Offset)
+            TweenService:Create(frame, TweenInfo.new(duration, Enum.EasingStyle.Sine), {Position = targetPos}):Play()
+            task.wait(duration)
+        end
+        TweenService:Create(frame, TweenInfo.new(duration, Enum.EasingStyle.Sine), {Position = originalPos}):Play()
+    end)
+end
+
 function AuthUI.Show(options)
     -- Gunakan gethui untuk keamanan ekstra jika didukung executor
     local Parent = gethui and gethui() or CoreGui
@@ -95,8 +111,23 @@ function AuthUI.Show(options)
             s.Color = Theme.Outline
             s.Thickness = 1 
         end
+
+        -- Add Hover Feedback
+        Btn.MouseEnter:Connect(function()
+            local hoverColor = (text == "GET KEY") and Theme.Bg:Lerp(Color3.new(1,1,1), 0.1) or Theme.Accent:Lerp(Color3.new(1,1,1), 0.1)
+            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+        end)
+
+        Btn.MouseLeave:Connect(function()
+            local baseColor = (text == "GET KEY") and Theme.Bg or Theme.Accent
+            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = baseColor}):Play()
+        end)
         
         Btn.MouseButton1Click:Connect(function() 
+            -- Add Click Feedback (Bounce)
+            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.4, -4, 0, 31)}):Play()
+            task.wait(0.1)
+            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.4, 0, 0, 35)}):Play()
             func(Btn) 
         end)
         
@@ -152,6 +183,8 @@ function AuthUI.Show(options)
             Screen:Destroy()
         else
             -- Animasi jika gagal
+            Shake(Main) -- Visual feedback for error
+
             btn.Text = oldTxt
             btn.BackgroundColor3 = oldColor
             
