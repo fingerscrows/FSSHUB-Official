@@ -1,5 +1,5 @@
 -- [[ FSSHUB CORE V12.0 (FULL INTEGRITY) ]] --
--- Fitur: Robust Auth, Fail-safe Loading, Universal Fallback, Verbose Error Handling
+-- Fitur: Stable Auth, Fail-safe Loading, Universal Fallback, Verbose Error Handling
 -- Path: main/src/Core.lua
 
 local Core = {}
@@ -17,7 +17,9 @@ local StarterGui = game:GetService("StarterGui")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local MarketplaceService = game:GetService("MarketplaceService")
 
--- Fungsi Bantu: Ambil Nama Game
+-- [FUNGSI BANTUAN]
+
+-- Mengambil Nama Game dengan aman (Anti-Error jika game belum publish)
 local function GetGameName()
     local success, info = pcall(function()
         return MarketplaceService:GetProductInfo(game.PlaceId)
@@ -28,13 +30,12 @@ local function GetGameName()
     return "Unknown Game (" .. tostring(game.PlaceId) .. ")"
 end
 
--- Fungsi Bantu: Load URL dengan Anti-Cache
+-- Load URL dengan parameter anti-cache
 local function LoadUrl(path)
-    -- Menggunakan os.time() agar URL selalu unik dan tidak dicache oleh executor
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(os.time()))
 end
 
--- Fungsi Bantu: Notifikasi GUI
+-- Mengirim notifikasi ke layar pemain
 local function Notify(title, text)
     pcall(function() 
         StarterGui:SetCore("SendNotification", {
@@ -45,7 +46,7 @@ local function Notify(title, text)
     end)
 end
 
--- Fungsi Bantu: Ambil HWID
+-- Mengambil Hardware ID (HWID) untuk keamanan
 local function GetHWID()
     local s, id = pcall(function() return RbxAnalyticsService:GetClientId() end)
     return s and id or "UNKNOWN_HWID"
@@ -53,14 +54,15 @@ end
 
 -- [[ LOGIKA VALIDASI KEY ]] --
 function Core.ValidateKey(input)
+    -- Cek dasar: Apakah input ada dan panjangnya cukup?
     if not input or #input < 5 then 
         return {valid = false} 
     end
     
-    -- Bersihkan input dari spasi berlebih
+    -- Bersihkan input dari spasi di depan/belakang (Trimming)
     input = string.gsub(input, "^%s*(.-)%s*$", "%1")
     
-    -- Siapkan data untuk dikirim ke server
+    -- Siapkan data untuk dikirim ke server verifikasi
     local hwid = GetHWID()
     local pid = game.PlaceId
     local jid = game.JobId
@@ -68,32 +70,31 @@ function Core.ValidateKey(input)
     local gameName = GetGameName()
     local encodedName = HttpService:UrlEncode(gameName)
     
-    -- Susun URL Request
+    -- Susun URL Request lengkap
     local reqUrl = API_URL .. "?a=verify&k=" .. input .. "&hwid=" .. hwid .. "&pid=" .. pid .. "&gid=" .. gid .. "&jid=" .. jid .. "&gn=" .. encodedName .. "&nocache=" .. tostring(os.time())
     
-    -- Kirim Request
+    -- Kirim Request ke Google Apps Script
     local success, res = pcall(function() return game:HttpGet(reqUrl) end)
     
    if success then
-        -- Decode JSON Response
+        -- Decode jawaban server (JSON)
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         
         if ok and data and data.status == "success" then
             
-            -- Parsing Expiry Time
+            -- Parsing Expiry Time (Konversi MS ke Detik jika perlu)
             local rawExpiry = tonumber(data.expiry) or 0
             if rawExpiry > 9999999999 then 
-                -- Konversi dari milidetik ke detik jika perlu
                 rawExpiry = math.floor(rawExpiry / 1000) 
             end
             
-            -- Cek Developer Status
+            -- Cek apakah user adalah Developer
             local isDeveloper = false
             if data.message and string.find(data.message, "Dev") ~= nil then
                 isDeveloper = true
             end
 
-            -- Simpan Data Autentikasi ke Memori
+            -- Simpan Data Autentikasi ke Memori Global Core
             Core.AuthData = {
                 Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
                 Expiry = rawExpiry, 
@@ -101,7 +102,7 @@ function Core.ValidateKey(input)
                 GameName = gameName,
                 TargetScript = data.script, -- Script khusus dari server (jika ada)
                 IsDev = isDeveloper,
-                MOTD = data.motd -- Pesan pengumuman hari ini
+                MOTD = data.motd -- Pesan pengumuman
             }
             
             return {valid = true, info = data.info} 
@@ -111,11 +112,11 @@ function Core.ValidateKey(input)
     return {valid = false}
 end
 
--- [[ LOGIKA LOAD GAME ]] --
+-- [[ LOGIKA LOAD GAME (SISTEM UTAMA) ]] --
 function Core.LoadGame()
     Notify("SYSTEM", "Checking Database...")
     
-    -- 1. Load UI Manager
+    -- 1. Load UI Manager (Wajib berhasil)
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     
     if not successManager or not ManagerLib then 
@@ -142,12 +143,13 @@ function Core.LoadGame()
     -- 3. Load Script Game
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
     
-    -- 4. Validasi Hasil Load & Fallback
+    -- 4. Validasi Hasil Load & Fallback System
+    -- Jika script game gagal diload (error syntax/404), switch ke Universal
     if not successData or type(GameData) ~= "table" then
         warn("[FSSHUB] Failed to load module: " .. scriptPath)
         Notify("WARNING", "Official Script Error. Fallback to Universal...")
         
-        -- Coba load universal jika script khusus gagal/rusak
+        -- Coba load universal
         local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
         
         if successUniv and type(UnivData) == "table" then 
@@ -160,12 +162,12 @@ function Core.LoadGame()
         end
     end
     
-    -- 5. Override Nama Menu
+    -- 5. Override Nama Menu (Agar sesuai nama game asli)
     if Core.AuthData.GameName then
         GameData.Name = Core.AuthData.GameName
     end
 
-    -- 6. Bangun UI (Build)
+    -- 6. Bangun UI (Build Interface)
     -- Menggunakan pcall agar jika UI error, script tidak crash total
     local buildSuccess, err = pcall(function()
         ManagerLib.Build(GameData, Core.AuthData)
@@ -177,7 +179,7 @@ function Core.LoadGame()
     end
 end
 
--- [[ FUNGSI UTAMA (INIT) ]] --
+-- [[ FUNGSI INISIALISASI (BOOT) ]] --
 function Core.Init()
     -- Cek apakah ada Key tersimpan di file
     if isfile and isfile(FILE_NAME) then
@@ -197,10 +199,11 @@ function Core.Init()
     if success and AuthUI then
         AuthUI.Show({
             OnSuccess = function(key)
+                -- Callback saat tombol Login ditekan di AuthUI
                 local result = Core.ValidateKey(key)
                 
                 if result.valid then
-                    -- Simpan key baru
+                    -- Simpan key baru ke file
                     writefile(FILE_NAME, key)
                     
                     -- Load Game dalam thread baru agar UI Auth bisa tertutup mulus
