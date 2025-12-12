@@ -3,7 +3,8 @@
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
+local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
+local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -353,7 +354,7 @@ function UIManager.Build(GameConfig, AuthData)
     
     if AuthData and AuthData.IsDev then
          Utils_Group:Button("Open Debug Console", function()
-            local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
+            local dbgUrl = BaseUrl .. "main/modules/Debugger.lua"
             local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
             if s and m then m.Show() end
         end)
