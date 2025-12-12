@@ -143,12 +143,12 @@ function Utils:DeepClean()
             hum.WalkSpeed = 16
             hum.JumpPower = 50
             
-            -- FIX: Safety Check sebelum reset posisi duduk
+            -- Safety Check: Ensure standing before reset cycle
             if hum.Sit then
-                hum.Sit = false -- Force berdiri dulu
+                hum.Sit = false -- Force stand
             end
             
-            -- Reset Sit State dengan delay aman
+            -- Reset Sit State with safe delay
             hum.Sit = true
             task.delay(0.1, function() 
                 if hum and hum.Parent and hum.Sit then 
