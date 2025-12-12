@@ -11,7 +11,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 function Debugger.Show()
-    -- FIX: Gunakan gethui untuk keamanan ekstra
+    -- Secure GUI Container Resolution
     local Parent = gethui and gethui() or CoreGui
     if Parent:FindFirstChild("FSSHUB_DevSuite") then
         Parent.FSSHUB_DevSuite:Destroy()
