@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V7.1 (FINAL GOLD) ]] --
--- Changelog: Added 'Script Type' info, Full Icons, Groups, & Cleaned Up
+-- [[ FSSHUB: UI MANAGER V7.3 (FULL INTEGRITY) ]] --
+-- Changelog: Restored Toggle Keybind & Debug Console button
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -65,7 +65,7 @@ function UIManager.Build(GameConfig, AuthData)
     
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
-    -- [[ DASHBOARD (LENGKAP) ]] --
+    -- [[ DASHBOARD ]] --
     local ProfileTab = Window:Section("Dashboard", IconLibrary["Dashboard"])
     
     if AuthData then
@@ -74,19 +74,18 @@ function UIManager.Build(GameConfig, AuthData)
             ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) 
         end
         
-        -- 2. Game Info (Dengan Script Type)
+        -- 2. Game Info
         local GameGroup = ProfileTab:Group("Game Information")
         local modeText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Support"
-        
         GameGroup:Label("Game Name: " .. (AuthData.GameName or "Unknown"))
-        GameGroup:Label("Script Type: " .. modeText) -- [FITUR KEMBALI]
+        GameGroup:Label("Script Type: " .. modeText)
         
         -- 3. User Info
         local UserGroup = ProfileTab:Group("User Information")
         UserGroup:Label("License Type: " .. statusIcon .. " " .. AuthData.Type)
         UserGroup:Label("Access Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
         
-        -- 4. Expiry
+        -- 4. Expiry Timer
         local TimerLabel = UserGroup:Label("Expiry: Syncing...")
         task.spawn(function()
             if not AuthData.Expiry or AuthData.Expiry == 0 then TimerLabel.Text = "Expiry: PERMANENT"; return end
@@ -112,6 +111,7 @@ function UIManager.Build(GameConfig, AuthData)
             local Tab = Window:Section(tabData.Name, finalIcon)
             for _, element in ipairs(tabData.Elements) do
                 local newItem = nil
+                -- Standard Elements
                 if element.Type == "Toggle" then newItem = Tab:Toggle(element.Title, element.Default, element.Callback)
                 elseif element.Type == "Slider" then newItem = Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
                 elseif element.Type == "Dropdown" then newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
@@ -128,24 +128,26 @@ function UIManager.Build(GameConfig, AuthData)
     -- [[ SETTINGS TAB ]] --
     local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     
-    -- Interface Group
+    -- 1. Interface Group
     local UI_Group = SettingsTab:Group("Interface Settings")
+    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
     local themeNames = {}
-    if Library.presets then
-        for name, _ in pairs(Library.presets) do table.insert(themeNames, name) end
-    end
+    for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
     UI_Group:Dropdown("Theme", themeNames, "Select Theme", function(selected) Library:SetTheme(selected) end)
-    
-    -- Transparansi
-    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v) 
-        Library:SetTransparency(v/100) 
-    end)
-    
+    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v) Library:SetTransparency(v/100) end)
     UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
     UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p) if Library.SetWatermarkAlign then Library:SetWatermarkAlign(p) end end)
+    
+    -- [RESTORED] MENU KEYBIND
+    UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
+        if Library.base then 
+            local main = Library.base:FindFirstChild("MainFrame")
+            if main then main.Visible = not main.Visible end
+        end
+    end)
 
-    -- Config Group
+    -- 2. Config Group
     local Config_Group = SettingsTab:Group("Configuration System")
     local selectedConfig = "Default"
     local function GetConfigs()
@@ -177,10 +179,11 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
     
-    -- Utils Group
+    -- 3. Utils Group
     local Utils_Group = SettingsTab:Group("Utilities")
     Utils_Group:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
     
+    -- [RESTORED] DEBUG BUTTON
     if AuthData and AuthData.IsDev then
          Utils_Group:Button("Open Debug Console", function()
             local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
