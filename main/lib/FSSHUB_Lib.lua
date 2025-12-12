@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V17.0 (FULL FEATURED) ]] --
--- Changelog: Added Collapsible Groups, Fixed Page Rendering, No Logic Cut
+-- [[ FSSHUB LIBRARY: V18.0 (REMASTERED FINAL) ]] --
+-- Fitur: Collapsible Groups, Selective Transparency, Full Rendering, Theme Engine
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -19,6 +19,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
+-- [THEME PRESETS YANG LENGKAP]
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -29,6 +30,15 @@ library.theme = {
     Stroke      = Color3.fromRGB(50, 50, 60),
     ItemBg      = Color3.fromRGB(30, 30, 35),
     ItemHover   = Color3.fromRGB(45, 45, 50)
+}
+
+library.presets = {
+    ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)},
+    ["Blood Red"]  = {Accent = Color3.fromRGB(255, 65, 65)},
+    ["Ocean Blue"] = {Accent = Color3.fromRGB(0, 140, 255)},
+    ["Toxic Green"]= {Accent = Color3.fromRGB(0, 255, 140)},
+    ["Golden Age"] = {Accent = Color3.fromRGB(255, 215, 0)},
+    ["Midnight"]   = {Accent = Color3.fromRGB(80, 80, 255), Main = Color3.fromRGB(10, 10, 15), Content = Color3.fromRGB(15, 15, 20)}
 }
 
 function library:SetTransparency(val)
@@ -168,6 +178,7 @@ function library:Init()
     local gui = Create("ScreenGui", {
         Name = "FSSHUB_V10", Parent = TargetParent, ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 9999
     })
+    
     self.base = gui
     
     if getgenv().FSS_InputConnection then getgenv().FSS_InputConnection:Disconnect(); getgenv().FSS_InputConnection = nil end
@@ -256,9 +267,11 @@ function library:Window(title)
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.None, CanvasSize = UDim2.new(0, 0, 0, 0)
+            AutomaticCanvasSize = Enum.AutomaticSize.None, 
+            CanvasSize = UDim2.new(0, 0, 0, 0)
         })
         library:RegisterTheme(Page, "ScrollBarImageColor3", "Accent")
+        
         local List = Create("UIListLayout", {Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
         Create("UIPadding", {Parent = Page, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
         
@@ -273,8 +286,17 @@ function library:Window(title)
             textOffset = 25
             IconImg = Create("ImageLabel", {Parent = TabBtn, Image = "rbxassetid://" .. iconId, BackgroundTransparency = 1, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 5, 0.5, -9)})
         end
-        local TabLabel = Create("TextLabel", {Parent = TabBtn, Text = name, Font = Enum.Font.GothamMedium, TextSize = 13, Size = UDim2.new(1, -textOffset, 1, 0), Position = UDim2.new(0, textOffset + 5, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
-        local Indicator = Create("Frame", {Parent = TabBtn, Size = UDim2.new(0, 3, 0, 18), Position = UDim2.new(0, -10, 0.5, -9), Visible = false})
+        
+        local TabLabel = Create("TextLabel", {
+            Parent = TabBtn, Text = name, Font = Enum.Font.GothamMedium,
+            TextSize = 13, Size = UDim2.new(1, -textOffset, 1, 0), Position = UDim2.new(0, textOffset + 5, 0, 0),
+            BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left
+        })
+        
+        local Indicator = Create("Frame", {
+            Parent = TabBtn, Size = UDim2.new(0, 3, 0, 18),
+            Position = UDim2.new(0, -10, 0.5, -9), Visible = false
+        })
         library:RegisterTheme(Indicator, "BackgroundColor3", "Accent")
         Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(0, 2)})
 
@@ -302,11 +324,16 @@ function library:Window(title)
             tabObj.active = true
             UpdateTabVisuals()
         end)
-        if firstTab then tabObj.active = true; task.delay(0.1, UpdateTabVisuals); firstTab = false end
+
+        if firstTab then
+            tabObj.active = true
+            task.delay(0.1, UpdateTabVisuals)
+            firstTab = false
+        end
 
         local tab = {}
 
-        -- [NEW] COLLAPSIBLE GROUP FUNCTIONALITY
+        -- [COLLAPSIBLE GROUP]
         function tab:Group(title)
             local group = {}
             local expanded = true
@@ -337,7 +364,7 @@ function library:Window(title)
                 TweenService:Create(Container, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetH)}):Play()
             end)
             
-            -- Inject functions to group
+            -- Inject functions
             function group:Toggle(t, d, c) return tab:Toggle(t, d, c, Container) end
             function group:Button(t, c) return tab:Button(t, c, Container) end
             function group:Slider(t, min, max, d, c) return tab:Slider(t, min, max, d, c, Container) end
@@ -347,7 +374,7 @@ function library:Window(title)
             return group
         end
         
-        -- MODIFIED ELEMENTS WITH PARENT SUPPORT
+        -- [MODIFIED ELEMENTS]
         function tab:Label(text, parent)
             local target = parent or Page
             local Frame = Create("Frame", {Parent = target, Size = UDim2.new(1, 0, 0, 30)})
@@ -466,7 +493,7 @@ function library:Window(title)
             UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local p = math.clamp((i.Position.X - BarBg.AbsolutePosition.X)/BarBg.AbsoluteSize.X, 0, 1); Update(math.floor(min + ((max-min)*p))) end end)
             return { Set = Update }
         end
-        
+
         function tab:Dropdown(text, options, default, callback, parent)
              local target = parent or Page
              local isDropped = false; if library.flags[text] ~= nil then default = library.flags[text] end; library.flags[text] = default
