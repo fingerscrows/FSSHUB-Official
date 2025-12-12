@@ -3,6 +3,8 @@
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
+print("[FSSHUB DEBUG] UIManager Loaded")
+
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
 
@@ -60,6 +62,8 @@ local function LoadLibrary()
         lib:Init()
         LibraryInstance = lib
         return lib
+    else
+        print("[FSSHUB DEBUG] LoadLibrary Failed: " .. tostring(lib))
     end
     return nil
 end
@@ -73,6 +77,8 @@ function UIManager.Build(GameConfig, AuthData)
         game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
         return 
     end
+
+    print("[FSSHUB DEBUG] Building Window...")
 
     local statusIcon = "👤"
     if AuthData then
