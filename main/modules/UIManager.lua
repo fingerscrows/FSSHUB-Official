@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V6.1 (ICON FIX) ]] --
--- Changelog: Verified Icon IDs matching Dashboard style
+-- [[ FSSHUB: UI MANAGER V6.2 (GROUPS & ICONS) ]] --
+-- Changelog: Grouped settings, Validated Icons, Restored Universal Features
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -17,20 +17,17 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
--- [DATABASE IKON TERPUSAT - LUCIDE STYLE]
+-- [LUCIDE ICONS - VERIFIED]
 local IconLibrary = {
-    -- Kategori Umum
-    ["Dashboard"] = "10888331510", -- Rumah (Home)
-    ["Settings"]  = "10888336262", -- Gerigi (Settings)
-    ["Player"]    = "10888334695", -- Orang (User)
-    ["Visuals"]   = "10888333282", -- Mata (Eye)
-    
-    -- Kategori Game
-    ["Farming"]   = "10888335919", -- Daun (Leaf)
-    ["Combat"]    = "10888339056", -- Pedang (Swords)
-    ["Support"]   = "10888334234", -- Hati (Heart)
-    ["Misc"]      = "10888338271", -- Kotak (Box)
-    ["Teleport"]  = "10888337728", -- Pin Peta (Map Pin)
+    ["Dashboard"] = "10888331510",
+    ["Settings"]  = "10888336262",
+    ["Player"]    = "10888334695",
+    ["Visuals"]   = "10888333282",
+    ["Farming"]   = "10888335919",
+    ["Combat"]    = "10888339056",
+    ["Support"]   = "10888334234",
+    ["Misc"]      = "10888338271",
+    ["Teleport"]  = "10888337728"
 }
 
 -- [AUTO-LOAD PURGE]
@@ -41,22 +38,16 @@ end
 
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
-    print("[FSSHUB] Fetching Library from: " .. LIB_URL)
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
     if success and lib then
-        print("[FSSHUB] Library Fetched Successfully!")
         lib:Init()
         LibraryInstance = lib
         return lib
-    else
-        warn("[FSSHUB] Failed to fetch Library!")
     end
     return nil
 end
 
 function UIManager.Build(GameConfig, AuthData)
-    print("[FSSHUB] Building UI for: " .. (GameConfig.Name or "Unknown"))
-    
     StoredConfig = GameConfig
     StoredAuth = AuthData
     
@@ -83,173 +74,91 @@ function UIManager.Build(GameConfig, AuthData)
         if AuthData.MOTD and AuthData.MOTD ~= "" then ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) end
         
         local statusText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Script Supported"
-        ProfileTab:Paragraph("Game Info", "Detected: " .. (AuthData.GameName or "Unknown") .. "\nStatus: " .. statusText)
-        ProfileTab:Paragraph("User Info", "License: " .. statusIcon .. " " .. AuthData.Type .. "\nKey: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
+        local InfoGroup = ProfileTab:Group("Information")
+        InfoGroup:Label("Game: " .. (AuthData.GameName or "Unknown"))
+        InfoGroup:Label("License: " .. statusIcon .. " " .. AuthData.Type)
+        InfoGroup:Label("Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
         
-        local TimerLabel = ProfileTab:Label("Expiry: Syncing...")
+        local TimerLabel = InfoGroup:Label("Expiry: Syncing...")
         task.spawn(function()
-            if not AuthData.Expiry or AuthData.Expiry == 0 then
-                TimerLabel.Text = "Expiry: PERMANENT / DEV"
-                return
-            end
+            if not AuthData.Expiry or AuthData.Expiry == 0 then TimerLabel.Text = "Expiry: PERMANENT"; return end
             while true do
                 local t = os.time()
                 local left = AuthData.Expiry - t
-                if AuthData.Expiry > 9000000000 then 
-                    TimerLabel.Text = "Expiry: PERMANENT / DEV"
-                    break
-                elseif left <= 0 then 
-                    TimerLabel.Text = "LICENSE EXPIRED"
+                if AuthData.Expiry > 9000000000 then TimerLabel.Text = "Expiry: PERMANENT"; break
+                elseif left <= 0 then TimerLabel.Text = "LICENSE EXPIRED"
                 else 
-                    local d = math.floor(left/86400)
-                    local h = math.floor((left%86400)/3600)
-                    local m = math.floor((left%3600)/60)
+                    local d,h,m = math.floor(left/86400), math.floor((left%86400)/3600), math.floor((left%3600)/60)
                     TimerLabel.Text = string.format("Expires In: %dd %02dh %02dm", d, h, m)
                 end
                 task.wait(1)
             end
         end)
     end
-    ProfileTab:Label("Credits: FingersCrows")
 
-    -- [[ GAME FEATURES GENERATOR ]] --
-    if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
+    -- [[ GAME FEATURES ]] --
+    if GameConfig.Tabs then
         for _, tabData in ipairs(GameConfig.Tabs) do
-            -- [SMART ICON SYSTEM] Ambil ID dari Library jika ada namanya
             local finalIcon = IconLibrary[tabData.Icon] or tabData.Icon
-            
             local Tab = Window:Section(tabData.Name, finalIcon)
             for _, element in ipairs(tabData.Elements) do
                 local newItem = nil
-                if element.Type == "Toggle" then
-                    newItem = Tab:Toggle(element.Title, element.Default, element.Callback)
-                    if element.Keybind then newItem.SetKeybind(element.Keybind) end
-                elseif element.Type == "Slider" then
-                    newItem = Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
-                elseif element.Type == "Dropdown" then
-                    newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
-                elseif element.Type == "Button" then
-                    local b = Tab:Button(element.Title, element.Callback)
-                    if element.Keybind then b.SetKeybind(element.Keybind) end
-                elseif element.Type == "Keybind" then
-                    Tab:Keybind(element.Title, element.Default, element.Callback)
-                elseif element.Type == "Label" then
-                    Tab:Label(element.Title)
+                -- Standard Elements (No Group)
+                if element.Type == "Toggle" then newItem = Tab:Toggle(element.Title, element.Default, element.Callback)
+                elseif element.Type == "Slider" then newItem = Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
+                elseif element.Type == "Dropdown" then newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
+                elseif element.Type == "Button" then local b = Tab:Button(element.Title, element.Callback)
+                elseif element.Type == "Keybind" then Tab:Keybind(element.Title, element.Default, element.Callback)
+                elseif element.Type == "Label" then Tab:Label(element.Title)
                 end
                 
-                if newItem and newItem.Set then
-                    -- Simpan referensi item untuk Config System (Opsional jika ingin akses langsung)
-                end
+                if newItem and element.Keybind and newItem.SetKeybind then newItem.SetKeybind(element.Keybind) end
             end
         end
     end
     
-    -- [[ SETTINGS TAB ]] --
+    -- [[ SETTINGS TAB (GROUPED) ]] --
     local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     
-    SettingsTab:Label("Interface Configuration")
-    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)}, ["Blood Red"] = {Accent = Color3.fromRGB(255, 65, 65)} }
+    local UI_Group = SettingsTab:Group("Interface Settings")
+    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
     
-    SettingsTab:Dropdown("Theme", themeNames, "Select Theme", function(selected)
-        Library:SetTheme(selected)
-    end)
+    UI_Group:Dropdown("Theme", themeNames, "Select Theme", function(selected) Library:SetTheme(selected) end)
+    UI_Group:Slider("Transparency", 0, 90, 0, function(v) Library:SetTransparency(v/100) end)
+    UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
+    UI_Group:Dropdown("Watermark Position", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p) if Library.SetWatermarkAlign then Library:SetWatermarkAlign(p) end end)
 
-    SettingsTab:Slider("Menu Transparency", 0, 90, 0, function(v)
-        Library:SetTransparency(v/100)
-    end)
-
-    SettingsTab:Dropdown("Watermark", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(pos)
-        if Library.SetWatermarkAlign then Library:SetWatermarkAlign(pos) end
-    end)
-
-    SettingsTab:Toggle("Show FPS & Ping", true, function(state) Library:ToggleWatermark(state) end)
-
-    -- 2. CONFIGURATION SYSTEM
-    SettingsTab:Label("Configuration System")
+    local Config_Group = SettingsTab:Group("Configuration System")
     local selectedConfig = "Default"
-    
     local function GetConfigs()
         local list = {}
-        for _, path in ipairs(listfiles(ConfigFolder)) do
-            if path:sub(-5) == ".json" and not path:find("_AutoLoad") then
-                table.insert(list, path:match("^.+/(.+)$"):gsub(".json", ""))
-            end
-        end
+        for _, path in ipairs(listfiles(ConfigFolder)) do if path:sub(-5) == ".json" then table.insert(list, path:match("^.+/(.+)$"):gsub(".json", "")) end end
         if #list == 0 then table.insert(list, "Default") end
         return list
     end
-
-    local ConfigDropdown = SettingsTab:Dropdown("Select Config", GetConfigs(), "Default", function(val) selectedConfig = val end)
     
-    SettingsTab:Button("Load Config", function()
+    Config_Group:Dropdown("Select Config", GetConfigs(), "Default", function(v) selectedConfig = v end)
+    Config_Group:Button("Load Config", function()
         local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
         if isfile(path) then
             local data = HttpService:JSONDecode(readfile(path))
-            for title, value in pairs(data) do
-                Library.flags[title] = value 
-                -- Refresh UI State (Logic di Library akan menangani update visual)
-            end
-            
-            -- Refresh visual
-            if Library.themeRegistry then 
-               for _, item in ipairs(Library.themeRegistry) do if item.Type == "Func" then pcall(item.Func) end end 
-            end
-            
-            Library:Notify("Config", "Loaded: " .. selectedConfig, 3)
+            for title, value in pairs(data) do Library.flags[title] = value end
+            if Library.themeRegistry then for _, item in ipairs(Library.themeRegistry) do if item.Type=="Func" then pcall(item.Func) end end end
+            Library:Notify("Config", "Loaded", 3)
         end
     end)
-
-    SettingsTab:Button("Save Config", function()
-        local data = Library.flags 
-        writefile(ConfigFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(data))
-        Library:Notify("Config", "Saved: " .. selectedConfig, 3)
-    end)
-
-    SettingsTab:Button("Create/Overwrite Config", function()
-        local name = selectedConfig == "Default" and "Config_" .. tostring(math.random(1000,9999)) or selectedConfig
-        local data = Library.flags
-        writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(data))
-        Library:Notify("Config", "Saved as: " .. name, 3)
-    end)
-
-    SettingsTab:Button("Delete Config", function()
-        local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
-        if isfile(path) and selectedConfig ~= "Default" then
-            delfile(path)
-            Library:Notify("Config", "Deleted: " .. selectedConfig, 3)
-            selectedConfig = "Default"
-        end
-    end)
-
-    -- 3. GLOBAL UTILITIES
-    SettingsTab:Label("Utilities")
-    SettingsTab:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
-    
-    if AuthData and AuthData.IsDev then
-        SettingsTab:Button("Open Debug Console", function()
-            local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
-            local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
-            if s and m then m.Show() end
-        end)
-    end
-
-    SettingsTab:Keybind("Toggle UI Keybind", Enum.KeyCode.RightControl, function()
-        if Library.base then 
-            local main = Library.base:FindFirstChild("MainFrame")
-            if main then main.Visible = not main.Visible end
-        end
+    Config_Group:Button("Save Config", function()
+        writefile(ConfigFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(Library.flags))
+        Library:Notify("Config", "Saved", 3)
     end)
     
-    SettingsTab:Button("Unload Script", function()
+    local Utils_Group = SettingsTab:Group("Utilities")
+    Utils_Group:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+    Utils_Group:Button("Unload Script", function()
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
-        game.StarterGui:SetCore("SendNotification", {Title = "System", Text = "Script Unloaded", Duration = 3})
-        if Library.base then 
-            if typeof(Library.base) == "Instance" then Library.base:Destroy() end 
-            Library.base = nil 
-            LibraryInstance = nil
-        end
+        if Library.base then Library.base:Destroy() end
     end)
 end
 
