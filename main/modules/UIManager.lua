@@ -150,7 +150,7 @@ function UIManager.Build(GameConfig, AuthData)
     
     if GameConfig.Tabs then
         for _, tabData in ipairs(GameConfig.Tabs) do
-            -- LOGIKA FIX ICON: Cek apakah nama icon ada di library
+            -- Icon Resolution: Check database or use raw input
             local finalIcon = IconLibrary[tabData.Icon] or tabData.Icon
             
             local Tab = Window:Section(tabData.Name, finalIcon)
