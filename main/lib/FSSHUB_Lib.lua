@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V18.0 (REMASTERED FINAL) ]] --
--- Fitur: Collapsible Groups, Selective Transparency, Full Rendering, Theme Engine
+-- [[ FSSHUB LIBRARY: V18.1 (SLIDER DOT FIX) ]] --
+-- Changelog: Restored Slider Hover Dot animation & Full Rendering
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -19,7 +19,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
--- [THEME PRESETS YANG LENGKAP]
 library.theme = {
     Main        = Color3.fromRGB(20, 20, 25),
     Sidebar     = Color3.fromRGB(15, 15, 20),
@@ -193,13 +192,17 @@ function library:Init()
     if UserInputService.TouchEnabled then
         local ToggleFrame = Create("Frame", {Parent = gui, Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(0, 20, 0.5, -20)})
         library:RegisterTheme(ToggleFrame, "BackgroundColor3", "Main")
+        
         Create("UICorner", {Parent = ToggleFrame, CornerRadius = UDim.new(0, 8)})
         local s = Create("UIStroke", {Parent = ToggleFrame, Thickness = 2})
         library:RegisterTheme(s, "Color", "Accent")
+        
         local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", Font = Enum.Font.GothamBlack})
         library:RegisterTheme(Btn, "TextColor3", "Accent")
+        
         Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
     end
+    
     return gui
 end
 
@@ -282,7 +285,7 @@ function library:Window(title)
         local TabBtn = Create("TextButton", {Parent = Sidebar, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false})
         local textOffset = 0
         local IconImg
-        if iconId and iconId ~= "" then
+        if iconId then
             textOffset = 25
             IconImg = Create("ImageLabel", {Parent = TabBtn, Image = "rbxassetid://" .. iconId, BackgroundTransparency = 1, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 5, 0.5, -9)})
         end
@@ -332,8 +335,8 @@ function library:Window(title)
         end
 
         local tab = {}
-
-        -- [COLLAPSIBLE GROUP]
+        
+        -- GROUP (Collapsible)
         function tab:Group(title)
             local group = {}
             local expanded = true
@@ -352,9 +355,7 @@ function library:Window(title)
             Create("UIPadding", {Parent = Container, PaddingLeft = UDim.new(0, 10)})
             
             GList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                if expanded then 
-                    Container.Size = UDim2.new(1, 0, 0, GList.AbsoluteContentSize.Y + 5)
-                end
+                if expanded then Container.Size = UDim2.new(1, 0, 0, GList.AbsoluteContentSize.Y + 5) end
             end)
             
             HeaderBtn.MouseButton1Click:Connect(function()
@@ -364,7 +365,6 @@ function library:Window(title)
                 TweenService:Create(Container, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetH)}):Play()
             end)
             
-            -- Inject functions
             function group:Toggle(t, d, c) return tab:Toggle(t, d, c, Container) end
             function group:Button(t, c) return tab:Button(t, c, Container) end
             function group:Slider(t, min, max, d, c) return tab:Slider(t, min, max, d, c, Container) end
@@ -374,17 +374,6 @@ function library:Window(title)
             return group
         end
         
-        -- [MODIFIED ELEMENTS]
-        function tab:Label(text, parent)
-            local target = parent or Page
-            local Frame = Create("Frame", {Parent = target, Size = UDim2.new(1, 0, 0, 30)})
-            library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
-            Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
-            local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.GothamBold, TextSize = 13, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
-            library:RegisterTheme(T, "TextColor3", "Text")
-            return T
-        end
-
         function tab:Paragraph(title, content)
             local Frame = Create("Frame", {Parent = Page, Size = UDim2.new(1, 0, 0, 60)})
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
@@ -393,6 +382,16 @@ function library:Window(title)
             library:RegisterTheme(T, "TextColor3", "Accent")
             local C = Create("TextLabel", {Parent = Frame, Text = content, Font = Enum.Font.Gotham, TextSize = 12, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.new(0, 10, 0, 25), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true})
             library:RegisterTheme(C, "TextColor3", "Text")
+        end
+
+        function tab:Label(text, parent)
+            local target = parent or Page
+            local Frame = Create("Frame", {Parent = target, Size = UDim2.new(1, 0, 0, 30)})
+            library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
+            Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.GothamBold, TextSize = 13, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
+            library:RegisterTheme(T, "TextColor3", "Text")
+            return T
         end
 
         function tab:Toggle(text, default, callback, parent)
@@ -476,20 +475,30 @@ function library:Window(title)
             library:RegisterTheme(Fill, "BackgroundColor3", "Accent")
             Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)})
             
+            -- [RESTORED] DOT ON HOVER
+            local Dot = Create("Frame", {Parent = BarBg, Size = UDim2.new(0, 10, 0, 10), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), BackgroundTransparency = 1})
+            library:RegisterTheme(Dot, "BackgroundColor3", "Text")
+            Create("UICorner", {Parent = Dot, CornerRadius = UDim.new(1, 0)})
+            
             local Trigger = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.new(0, 12, 0, 24), BackgroundTransparency = 1, Text = ""})
+            
+            -- [HOVER ANIMATION]
+            Trigger.MouseEnter:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end)
+            Trigger.MouseLeave:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end)
             
             local function Update(v)
                 val = math.clamp(v, min, max); library.flags[text] = val
                 local pct = (val - min) / (max - min)
                 TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+                TweenService:Create(Dot, TweenInfo.new(0.1), {Position = UDim2.new(pct, 0, 0.5, 0)}):Play()
                 ValLbl.Text = tostring(val)
                 pcall(function() callback(val) end)
             end
             Update(val)
             
             local dragging
-            Trigger.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; local p = math.clamp((i.Position.X - BarBg.AbsolutePosition.X)/BarBg.AbsoluteSize.X, 0, 1); Update(math.floor(min + ((max-min)*p))) end end)
-            UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+            Trigger.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; Dot.BackgroundTransparency = 0; local p = math.clamp((i.Position.X - BarBg.AbsolutePosition.X)/BarBg.AbsoluteSize.X, 0, 1); Update(math.floor(min + ((max-min)*p))) end end)
+            UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false; Dot.BackgroundTransparency = 1 end end)
             UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local p = math.clamp((i.Position.X - BarBg.AbsolutePosition.X)/BarBg.AbsoluteSize.X, 0, 1); Update(math.floor(min + ((max-min)*p))) end end)
             return { Set = Update }
         end
