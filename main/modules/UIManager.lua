@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V7.0 (FULL DASHBOARD) ]] --
--- Changelog: Restored Dashboard Script Type & Theme Presets
+-- [[ FSSHUB: UI MANAGER V7.1 (FINAL GOLD) ]] --
+-- Changelog: Added 'Script Type' info, Full Icons, Groups, & Cleaned Up
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -30,6 +30,7 @@ local IconLibrary = {
     ["Teleport"]  = "10888337728"
 }
 
+-- [AUTO-LOAD PURGE]
 local AutoLoadPath = ConfigFolder .. "/_AutoLoad.json"
 if isfile(AutoLoadPath) then delfile(AutoLoadPath) end
 
@@ -49,7 +50,10 @@ function UIManager.Build(GameConfig, AuthData)
     StoredAuth = AuthData
     
     local Library = LoadLibrary()
-    if not Library then return end
+    if not Library then 
+        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
+        return 
+    end
 
     local statusIcon = "👤"
     if AuthData then
@@ -61,26 +65,28 @@ function UIManager.Build(GameConfig, AuthData)
     
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
-    -- [[ DASHBOARD RESTORED ]] --
+    -- [[ DASHBOARD (LENGKAP) ]] --
     local ProfileTab = Window:Section("Dashboard", IconLibrary["Dashboard"])
     
     if AuthData then
-        -- Announcement
+        -- 1. Announcement
         if AuthData.MOTD and AuthData.MOTD ~= "" then 
             ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) 
         end
         
-        -- Game Information Group
+        -- 2. Game Info (Dengan Script Type)
         local GameGroup = ProfileTab:Group("Game Information")
         local modeText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Support"
-        GameGroup:Label("Game Name: " .. (AuthData.GameName or "Unknown"))
-        GameGroup:Label("Script Type: " .. modeText)
         
-        -- User Information Group
+        GameGroup:Label("Game Name: " .. (AuthData.GameName or "Unknown"))
+        GameGroup:Label("Script Type: " .. modeText) -- [FITUR KEMBALI]
+        
+        -- 3. User Info
         local UserGroup = ProfileTab:Group("User Information")
         UserGroup:Label("License Type: " .. statusIcon .. " " .. AuthData.Type)
         UserGroup:Label("Access Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
         
+        -- 4. Expiry
         local TimerLabel = UserGroup:Label("Expiry: Syncing...")
         task.spawn(function()
             if not AuthData.Expiry or AuthData.Expiry == 0 then TimerLabel.Text = "Expiry: PERMANENT"; return end
@@ -106,7 +112,6 @@ function UIManager.Build(GameConfig, AuthData)
             local Tab = Window:Section(tabData.Name, finalIcon)
             for _, element in ipairs(tabData.Elements) do
                 local newItem = nil
-                -- Standard Elements (No Group)
                 if element.Type == "Toggle" then newItem = Tab:Toggle(element.Title, element.Default, element.Callback)
                 elseif element.Type == "Slider" then newItem = Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
                 elseif element.Type == "Dropdown" then newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
@@ -120,17 +125,23 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end
     
-    -- [[ SETTINGS TAB (GROUPED RESTORED) ]] --
+    -- [[ SETTINGS TAB ]] --
     local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     
     -- Interface Group
     local UI_Group = SettingsTab:Group("Interface Settings")
-    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
     local themeNames = {}
-    for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
+    if Library.presets then
+        for name, _ in pairs(Library.presets) do table.insert(themeNames, name) end
+    end
     
     UI_Group:Dropdown("Theme", themeNames, "Select Theme", function(selected) Library:SetTheme(selected) end)
-    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v) Library:SetTransparency(v/100) end)
+    
+    -- Transparansi
+    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v) 
+        Library:SetTransparency(v/100) 
+    end)
+    
     UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
     UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p) if Library.SetWatermarkAlign then Library:SetWatermarkAlign(p) end end)
 
@@ -158,10 +169,26 @@ function UIManager.Build(GameConfig, AuthData)
         writefile(ConfigFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(Library.flags))
         Library:Notify("Config", "Saved", 3)
     end)
+    Config_Group:Button("Delete Config", function()
+        local path = ConfigFolder .. "/" .. selectedConfig .. ".json"
+        if isfile(path) and selectedConfig ~= "Default" then
+            delfile(path)
+            Library:Notify("Config", "Deleted", 3)
+        end
+    end)
     
     -- Utils Group
     local Utils_Group = SettingsTab:Group("Utilities")
     Utils_Group:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+    
+    if AuthData and AuthData.IsDev then
+         Utils_Group:Button("Open Debug Console", function()
+            local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
+            local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
+            if s and m then m.Show() end
+        end)
+    end
+    
     Utils_Group:Button("Unload Script", function()
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
         if Library.base then Library.base:Destroy() end
