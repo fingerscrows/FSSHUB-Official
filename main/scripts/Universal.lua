@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V7.0 (COMPLETE RESTORE) ]] --
--- Status: All features present, Icons fixed, No logic removed
+-- [[ FSSHUB DATA: UNIVERSAL V7.0 (FULL VERBOSE) ]] --
+-- Status: All features restored, Icons updated, Server Hop Added
 -- Path: main/scripts/Universal.lua
 
 local Players = game:GetService("Players")
@@ -7,6 +7,8 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
 local LocalPlayer = Players.LocalPlayer
 local Camera = game:GetService("Workspace").CurrentCamera
 
@@ -34,7 +36,7 @@ local State = {
     ESP_TeamCheck = false,
     ESP_MaxDistance = 1500,
     
-    -- Storage
+    -- System
     Connections = {},
     ESP_Cache = {}
 }
@@ -46,13 +48,14 @@ local function UpdateSpeed()
         task.wait()
         pcall(function()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                -- Hanya update jika speed berubah (untuk menghindari spam)
                 if LocalPlayer.Character.Humanoid.WalkSpeed ~= State.Speed then
                     LocalPlayer.Character.Humanoid.WalkSpeed = State.Speed
                 end
             end
         end)
     end
-    -- Reset to default
+    -- Reset ke default saat dimatikan
     pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
 end
 
@@ -68,7 +71,7 @@ local function UpdateJump()
             end
         end)
     end
-    -- Reset to default
+    -- Reset ke default
     pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
 end
 
@@ -98,7 +101,7 @@ local function ToggleSpinbot(active)
             end)
         end)
     else
-        -- Force remove spin object
+        -- Force remove spin object saat dimatikan
         pcall(function()
             if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
                 LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
@@ -120,8 +123,6 @@ local function ToggleNoclip(active)
             end
         end)
         table.insert(State.Connections, conn)
-    else
-        -- Restore collision logic handled by game/cleanup
     end
 end
 
@@ -152,7 +153,7 @@ local function ApplyFullbright(active)
             end
         end)
     else
-        -- Reset lighting logic simplified
+        -- Reset lighting sederhana
         Lighting.Brightness = 1
         Lighting.GlobalShadows = true
     end
@@ -165,11 +166,9 @@ local function CreateESP(player)
         if not State.ESP then return end
         if State.ESP_TeamCheck and player.Team == LocalPlayer.Team then return end
         
-        -- Tunggu Head muncul
         local head = char:WaitForChild("Head", 5) 
         if not head then return end 
         
-        -- Hapus ESP lama jika ada
         if char:FindFirstChild("FSS_ESP_Box") then char.FSS_ESP_Box:Destroy() end
         
         local hl = Instance.new("Highlight")
@@ -196,13 +195,36 @@ local function ToggleESP(active)
         local conn = Players.PlayerAdded:Connect(CreateESP)
         table.insert(State.Connections, conn)
     else
-        -- Clear ESP
+        -- Bersihkan semua ESP saat dimatikan
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("FSS_ESP_Box") then
                 p.Character.FSS_ESP_Box:Destroy()
             end
         end
         State.ESP_Cache = {}
+    end
+end
+
+-- [[ SERVER HOP LOGIC ]] --
+local function ServerHop()
+    local Api = "https://games.roblox.com/v1/games/"
+    local _place = game.PlaceId
+    local _servers = Api.._place.."/servers/Public?sortOrder=Asc&limit=100"
+    
+    local function ListServers(cursor)
+       local Raw = game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
+       return HttpService:JSONDecode(Raw)
+    end
+    
+    local Server, Next
+    repeat
+       local Servers = ListServers(Next)
+       Server = Servers.data[1]
+       Next = Servers.nextPageCursor
+    until Server
+    
+    if Server then
+        TeleportService:TeleportToPlaceInstance(_place, Server.id, LocalPlayer)
     end
 end
 
@@ -266,7 +288,7 @@ return {
     Tabs = {
         {
             Name = "Player", 
-            Icon = "Player", -- Ikon Orang
+            Icon = "Player", -- Keyword Icon
             Elements = {
                 {Type = "Toggle", Title = "Enable WalkSpeed", Default = false, Keybind = Enum.KeyCode.V, Callback = function(v) State.SpeedEnabled = v; if v then task.spawn(UpdateSpeed) end end},
                 {Type = "Slider", Title = "Speed Value", Min = 16, Max = 500, Default = 16, Callback = function(v) State.Speed = v end},
@@ -281,40 +303,20 @@ return {
         },
         {
             Name = "Visuals", 
-            Icon = "Visuals", -- Ikon Mata
+            Icon = "Visuals", -- Keyword Icon
             Elements = {
-                {Type = "Toggle", Title = "Player ESP (Highlight)", Default = false, Callback = ToggleESP},
+                {Type = "Toggle", Title = "Player ESP (Smart)", Default = false, Callback = ToggleESP},
                 {Type = "Toggle", Title = "Team Check", Default = false, Callback = function(v) State.ESP_TeamCheck = v end},
-                {Type = "Toggle", Title = "Fullbright (Light)", Default = false, Callback = ApplyFullbright},
+                {Type = "Slider", Title = "ESP Max Distance", Min = 100, Max = 5000, Default = 1500, Callback = function(v) State.ESP_MaxDistance = v end},
+                {Type = "Toggle", Title = "Fullbright (Soft)", Default = false, Callback = ApplyFullbright},
             }
         },
         {
             Name = "Misc", 
-            Icon = "Misc", -- Ikon Tambahan (Yang diminta dikembalikan)
+            Icon = "Misc", -- Keyword Icon (Kotak/Tools)
             Elements = {
                 {Type = "Button", Title = "Rejoin Server", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end},
-                {Type = "Button", Title = "Server Hop (Random)", Callback = function() 
-                    -- Simple Hop Logic
-                    local Http = game:GetService("HttpService")
-                    local TPS = game:GetService("TeleportService")
-                    local Api = "https://games.roblox.com/v1/games/"
-                    
-                    local _place = game.PlaceId
-                    local _servers = Api.._place.."/servers/Public?sortOrder=Asc&limit=100"
-                    
-                    local function ListServers(cursor)
-                       local Raw = game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
-                       return Http:JSONDecode(Raw)
-                    end
-                    
-                    local Server, Next; repeat
-                       local Servers = ListServers(Next)
-                       Server = Servers.data[1]
-                       Next = Servers.nextPageCursor
-                    until Server
-                    
-                    TPS:TeleportToPlaceInstance(_place, Server.id, LocalPlayer)
-                end}
+                {Type = "Button", Title = "Server Hop (Random)", Callback = ServerHop}
             }
         }
     }
