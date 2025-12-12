@@ -48,7 +48,6 @@ local IconLibrary = {
 -- Menghapus file auto-load lama saat script dijalankan manual (bukan dari auto-exec)
 -- Ini mencegah script menyala sendiri dan stuck saat baru login
 if isfile(AutoLoadFile) then
-    -- Kita baca dulu isinya untuk notifikasi (opsional), lalu hapus
     delfile(AutoLoadFile)
 end
 
@@ -337,7 +336,7 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
     
-    -- Utilities Group
+    -- 3. Utilities Group
     local Utils_Group = SettingsTab:Group("Utilities")
     
     Utils_Group:Button("Reset All Features", function()
