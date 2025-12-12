@@ -23,7 +23,11 @@ local function GetHWID()
     return s and id or "UNKNOWN"
 end
 
+local isShaking = false
 local function Shake(frame)
+    if isShaking then return end
+    isShaking = true
+
     local originalPos = frame.Position
     local intensity = 6
     local duration = 0.05
@@ -36,6 +40,7 @@ local function Shake(frame)
             task.wait(duration)
         end
         TweenService:Create(frame, TweenInfo.new(duration, Enum.EasingStyle.Sine), {Position = originalPos}):Play()
+        isShaking = false
     end)
 end
 
@@ -123,12 +128,24 @@ function AuthUI.Show(options)
             TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = baseColor}):Play()
         end)
         
+        local isClicking = false
         Btn.MouseButton1Click:Connect(function() 
+            if isClicking then return end
+            isClicking = true
+
             -- Add Click Feedback (Bounce)
-            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.4, -4, 0, 31)}):Play()
+            local originalSize = Btn.Size
+            local targetSize = UDim2.new(originalSize.X.Scale, originalSize.X.Offset - 4, originalSize.Y.Scale, originalSize.Y.Offset - 4)
+
+            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = targetSize}):Play()
             task.wait(0.1)
-            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.4, 0, 0, 35)}):Play()
-            func(Btn) 
+            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = originalSize}):Play()
+
+            func(Btn)
+
+            -- Wait for the restore animation to finish before allowing another click
+            task.wait(0.1)
+            isClicking = false
         end)
         
         return Btn

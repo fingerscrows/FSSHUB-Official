@@ -144,7 +144,11 @@ function library:Watermark(headerText)
             local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001))
             local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
             label.Text = string.format("%s | FPS: %d | Ping: %dms | %s", headerText, fps, ping, os.date("%H:%M:%S"))
-            wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
+
+            -- Smooth Resize
+            local targetSize = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
+            TweenService:Create(wm, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+
             task.wait(1)
         end
     end)
