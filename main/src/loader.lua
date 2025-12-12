@@ -1,22 +1,25 @@
--- [[ FSSHUB LOADER V9.2 (ALWAYS FRESH) ]] --
+-- [[ FSSHUB LOADER V9.3 (FULL INTEGRITY) ]] --
 -- Flow: Loader -> Core (Auth) -> UIManager (Builder)
 -- Path: main/src/loader.lua
 
-if not game:IsLoaded() then game.Loaded:Wait() end
+if not game:IsLoaded() then 
+    game.Loaded:Wait() 
+end
 
--- Gunakan os.time() agar URL selalu unik setiap detik (Anti-Cache Total)
+-- Anti-Cache dengan os.time() untuk memastikan selalu mendapat update terbaru
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 local CORE_URL = BASE_URL .. "main/src/Core.lua?v=" .. tostring(os.time())
 
 local function Boot()
+    -- Menggunakan pcall untuk menangani error HTTP jika GitHub down
     local success, result = pcall(function()
         return game:HttpGet(CORE_URL)
     end)
 
     if not success or not result or result == "" then
         game.StarterGui:SetCore("SendNotification", {
-            Title = "FSSHUB Network Error",
-            Text = "Gagal terhubung ke GitHub. Cek koneksi internet/VPN.",
+            Title = "FSSHUB Boot Failure",
+            Text = "Could not reach servers. Check connection.",
             Duration = 5
         })
         warn("[FSSHUB] Failed to fetch Core: " .. tostring(result))
@@ -27,7 +30,7 @@ local function Boot()
     if not coreFunc then
         game.StarterGui:SetCore("SendNotification", {
             Title = "FSSHUB Syntax Error",
-            Text = "Terjadi kesalahan pada script Core. Cek Console (F9).",
+            Text = "Core script error. Check console.",
             Duration = 5
         })
         warn("[FSSHUB] Core Syntax Error:", err)
