@@ -1,13 +1,10 @@
--- [[ FSSHUB CORE V11.6 (DEBUG MODE) ]] --
+-- [[ FSSHUB CORE V11.7 (PRODUCTION CLEAN) ]] --
+-- Fitur: Stable Auth, Failsafe, Clean Console
 -- Path: main/src/Core.lua
 
 local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
 Core.AuthData = nil 
-
-local function Log(msg)
-    print("🔵 [FSS-DEBUG] [Core] " .. tostring(msg))
-end
 
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
@@ -27,7 +24,6 @@ local function GetGameName()
 end
 
 local function LoadUrl(path)
-    Log("Fetching URL: " .. path)
     return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(os.time()))
 end
 
@@ -41,7 +37,6 @@ local function GetHWID()
 end
 
 function Core.ValidateKey(input)
-    Log("Validating Key...")
     if not input or #input < 5 then return {valid=false} end
     input = string.gsub(input, "^%s*(.-)%s*$", "%1")
     
@@ -57,16 +52,11 @@ function Core.ValidateKey(input)
     local success, res = pcall(function() return game:HttpGet(reqUrl) end)
     
    if success then
-        Log("Server Responded. Parsing...")
         local ok, data = pcall(function() return HttpService:JSONDecode(res) end)
         if ok and data and data.status == "success" then
-            Log("Key Valid! Expiry Raw: " .. tostring(data.expiry))
-            
             local rawExpiry = tonumber(data.expiry) or 0
             if rawExpiry > 9999999999 then rawExpiry = math.floor(rawExpiry / 1000) end
             
-            Log("Processed Expiry: " .. tostring(rawExpiry))
-
             Core.AuthData = {
                 Type = (data.info and (string.find(data.info, "Premium") or string.find(data.info, "Unlimited"))) and "Premium" or "Free",
                 Expiry = rawExpiry, 
@@ -78,19 +68,15 @@ function Core.ValidateKey(input)
             }
             return {valid=true, info=data.info} 
         end
-    else
-        Log("HTTP Request Failed: " .. tostring(res))
     end
     return {valid=false}
 end
 
 function Core.LoadGame()
-    Log("Starting LoadGame...")
     Notify("SYSTEM", "Checking Database...")
     
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     if not successManager or not ManagerLib then 
-        Log("CRITICAL: Failed to load UIManager")
         Notify("FATAL ERROR", "Failed to load UI Manager.") 
         return 
     end
@@ -106,12 +92,9 @@ function Core.LoadGame()
     if not Core.AuthData then Core.AuthData = {} end
     Core.AuthData.IsUniversal = isUniversal
     
-    Log("Loading Game Module: " .. scriptPath)
-    
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
     
     if not successData or type(GameData) ~= "table" then
-        Log("Failed to load Game Module. Fallback to Universal.")
         Notify("WARNING", "Official Script Error. Fallback...")
         local successUniv, UnivData = pcall(function() return loadstring(LoadUrl(DEFAULT_GAME))() end)
         if successUniv and type(UnivData) == "table" then 
@@ -128,22 +111,17 @@ function Core.LoadGame()
         GameData.Name = Core.AuthData.GameName
     end
 
-    Log("Building UI via Manager...")
     local buildSuccess, err = pcall(function()
         ManagerLib.Build(GameData, Core.AuthData)
     end)
     
     if not buildSuccess then
-        Log("UI Build CRASHED: " .. tostring(err))
         warn("[FSSHUB] UI Build Error: ", err)
         Notify("UI ERROR", "Check console (F9)")
-    else
-        Log("UI Build Success.")
     end
 end
 
 function Core.Init()
-    Log("Core Initialized.")
     if isfile and isfile(FILE_NAME) then
         local saved = readfile(FILE_NAME)
         local result = Core.ValidateKey(saved)
