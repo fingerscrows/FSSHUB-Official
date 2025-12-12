@@ -1,5 +1,5 @@
--- [[ FSSHUB LIBRARY: V18.1 (SLIDER DOT FIX) ]] --
--- Changelog: Restored Slider Hover Dot animation & Full Rendering
+-- [[ FSSHUB LIBRARY: V18.1 (KEYBIND LOGIC FIX) ]] --
+-- Changelog: Fixed Keybind replacement logic (Removing old keys correctly)
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
@@ -77,12 +77,18 @@ local function Create(class, props)
     return inst
 end
 
+-- [CRITICAL FIX] Logic update keybind yang benar
 local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
+    -- 1. Hapus key lama jika ada
     if oldKey and tableBinds[oldKey] then
         for i, func in ipairs(tableBinds[oldKey]) do
-            if func == callback then table.remove(tableBinds[oldKey], i) break end
+            if func == callback then 
+                table.remove(tableBinds[oldKey], i) 
+                break 
+            end
         end
     end
+    -- 2. Tambah key baru
     if newKey then
         if not tableBinds[newKey] then tableBinds[newKey] = {} end
         table.insert(tableBinds[newKey], callback)
@@ -335,8 +341,7 @@ function library:Window(title)
         end
 
         local tab = {}
-        
-        -- GROUP (Collapsible)
+
         function tab:Group(title)
             local group = {}
             local expanded = true
@@ -370,6 +375,7 @@ function library:Window(title)
             function group:Slider(t, min, max, d, c) return tab:Slider(t, min, max, d, c, Container) end
             function group:Dropdown(t, o, d, c) return tab:Dropdown(t, o, d, c, Container) end
             function group:Label(t) return tab:Label(t, Container) end
+            function group:Keybind(t, d, c) return tab:Keybind(t, d, c, Container) end
             
             return group
         end
@@ -431,9 +437,27 @@ function library:Window(title)
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             
             local bindFlag = text .. "_Bind"
-            local function SetBind(key) BindBtn.Text = key.Name; library.flags[bindFlag] = key.Name; UpdateKeybind(library.keybinds, nil, key, function() SetState(not toggled) end) end
+            local function SetBind(key) 
+                boundKey = key; 
+                BindBtn.Text = key.Name; 
+                library.flags[bindFlag] = key.Name 
+                UpdateKeybind(library.keybinds, nil, key, function() SetState(not toggled) end) 
+            end
             if library.flags[bindFlag] then local s,k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end); if s and k then SetBind(k) end end
-            BindBtn.MouseButton1Click:Connect(function() local c; c = UserInputService.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end end) end)
+
+            BindBtn.MouseButton1Click:Connect(function() 
+                BindBtn.Text = "..."
+                local c; c = UserInputService.InputBegan:Connect(function(i) 
+                    if i.UserInputType==Enum.UserInputType.Keyboard then 
+                        c:Disconnect()
+                        -- [FIX] Reset boundKey sebelum update
+                        UpdateKeybind(library.keybinds, boundKey, i.KeyCode, function() SetState(not toggled) end)
+                        boundKey = i.KeyCode
+                        BindBtn.Text = boundKey.Name
+                        library.flags[bindFlag] = boundKey.Name
+                    end 
+                end) 
+            end)
             
             return { Set = SetState }
         end
@@ -482,7 +506,6 @@ function library:Window(title)
             
             local Trigger = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.new(0, 12, 0, 24), BackgroundTransparency = 1, Text = ""})
             
-            -- [HOVER ANIMATION]
             Trigger.MouseEnter:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end)
             Trigger.MouseLeave:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end)
             
@@ -528,9 +551,36 @@ function library:Window(title)
              library:RegisterTheme(T, "TextColor3", "Text")
              local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), BackgroundColor3 = library.theme.Main})
              library:RegisterTheme(BindBtn, "TextColor3", "TextDim"); Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
-             local bindFlag = text.."_Keybind"; local function SetBind(k) BindBtn.Text = k.Name; library.flags[bindFlag] = k.Name; UpdateKeybind(library.keybinds, nil, k, callback) end
-             if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end; if library.flags[bindFlag] then local s,k=pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end); if s and k then SetBind(k) end end
-             BindBtn.MouseButton1Click:Connect(function() local c; c=UserInputService.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end end) end)
+             
+             local binding, boundKey = false, defaultKey
+             local bindFlag = text.."_Keybind"
+             
+             local function SetBind(k) 
+                if boundKey then 
+                    UpdateKeybind(library.keybinds, boundKey, k, callback) 
+                else
+                    UpdateKeybind(library.keybinds, nil, k, callback) 
+                end
+                boundKey = k
+                BindBtn.Text = k.Name
+                library.flags[bindFlag] = k.Name
+             end
+             
+             if defaultKey then SetBind(defaultKey) end
+             if library.flags[bindFlag] then 
+                local s,k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end)
+                if s and k then SetBind(k) end 
+             end
+             
+             BindBtn.MouseButton1Click:Connect(function() 
+                BindBtn.Text = "..."
+                local c; c=UserInputService.InputBegan:Connect(function(i) 
+                    if i.UserInputType==Enum.UserInputType.Keyboard then 
+                        c:Disconnect()
+                        SetBind(i.KeyCode) 
+                    end 
+                end) 
+             end)
              return { SetKeybind = SetBind }
         end
 
