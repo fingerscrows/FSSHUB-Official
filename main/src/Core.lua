@@ -8,7 +8,8 @@ Core.AuthData = nil
 
 -- KONFIGURASI SERVER
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
-local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
+-- Cek Mode Pengembang: Jika variabel global FSSHUB_DEV_BASE ada, gunakan itu. Jika tidak, gunakan URL default (main branch).
+local BASE_URL = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
 local DEFAULT_GAME = "main/scripts/Universal.lua" 
 
 -- Services
