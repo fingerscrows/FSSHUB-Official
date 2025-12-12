@@ -13,7 +13,8 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = game:GetService("Workspace").CurrentCamera
 
 -- [[ 0. LOAD UTILS MODULE ]] --
-local UtilsUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Utils.lua?t="..tostring(os.time())
+local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
+local UtilsUrl = BaseUrl .. "main/modules/Utils.lua?t="..tostring(os.time())
 local success, Utils = pcall(function() return loadstring(game:HttpGet(UtilsUrl))() end)
 
 if not success or not Utils then

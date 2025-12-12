@@ -3,7 +3,10 @@
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-local LIB_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/lib/FSSHUB_Lib.lua"
+print("[FSSHUB DEBUG] UIManager Loaded")
+
+local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
+local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -59,6 +62,8 @@ local function LoadLibrary()
         lib:Init()
         LibraryInstance = lib
         return lib
+    else
+        print("[FSSHUB DEBUG] LoadLibrary Failed: " .. tostring(lib))
     end
     return nil
 end
@@ -72,6 +77,8 @@ function UIManager.Build(GameConfig, AuthData)
         game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
         return 
     end
+
+    print("[FSSHUB DEBUG] Building Window...")
 
     local statusIcon = "👤"
     if AuthData then
@@ -353,7 +360,7 @@ function UIManager.Build(GameConfig, AuthData)
     
     if AuthData and AuthData.IsDev then
          Utils_Group:Button("Open Debug Console", function()
-            local dbgUrl = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/main/modules/Debugger.lua"
+            local dbgUrl = BaseUrl .. "main/modules/Debugger.lua"
             local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
             if s and m then m.Show() end
         end)

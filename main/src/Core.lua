@@ -6,10 +6,18 @@ local Core = {}
 local FILE_NAME = "FSSHUB_License.key"
 Core.AuthData = nil 
 
+-- [DEBUG HELPER]
+local function DebugLog(msg)
+    print("[FSSHUB DEBUG]: " .. tostring(msg))
+end
+
+DebugLog("Core Initializing...")
+DebugLog("FSSHUB_DEV_BASE: " .. tostring(getgenv().FSSHUB_DEV_BASE))
+
 -- KONFIGURASI SERVER
 local API_URL = "https://script.google.com/macros/s/AKfycby0s_ataAeB1Sw1IFz0k-x3OBM7TNMfA66OKm32Fl9E0F3Nf7vRieVzx9cA8TGX0mz_/exec" 
 -- Cek Mode Pengembang: Jika variabel global FSSHUB_DEV_BASE ada, gunakan itu. Jika tidak, gunakan URL default (main branch).
-local BASE_URL = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
+local BASE_URL = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local DEFAULT_GAME = "main/scripts/Universal.lua" 
 
 -- Services
@@ -33,7 +41,9 @@ end
 
 -- Load URL dengan parameter anti-cache
 local function LoadUrl(path)
-    return game:HttpGet(BASE_URL .. path .. "?t=" .. tostring(os.time()))
+    local full_url = BASE_URL .. path .. "?t=" .. tostring(os.time())
+    DebugLog("Fetching: " .. full_url)
+    return game:HttpGet(full_url)
 end
 
 -- Mengirim notifikasi ke layar pemain
@@ -121,6 +131,7 @@ function Core.LoadGame()
     local successManager, ManagerLib = pcall(function() return loadstring(LoadUrl("main/modules/UIManager.lua"))() end)
     
     if not successManager or not ManagerLib then 
+        DebugLog("CRITICAL ERROR loading UI Manager: " .. tostring(ManagerLib))
         Notify("FATAL ERROR", "Failed to load UI Manager. Check connection.") 
         return 
     end
@@ -139,7 +150,7 @@ function Core.LoadGame()
     if not Core.AuthData then Core.AuthData = {} end
     Core.AuthData.IsUniversal = isUniversal
     
-    print("[FSSHUB] Target Module: " .. scriptPath .. " | Mode: " .. (isUniversal and "Universal" or "Official"))
+    DebugLog("Target Module: " .. scriptPath .. " | Mode: " .. (isUniversal and "Universal" or "Official"))
 
     -- 3. Load Script Game
     local successData, GameData = pcall(function() return loadstring(LoadUrl(scriptPath))() end)
@@ -147,6 +158,7 @@ function Core.LoadGame()
     -- 4. Validasi Hasil Load & Fallback System
     -- Jika script game gagal diload (error syntax/404), switch ke Universal
     if not successData or type(GameData) ~= "table" then
+        DebugLog("Failed to load module: " .. scriptPath .. " Error: " .. tostring(GameData))
         warn("[FSSHUB] Failed to load module: " .. scriptPath)
         Notify("WARNING", "Official Script Error. Fallback to Universal...")
         
@@ -158,6 +170,7 @@ function Core.LoadGame()
             Core.AuthData.IsUniversal = true
             scriptPath = DEFAULT_GAME
         else 
+            DebugLog("Universal Script Failed: " .. tostring(UnivData))
             Notify("FATAL ERROR", "Universal Script Failed! Script stopped.") 
             return 
         end
@@ -175,6 +188,7 @@ function Core.LoadGame()
     end)
     
     if not buildSuccess then
+        DebugLog("UI Build Error: " .. tostring(err))
         warn("[FSSHUB] UI Build Error: ", err)
         Notify("UI ERROR", "Check console (F9) for details")
     end
