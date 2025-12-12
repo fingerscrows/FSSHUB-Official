@@ -35,9 +35,14 @@ local State = {
     SpeedEnabled = false,
     JumpEnabled = false,
     InfJump = false,
+    InfJumpConnection = nil, -- Memory Safe Connection
     Noclip = false,
     Spinbot = false,
     
+    -- Stored Defaults (For correct reset)
+    OriginalSpeed = nil,
+    OriginalJump = nil,
+
     -- Visuals
     Fullbright = false,
     
@@ -51,6 +56,12 @@ local State = {
 
 local function UpdateSpeed()
     if State.SpeedEnabled then
+        -- Store original speed if not already stored
+        if not State.OriginalSpeed and LocalPlayer.Character then
+            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if hum then State.OriginalSpeed = hum.WalkSpeed end
+        end
+
         Utils:BindLoop("WalkSpeed", "Heartbeat", function()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 if LocalPlayer.Character.Humanoid.WalkSpeed ~= State.Speed then
@@ -60,12 +71,25 @@ local function UpdateSpeed()
         end)
     else
         Utils:UnbindLoop("WalkSpeed")
-        pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
+        -- Restore to original speed or default 16
+        if LocalPlayer.Character then
+            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = State.OriginalSpeed or 16
+                State.OriginalSpeed = nil -- Reset stored value
+            end
+        end
     end
 end
 
 local function UpdateJump()
     if State.JumpEnabled then
+        -- Store original jump power if not already stored
+        if not State.OriginalJump and LocalPlayer.Character then
+            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if hum then State.OriginalJump = hum.JumpPower end
+        end
+
         Utils:BindLoop("JumpPower", "Heartbeat", function()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid.UseJumpPower = true
@@ -76,7 +100,14 @@ local function UpdateJump()
         end)
     else
         Utils:UnbindLoop("JumpPower")
-        pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
+        -- Restore to original jump or default 50
+        if LocalPlayer.Character then
+            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if hum then
+                hum.JumpPower = State.OriginalJump or 50
+                State.OriginalJump = nil -- Reset stored value
+            end
+        end
     end
 end
 
@@ -90,27 +121,31 @@ local function ToggleSpinbot(active)
             spin.AngularVelocity = Vector3.new(0, 50, 0)
             
             while State.Spinbot do
-                pcall(function()
-                    local root = LocalPlayer.Character.HumanoidRootPart
-                    if root and not root:FindFirstChild("FSS_Spin") then 
-                        spin:Clone().Parent = root 
-                    end
-                end)
+                -- [[ Hawk Safety Check ]] --
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local success, err = pcall(function()
+                        local root = LocalPlayer.Character.HumanoidRootPart
+                        if not root:FindFirstChild("FSS_Spin") then
+                            spin:Clone().Parent = root
+                        end
+                    end)
+                    if not success then warn("[FSSHUB] Spinbot Error:", err) end
+                end
                 task.wait(0.5)
             end
             
-            pcall(function()
-                if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
-                    LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
-                end
-            end)
-        end)
-    else
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
-                LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
+            -- Cleanup when loop breaks
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                 local old = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
+                 if old then old:Destroy() end
             end
         end)
+    else
+        -- Manual Disable
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+             local old = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
+             if old then old:Destroy() end
+        end
     end
 end
 
@@ -121,18 +156,24 @@ end
 
 local function ToggleInfJump(active)
     State.InfJump = active
+
+    -- Cleanup previous connection if it exists
+    if State.InfJumpConnection then
+        State.InfJumpConnection:Disconnect()
+        State.InfJumpConnection = nil
+    end
+
     if active then
-        Utils:Connect(UserInputService.JumpRequest, function()
+        -- Create new connection
+        State.InfJumpConnection = UserInputService.JumpRequest:Connect(function()
             if State.InfJump and LocalPlayer.Character then
                 local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+                if hum then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
             end
         end)
-    else
-        -- Utils:DeepClean clears connections, but for individual toggle we might need specific disconnect.
-        -- Utils doesn't support named connections yet, so we just rely on Cleanup or specific logic.
-        -- For now, if disabled, the flag State.InfJump prevents action.
-        -- Optimization: Utils could be improved to return connection for disconnection.
+        -- Note: We track it manually instead of Utils:Connect to allow specific disconnection
     end
 end
 
