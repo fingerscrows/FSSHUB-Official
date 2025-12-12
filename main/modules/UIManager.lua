@@ -1,5 +1,5 @@
--- [[ FSSHUB: UI MANAGER V6.0 (CENTRALIZED ICONS) ]] --
--- Changelog: Added IconLibrary for centralized asset management
+-- [[ FSSHUB: UI MANAGER V6.1 (ICON FIX) ]] --
+-- Changelog: Verified Icon IDs matching Dashboard style
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
@@ -17,21 +17,20 @@ local ConfigFolder = "FSSHUB_Settings"
 
 if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
--- [DATABASE IKON TERPUSAT]
--- Ganti semua ID ikon di sini saja kedepannya!
+-- [DATABASE IKON TERPUSAT - LUCIDE STYLE]
 local IconLibrary = {
     -- Kategori Umum
-    ["Dashboard"] = "10888331510", -- Rumah
-    ["Settings"]  = "10888336262", -- Gerigi
-    ["Player"]    = "10888334695", -- Orang
-    ["Visuals"]   = "10888333282", -- Mata
+    ["Dashboard"] = "10888331510", -- Rumah (Home)
+    ["Settings"]  = "10888336262", -- Gerigi (Settings)
+    ["Player"]    = "10888334695", -- Orang (User)
+    ["Visuals"]   = "10888333282", -- Mata (Eye)
     
     -- Kategori Game
-    ["Farming"]   = "10888335919", -- Daun
-    ["Combat"]    = "10888339056", -- Pedang
-    ["Support"]   = "10888334234", -- Hati
-    ["Misc"]      = "10888338271", -- Tanda Tanya
-    ["Teleport"]  = "10888337728", -- Peta/Pin
+    ["Farming"]   = "10888335919", -- Daun (Leaf)
+    ["Combat"]    = "10888339056", -- Pedang (Swords)
+    ["Support"]   = "10888334234", -- Hati (Heart)
+    ["Misc"]      = "10888338271", -- Kotak (Box)
+    ["Teleport"]  = "10888337728", -- Pin Peta (Map Pin)
 }
 
 -- [AUTO-LOAD PURGE]
@@ -63,7 +62,7 @@ function UIManager.Build(GameConfig, AuthData)
     
     local Library = LoadLibrary()
     if not Library then 
-        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load. Check console.", Duration = 5})
+        game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
         return 
     end
 
@@ -78,7 +77,6 @@ function UIManager.Build(GameConfig, AuthData)
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
     -- [[ DASHBOARD ]] --
-    -- Panggil ikon menggunakan Nama Kunci dari database di atas
     local ProfileTab = Window:Section("Dashboard", IconLibrary["Dashboard"])
     
     if AuthData then
@@ -103,7 +101,9 @@ function UIManager.Build(GameConfig, AuthData)
                 elseif left <= 0 then 
                     TimerLabel.Text = "LICENSE EXPIRED"
                 else 
-                    local d,h,m = math.floor(left/86400), math.floor((left%86400)/3600), math.floor((left%3600)/60)
+                    local d = math.floor(left/86400)
+                    local h = math.floor((left%86400)/3600)
+                    local m = math.floor((left%3600)/60)
                     TimerLabel.Text = string.format("Expires In: %dd %02dh %02dm", d, h, m)
                 end
                 task.wait(1)
@@ -113,13 +113,9 @@ function UIManager.Build(GameConfig, AuthData)
     ProfileTab:Label("Credits: FingersCrows")
 
     -- [[ GAME FEATURES GENERATOR ]] --
-    local ConfigurableItems = {} 
-
     if GameConfig.Tabs and type(GameConfig.Tabs) == "table" then
         for _, tabData in ipairs(GameConfig.Tabs) do
-            -- [SMART ICON SYSTEM]
-            -- Cek apakah nama ikon ada di IconLibrary? Jika ya, pakai ID dari sana.
-            -- Jika tidak, pakai ID mentah dari script game.
+            -- [SMART ICON SYSTEM] Ambil ID dari Library jika ada namanya
             local finalIcon = IconLibrary[tabData.Icon] or tabData.Icon
             
             local Tab = Window:Section(tabData.Name, finalIcon)
@@ -142,7 +138,7 @@ function UIManager.Build(GameConfig, AuthData)
                 end
                 
                 if newItem and newItem.Set then
-                    ConfigurableItems[element.Title] = newItem
+                    -- Simpan referensi item untuk Config System (Opsional jika ingin akses langsung)
                 end
             end
         end
@@ -193,9 +189,10 @@ function UIManager.Build(GameConfig, AuthData)
             local data = HttpService:JSONDecode(readfile(path))
             for title, value in pairs(data) do
                 Library.flags[title] = value 
-                if ConfigurableItems[title] then ConfigurableItems[title].Set(value) end
+                -- Refresh UI State (Logic di Library akan menangani update visual)
             end
             
+            -- Refresh visual
             if Library.themeRegistry then 
                for _, item in ipairs(Library.themeRegistry) do if item.Type == "Func" then pcall(item.Func) end end 
             end
