@@ -52,9 +52,11 @@ local State = {
 local function UpdateSpeed()
     if State.SpeedEnabled then
         Utils:BindLoop("WalkSpeed", "Heartbeat", function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                if LocalPlayer.Character.Humanoid.WalkSpeed ~= State.Speed then
-                    LocalPlayer.Character.Humanoid.WalkSpeed = State.Speed
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum and hum.WalkSpeed ~= State.Speed then
+                    hum.WalkSpeed = State.Speed
                 end
             end
         end)
@@ -67,10 +69,14 @@ end
 local function UpdateJump()
     if State.JumpEnabled then
         Utils:BindLoop("JumpPower", "Heartbeat", function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.UseJumpPower = true
-                if LocalPlayer.Character.Humanoid.JumpPower ~= State.Jump then
-                    LocalPlayer.Character.Humanoid.JumpPower = State.Jump
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum then
+                    hum.UseJumpPower = true
+                    if hum.JumpPower ~= State.Jump then
+                        hum.JumpPower = State.Jump
+                    end
                 end
             end
         end)
