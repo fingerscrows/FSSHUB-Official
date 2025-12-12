@@ -1,4 +1,5 @@
--- [[ FSSHUB AUTH UI V7.7 (SMART INPUT) ]] --
+-- [[ FSSHUB AUTH UI V7.8 (FULL INTEGRITY) ]] --
+-- Fitur: Smart Input Trimming, Clipboard Support, Responsive UI
 -- Path: main/modules/AuthUI.lua
 
 local AuthUI = {}
@@ -14,7 +15,7 @@ local Theme = {
     Text = Color3.fromRGB(240, 240, 240),
     Error = Color3.fromRGB(255, 65, 65),
     Outline = Color3.fromRGB(45, 45, 55),
-    Premium = Color3.fromRGB(255, 215, 0)
+    Premium = Color3.fromRGB(255, 215, 0) -- Warna Emas untuk Premium
 }
 
 local function GetHWID()
@@ -23,8 +24,13 @@ local function GetHWID()
 end
 
 function AuthUI.Show(options)
+    -- Gunakan gethui untuk keamanan ekstra jika didukung executor
     local Parent = gethui and gethui() or CoreGui
-    if Parent:FindFirstChild("FSSHUB_Auth") then Parent.FSSHUB_Auth:Destroy() end
+    
+    -- Hapus UI lama jika ada
+    if Parent:FindFirstChild("FSSHUB_Auth") then 
+        Parent.FSSHUB_Auth:Destroy() 
+    end
 
     local Screen = Instance.new("ScreenGui")
     Screen.Name = "FSSHUB_Auth"
@@ -37,8 +43,12 @@ function AuthUI.Show(options)
     Main.Position = UDim2.new(0.5, 0, 0.5, 0)
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
     
-    local Corner = Instance.new("UICorner", Main); Corner.CornerRadius = UDim.new(0, 12)
-    local Stroke = Instance.new("UIStroke", Main); Stroke.Color = Theme.Accent; Stroke.Thickness = 1.5
+    local Corner = Instance.new("UICorner", Main)
+    Corner.CornerRadius = UDim.new(0, 12)
+    
+    local Stroke = Instance.new("UIStroke", Main)
+    Stroke.Color = Theme.Accent
+    Stroke.Thickness = 1.5
     
     local Title = Instance.new("TextLabel", Main)
     Title.Text = "FSS HUB | GATEWAY"
@@ -53,7 +63,9 @@ function AuthUI.Show(options)
     InputBg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
     InputBg.Size = UDim2.new(0.85, 0, 0, 45)
     InputBg.Position = UDim2.new(0.075, 0, 0.38, 0)
-    Instance.new("UICorner", InputBg).CornerRadius = UDim.new(0, 8)
+    
+    local InputCorner = Instance.new("UICorner", InputBg)
+    InputCorner.CornerRadius = UDim.new(0, 8)
     
     local Input = Instance.new("TextBox", InputBg)
     Input.BackgroundTransparency = 1
@@ -63,7 +75,7 @@ function AuthUI.Show(options)
     Input.PlaceholderText = "Paste Key Here..."
     Input.Font = Enum.Font.Code
     Input.TextSize = 14
-    Input.Text = "" 
+    Input.Text = "" -- Pastikan kosong saat mulai
     
     local function CreateBtn(text, posScale, func)
         local Btn = Instance.new("TextButton", Main)
@@ -74,14 +86,24 @@ function AuthUI.Show(options)
         Btn.TextColor3 = text == "GET KEY" and Theme.Text or Color3.new(1,1,1)
         Btn.Font = Enum.Font.GothamBold
         Btn.TextSize = 12
-        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+        
+        local BtnCorner = Instance.new("UICorner", Btn)
+        BtnCorner.CornerRadius = UDim.new(0, 6)
+        
         if text == "GET KEY" then 
-            local s = Instance.new("UIStroke", Btn); s.Color = Theme.Outline; s.Thickness = 1 
+            local s = Instance.new("UIStroke", Btn)
+            s.Color = Theme.Outline
+            s.Thickness = 1 
         end
-        Btn.MouseButton1Click:Connect(function() func(Btn) end)
+        
+        Btn.MouseButton1Click:Connect(function() 
+            func(Btn) 
+        end)
+        
         return Btn
     end
     
+    -- TOMBOL GET KEY
     CreateBtn("GET KEY", 0.075, function(btn)
         local hwid = GetHWID()
         local link = "https://fingerscrows.github.io/fsshub-official/?hwid=" .. hwid
@@ -91,27 +113,32 @@ function AuthUI.Show(options)
             btn.Text = "COPIED!"
             task.delay(1.5, function() btn.Text = "GET KEY" end)
         else
+            -- Fallback jika setclipboard tidak support
             Input.Text = link
             btn.Text = "COPY FROM BOX"
         end
     end)
     
+    -- TOMBOL LOGIN
     CreateBtn("LOGIN", 0.525, function(btn)
+        -- Bersihkan spasi depan/belakang/tengah yang tidak sengaja tercopy
         local txt = Input.Text
-        txt = string.gsub(txt, "^%s+", "")
-        txt = string.gsub(txt, "%s+$", "")
+        txt = string.gsub(txt, "^%s+", "") -- Hapus spasi depan
+        txt = string.gsub(txt, "%s+$", "") -- Hapus spasi belakang
         
         local oldTxt = btn.Text
         local oldColor = btn.BackgroundColor3
         
         btn.Text = "CHECKING..."
         
+        -- Panggil callback OnSuccess dari Core
         local result = options.OnSuccess(txt)
         
         if result and result.success then
             Stroke.Color = Theme.Accent
             Title.Text = "ACCESS GRANTED"
             
+            -- Cek status user untuk feedback visual
             if result.info and (string.find(result.info, "Premium") or string.find(result.info, "Unlimited")) then
                 btn.Text = "👑 PREMIUM"
                 btn.BackgroundColor3 = Theme.Premium
@@ -121,26 +148,58 @@ function AuthUI.Show(options)
                 btn.Text = "WELCOME"
             end
             
-            task.wait(1)
+            task.wait(1.5)
             Screen:Destroy()
         else
+            -- Animasi jika gagal
             btn.Text = oldTxt
             btn.BackgroundColor3 = oldColor
+            
             Title.Text = "INVALID KEY"
             Stroke.Color = Theme.Error
             Title.TextColor3 = Theme.Error
+            
             task.wait(1.5)
+            
+            -- Reset Tampilan
             Title.Text = "FSS HUB | GATEWAY"
             Title.TextColor3 = Theme.Accent
             Stroke.Color = Theme.Accent
         end
     end)
     
+    -- Logic Drag (Agar UI bisa digeser)
     local dragging, dragInput, dragStart, startPos
-    Main.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = input.Position; startPos = Main.Position end end)
-    Main.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
-    UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+    
+    Main.InputBegan:Connect(function(input) 
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position 
+        end 
+    end)
+    
+    Main.InputChanged:Connect(function(input) 
+        if input.UserInputType == Enum.UserInputType.MouseMovement then 
+            dragInput = input 
+        end 
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input) 
+        if input == dragInput and dragging then 
+            local delta = input.Position - dragStart
+            Main.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X, 
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            ) 
+        end 
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input) 
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dragging = false 
+        end 
+    end)
 end
 
 return AuthUI
