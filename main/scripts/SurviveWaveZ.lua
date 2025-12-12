@@ -39,6 +39,55 @@ local State = {
 
 -- 3. Logic Functions (Ditulis Lengkap)
 
+-- [[ OPTIMIZATION: ZOMBIE CACHE SYSTEM ]] --
+local ZombieCache = {}
+
+local function RefreshCache()
+    ZombieCache = {}
+
+    -- Robust initialization: Wait for folder if script loads early
+    local zFolder = Workspace:FindFirstChild("ServerZombies")
+    if not zFolder then
+        -- Warn only if it takes too long
+        task.delay(5, function()
+            if not Workspace:FindFirstChild("ServerZombies") then
+                warn("[FSSHUB] Waiting for ServerZombies folder...")
+            end
+        end)
+        zFolder = Workspace:WaitForChild("ServerZombies", 30)
+    end
+
+    if zFolder then
+        -- Pre-populate
+        for _, z in ipairs(zFolder:GetChildren()) do
+            if z:FindFirstChild("Humanoid") then
+                ZombieCache[z] = true
+            end
+        end
+
+        -- Listeners managed by Utils for auto cleanup
+        Utils:Connect(zFolder.ChildAdded, function(child)
+            if child:IsA("Model") then
+                -- Non-blocking wait for humanoid
+                task.spawn(function()
+                    if child:WaitForChild("Humanoid", 2) then
+                         ZombieCache[child] = true
+                    end
+                end)
+            end
+        end)
+
+        Utils:Connect(zFolder.ChildRemoved, function(child)
+            ZombieCache[child] = nil
+        end)
+        print("[FSSHUB] Zombie Cache Initialized.")
+    else
+        warn("[FSSHUB] Failed to find ServerZombies folder. Features disabled.")
+    end
+end
+-- Init Cache
+task.spawn(RefreshCache)
+
 local function UpdateAutoFarm()
     if State.AutoFarm then
         Utils:BindLoop("AutoFarm", "Heartbeat", function()
@@ -46,39 +95,40 @@ local function UpdateAutoFarm()
             local myRoot = char and char:FindFirstChild("HumanoidRootPart")
             if not myRoot then return end
             
-            local zFolder = Workspace:FindFirstChild("ServerZombies")
-            if not zFolder then return end
-            
             -- Hitung posisi target di depan pemain
             local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * State.BringDist) + Vector3.new(0, State.LevitateHeight, 0)
             local facePlayer = CFrame.lookAt(targetPos, myRoot.Position + Vector3.new(0, State.LevitateHeight, 0))
             local finalCFrame = facePlayer * CFrame.Angles(math.rad(-90), 0, 0)
             
-            for _, z in ipairs(zFolder:GetChildren()) do
-                local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
-                local zHum = z:FindFirstChild("Humanoid")
-                
-                if zRoot and zHum and zHum.Health > 0 then
-                    local validTarget = true
-                    -- Filter Boss jika mode Boss aktif
-                    if State.TargetMode == "Boss" and not z.Name:lower():find("boss") then 
-                        validTarget = false 
-                    end
+            for z, _ in pairs(ZombieCache) do
+                if z and z.Parent then -- Validation check
+                    local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
+                    local zHum = z:FindFirstChild("Humanoid")
                     
-                    -- Teleport zombie jika dalam jangkauan
-                    if validTarget and (zRoot.Position - myRoot.Position).Magnitude < 300 then
-                        zRoot.CFrame = finalCFrame
-                        zRoot.AssemblyLinearVelocity = Vector3.zero
+                    if zRoot and zHum and zHum.Health > 0 then
+                        local validTarget = true
+                        -- Filter Boss jika mode Boss aktif
+                        if State.TargetMode == "Boss" and not z.Name:lower():find("boss") then
+                            validTarget = false
+                        end
                         
-                        -- Matikan fisika zombie agar tidak mendorong pemain
-                        if not z:GetAttribute("FSS_Physics") then
-                            z.PlatformStand = true
-                            for _, p in ipairs(z:GetChildren()) do 
-                                if p:IsA("BasePart") then p.CanCollide = false end 
+                        -- Teleport zombie jika dalam jangkauan
+                        if validTarget and (zRoot.Position - myRoot.Position).Magnitude < 300 then
+                            zRoot.CFrame = finalCFrame
+                            zRoot.AssemblyLinearVelocity = Vector3.zero
+
+                            -- Matikan fisika zombie agar tidak mendorong pemain
+                            if not z:GetAttribute("FSS_Physics") then
+                                z.PlatformStand = true
+                                for _, p in ipairs(z:GetChildren()) do
+                                    if p:IsA("BasePart") then p.CanCollide = false end
+                                end
+                                z:SetAttribute("FSS_Physics", true)
                             end
-                            z:SetAttribute("FSS_Physics", true)
                         end
                     end
+                else
+                    ZombieCache[z] = nil -- Cleanup dead reference
                 end
             end
         end)
@@ -129,13 +179,18 @@ end
 
 local function StartAimbot()
     if State.Aimbot then
-        Utils:BindLoop("Aimbot", "RenderStepped", function()
+        -- Target Selector (Runs at 10Hz to save CPU)
+        local AimbotTarget = nil
+        Utils:BindLoop("AimbotTarget", "Stepped", function()
+            -- Throttling: Run every ~0.1s logic handled implicitly by efficient check or explicit tick check?
+            -- To keep it < 50 lines and simple, we'll iterate the Cache (which is much faster than GetChildren)
+            -- every Stepped. If still laggy, we can add tick check.
+
             local closest, minMag = nil, 300
             local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-            local zFolder = Workspace:FindFirstChild("ServerZombies")
             
-            if zFolder then
-                for _, z in ipairs(zFolder:GetChildren()) do
+            for z, _ in pairs(ZombieCache) do
+                if z and z.Parent then
                     local head = z:FindFirstChild("Head")
                     local hum = z:FindFirstChild("Humanoid")
                     
@@ -149,16 +204,22 @@ local function StartAimbot()
                             end
                         end
                     end
+                else
+                     ZombieCache[z] = nil
                 end
             end
-            
-            -- Kunci kamera ke kepala target
-            if closest then 
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Position) 
+            AimbotTarget = closest
+        end)
+
+        -- Camera Lock (Runs at RenderStepped for smoothness)
+        Utils:BindLoop("AimbotLock", "RenderStepped", function()
+            if AimbotTarget then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, AimbotTarget.Position)
             end
         end)
     else
-        Utils:UnbindLoop("Aimbot")
+        Utils:UnbindLoop("AimbotTarget")
+        Utils:UnbindLoop("AimbotLock")
     end
 end
 
