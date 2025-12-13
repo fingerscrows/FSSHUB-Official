@@ -35,7 +35,8 @@ local State = {
     
     BringDist = 10,
     LevitateHeight = 1,
-    TargetMode = "All"
+    TargetMode = "All",
+    LootRange = 50
 }
 
 -- [[ ⚡ BOLT OPTIMIZATION: ZOMBIE CACHE ]] --
@@ -155,6 +156,59 @@ local function UpdateAutoAttack()
     end
 end
 
+local function UpdateAutoLoot()
+    if State.AutoLoot then
+        -- Define helpers outside loop for performance
+        local function getDropPart(obj)
+            local n = obj.Name
+            -- 1. Check Specific Names (High Priority)
+            if n == "MysteryBox" or n == "Pickup" or n == "AmmoBox" or n == "RewardChest" then
+                if obj:IsA("BasePart") then return obj end
+                if obj:IsA("Model") and obj.PrimaryPart then return obj.PrimaryPart end
+                if obj:IsA("Model") and obj:FindFirstChild("Handle") then return obj.Handle end
+            end
+
+            -- 2. General Tool/Drop Logic (Low Priority)
+            if obj:IsA("Tool") and obj:FindFirstChild("Handle") then return obj.Handle end
+
+            if obj:IsA("Model") and not obj:FindFirstChild("Humanoid") then
+                local nameLow = n:lower()
+                if nameLow:find("cash") or nameLow:find("ammo") or nameLow:find("drop") or nameLow:find("item") then
+                    return obj:FindFirstChild("Handle") or obj.PrimaryPart
+                end
+            end
+            return nil
+        end
+
+        Utils:BindLoop("AutoLoot", "Heartbeat", function()
+            local char = LocalPlayer.Character
+            local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+            if not myRoot then return end
+
+            local containers = {Workspace}
+            if Workspace:FindFirstChild("Drops") then table.insert(containers, Workspace.Drops) end
+            if Workspace:FindFirstChild("Items") then table.insert(containers, Workspace.Items) end
+
+            local range = State.LootRange or 50
+
+            -- Bring Loot Logic (Teleport item ke pemain)
+            for _, container in ipairs(containers) do
+                for _, v in ipairs(container:GetChildren()) do
+                    local targetPart = getDropPart(v)
+                    if targetPart then
+                        if (targetPart.Position - myRoot.Position).Magnitude <= range then
+                            targetPart.CanCollide = false
+                            targetPart.CFrame = myRoot.CFrame
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        Utils:UnbindLoop("AutoLoot")
+    end
+end
+
 local function UpdateESP()
     -- Toggle fungsi ESP di Module Utils
     if Utils.ESP then
@@ -227,6 +281,8 @@ return {
             Elements = {
                 {Type = "Toggle", Title = "Enable Auto Farm", Default = false, Callback = function(v) State.AutoFarm = v; UpdateAutoFarm() end},
                 {Type = "Toggle", Title = "Auto Attack", Default = false, Callback = function(v) State.AutoAttack = v; UpdateAutoAttack() end},
+                {Type = "Toggle", Title = "Vacuum Loot", Default = false, Callback = function(v) State.AutoLoot = v; UpdateAutoLoot() end},
+                {Type = "Slider", Title = "Loot Range", Min = 10, Max = 100, Default = 50, Callback = function(v) State.LootRange = v end},
                 {Type = "Slider", Title = "Magnet Distance", Min = 2, Max = 20, Default = 10, Callback = function(v) State.BringDist = v end},
                 {Type = "Slider", Title = "Levitate Height", Min = -5, Max = 5, Default = 1, Callback = function(v) State.LevitateHeight = v end},
                 {Type = "Dropdown", Title = "Target Priority", Options = {"All", "Normal", "Boss"}, Default = "All", Callback = function(v) State.TargetMode = v end}
