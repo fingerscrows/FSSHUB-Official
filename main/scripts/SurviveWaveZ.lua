@@ -34,7 +34,8 @@ local State = {
     
     BringDist = 10,
     LevitateHeight = 1,
-    TargetMode = "All"
+    TargetMode = "All",
+    LootRange = 50
 }
 
 -- 3. Logic Functions (Ditulis Lengkap)
@@ -99,6 +100,53 @@ local function UpdateAutoAttack()
         end)
     else
         Utils:UnbindLoop("AutoAttack")
+    end
+end
+
+local function UpdateAutoLoot()
+    if State.AutoLoot then
+        Utils:BindLoop("AutoLoot", "Heartbeat", function()
+            local char = LocalPlayer.Character
+            local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+            if not myRoot then return end
+
+            local closestDrop = nil
+            local minMag = State.LootRange or 50
+
+            local function isDrop(obj)
+                if obj:IsA("Tool") then return true end
+                if obj:IsA("Model") and obj:FindFirstChild("Handle") and not obj:FindFirstChild("Humanoid") then
+                    local n = obj.Name:lower()
+                    return n:find("cash") or n:find("ammo") or n:find("drop") or n:find("item")
+                end
+                return false
+            end
+
+            local containers = {Workspace}
+            if Workspace:FindFirstChild("Drops") then table.insert(containers, Workspace.Drops) end
+            if Workspace:FindFirstChild("Items") then table.insert(containers, Workspace.Items) end
+
+            for _, container in ipairs(containers) do
+                for _, v in ipairs(container:GetChildren()) do
+                    if isDrop(v) then
+                        local handle = v:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - myRoot.Position).Magnitude
+                            if dist < minMag then
+                                minMag = dist
+                                closestDrop = handle
+                            end
+                        end
+                    end
+                end
+            end
+
+            if closestDrop then
+                myRoot.CFrame = closestDrop.CFrame
+            end
+        end)
+    else
+        Utils:UnbindLoop("AutoLoot")
     end
 end
 
@@ -183,6 +231,8 @@ return {
             Elements = {
                 {Type = "Toggle", Title = "Enable Auto Farm", Default = false, Callback = function(v) State.AutoFarm = v; UpdateAutoFarm() end},
                 {Type = "Toggle", Title = "Auto Attack", Default = false, Callback = function(v) State.AutoAttack = v; UpdateAutoAttack() end},
+                {Type = "Toggle", Title = "Vacuum Loot", Default = false, Callback = function(v) State.AutoLoot = v; UpdateAutoLoot() end},
+                {Type = "Slider", Title = "Loot Range", Min = 10, Max = 100, Default = 50, Callback = function(v) State.LootRange = v end},
                 {Type = "Slider", Title = "Magnet Distance", Min = 2, Max = 20, Default = 10, Callback = function(v) State.BringDist = v end},
                 {Type = "Slider", Title = "Levitate Height", Min = -5, Max = 5, Default = 1, Callback = function(v) State.LevitateHeight = v end},
                 {Type = "Dropdown", Title = "Target Priority", Options = {"All", "Normal", "Boss"}, Default = "All", Callback = function(v) State.TargetMode = v end}
