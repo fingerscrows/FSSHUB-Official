@@ -516,8 +516,8 @@ function library:Window(title)
             local function UpdateVisuals()
                 local targetColor = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)
                 local targetPos = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
-                TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-                TweenService:Create(Circle, TweenInfo.new(0.2), {Position = targetPos}):Play()
+                TweenService:Create(CheckBox, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
+                TweenService:Create(Circle, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetPos}):Play()
             end
             library:RegisterThemeFunc(UpdateVisuals)
             local function SetState(val) toggled = val; library.flags[text] = val; UpdateVisuals(); pcall(function() callback(toggled) end) end
@@ -582,8 +582,12 @@ function library:Window(title)
             
             local Trigger = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.new(0, 12, 0, 24), BackgroundTransparency = 1, Text = ""})
             
-            Trigger.MouseEnter:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end)
-            Trigger.MouseLeave:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end)
+            Trigger.MouseEnter:Connect(function()
+                TweenService:Create(Dot, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0, Size = UDim2.new(0, 14, 0, 14)}):Play()
+            end)
+            Trigger.MouseLeave:Connect(function()
+                TweenService:Create(Dot, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1, Size = UDim2.new(0, 10, 0, 10)}):Play()
+            end)
             
             local function Update(v)
                 val = math.clamp(v, min, max); library.flags[text] = val
@@ -624,6 +628,14 @@ function library:Window(title)
                  for _, opt in ipairs(opts) do 
                     local B = Create("TextButton", {Parent = OptionContainer, Text = opt, Font = Enum.Font.Gotham, TextSize = 12, Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false}); 
                     library:RegisterTheme(B, "TextColor3", "TextDim"); Create("UICorner", {Parent = B, CornerRadius = UDim.new(0, 4)}); 
+
+                    B.MouseEnter:Connect(function()
+                        TweenService:Create(B, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover, TextColor3 = library.theme.Text}):Play()
+                    end)
+                    B.MouseLeave:Connect(function()
+                        TweenService:Create(B, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45,45,50), TextColor3 = library.theme.TextDim}):Play()
+                    end)
+
                     B.MouseButton1Click:Connect(function() Set(opt) end) 
                  end
              end

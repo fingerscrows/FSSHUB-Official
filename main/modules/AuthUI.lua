@@ -206,15 +206,16 @@ function AuthUI.Show(options)
             btn.BackgroundColor3 = oldColor
             
             Title.Text = "INVALID KEY"
-            Stroke.Color = Theme.Error
-            Title.TextColor3 = Theme.Error
+            -- Tween Colors
+            TweenService:Create(Stroke, TweenInfo.new(0.3), {Color = Theme.Error}):Play()
+            TweenService:Create(Title, TweenInfo.new(0.3), {TextColor3 = Theme.Error}):Play()
             
             task.wait(1.5)
             
             -- Reset Tampilan
             Title.Text = "FSS HUB | GATEWAY"
-            Title.TextColor3 = Theme.Accent
-            Stroke.Color = Theme.Accent
+            TweenService:Create(Title, TweenInfo.new(0.3), {TextColor3 = Theme.Accent}):Play()
+            TweenService:Create(Stroke, TweenInfo.new(0.3), {Color = Theme.Accent}):Play()
         end
     end)
     
