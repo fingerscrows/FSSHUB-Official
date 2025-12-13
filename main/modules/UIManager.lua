@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V3.3 (KEYBIND FIX) ]] --
--- Status: Keybind Persistence Patched via Blueprint.
+-- [[ FSSHUB: UI MANAGER V3.4 (STRING-FIRST ARCHITECTURE) ]] --
+-- Status: Keybind Persistence Solved via Library Adapter.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V3.3 Loading...")
+print("[FSSHUB DEBUG] UIManager V3.4 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -39,7 +39,7 @@ local IconLibrary = {
     ["Teleport"]  = "10888337728"
 }
 
--- [[ 1. SERIALIZATION ENGINE (BLUEPRINT COMPLIANT) ]] --
+-- [[ 1. SERIALIZATION ENGINE ]] --
 local function Serialize(val)
     local t = typeof(val)
     if t == "Color3" then
@@ -304,7 +304,12 @@ function UIManager.Build(GameConfig, AuthData)
             elseif itemData.Type == "TextBox" then
                 if item.Set then item.Set(def or "") end
             elseif itemData.Type == "Keybind" then
-                if item.SetKeybind then item.SetKeybind(def or Enum.KeyCode.None) end
+                -- [V3.4] Use new .Set() adapter if available, fallback to .SetKeybind
+                if item.Set then
+                    item.Set(def or Enum.KeyCode.None)
+                elseif item.SetKeybind then
+                    item.SetKeybind(def or Enum.KeyCode.None)
+                end
             end
         end
         Library:Notify("System", "All Features Reset", 2)
