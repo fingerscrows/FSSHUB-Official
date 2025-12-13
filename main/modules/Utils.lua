@@ -4,6 +4,7 @@
 
 local Utils = {}
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -37,6 +38,16 @@ end
 
 function Utils:Connect(signal, callback)
     local conn = signal:Connect(callback)
+    table.insert(self.Connections, conn)
+    return conn
+end
+
+function Utils:BindKey(keyCode, callback)
+    local conn = UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == keyCode then
+            callback()
+        end
+    end)
     table.insert(self.Connections, conn)
     return conn
 end

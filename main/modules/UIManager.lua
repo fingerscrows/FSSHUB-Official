@@ -167,7 +167,7 @@ function UIManager.Build(GameConfig, AuthData)
                 elseif element.Type == "Button" then 
                     local b = Tab:Button(element.Title, element.Callback)
                 elseif element.Type == "Keybind" then 
-                    Tab:Keybind(element.Title, element.Default, element.Callback)
+                    newItem = Tab:Keybind(element.Title, element.Default, element.Callback)
                 elseif element.Type == "Label" then 
                     Tab:Label(element.Title)
                 end
