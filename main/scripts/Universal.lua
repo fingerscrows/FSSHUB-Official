@@ -1,5 +1,5 @@
--- [[ FSSHUB DATA: UNIVERSAL V7.1 (OPTIMIZED) ]] --
--- Status: Refactored to use Utils Module, Optimized Loops
+-- [[ FSSHUB DATA: UNIVERSAL V7.2 (HAWK STABLE) ]] --
+-- Status: HAWK Optimized (Safe Toggles, No Leaks)
 -- Path: main/scripts/Universal.lua
 
 local Players = game:GetService("Players")
@@ -49,6 +49,8 @@ local State = {
     -- Internal State
     OriginalSpeed = nil,
     OriginalJump = nil,
+    InfJumpConnection = nil,
+    ESPConnection = nil,
 }
 
 -- Track character changes to reset original values
@@ -77,17 +79,16 @@ local function UpdateSpeed()
         end)
     else
         Utils:UnbindLoop("WalkSpeed")
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                local hum = LocalPlayer.Character.Humanoid
-                if State.OriginalSpeed then
-                    hum.WalkSpeed = State.OriginalSpeed
-                    State.OriginalSpeed = nil
-                else
-                    hum.WalkSpeed = 16 -- Fallback
-                end
+        -- HAWK: Removed pcall, added manual safety check
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            local hum = LocalPlayer.Character.Humanoid
+            if State.OriginalSpeed then
+                hum.WalkSpeed = State.OriginalSpeed
+                State.OriginalSpeed = nil
+            else
+                hum.WalkSpeed = 16 -- Fallback
             end
-        end)
+        end
     end
 end
 
@@ -110,51 +111,46 @@ local function UpdateJump()
         end)
     else
         Utils:UnbindLoop("JumpPower")
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                local hum = LocalPlayer.Character.Humanoid
-                if State.OriginalJump then
-                    hum.JumpPower = State.OriginalJump
-                    State.OriginalJump = nil
-                else
-                    hum.JumpPower = 50 -- Fallback
-                end
+        -- HAWK: Removed pcall, added manual safety check
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            local hum = LocalPlayer.Character.Humanoid
+            if State.OriginalJump then
+                hum.JumpPower = State.OriginalJump
+                State.OriginalJump = nil
+            else
+                hum.JumpPower = 50 -- Fallback
             end
-        end)
+        end
     end
 end
 
 local function ToggleSpinbot(active)
     State.Spinbot = active
     if active then
-        task.spawn(function()
-            local spin = Instance.new("BodyAngularVelocity")
-            spin.Name = "FSS_Spin"
-            spin.MaxTorque = Vector3.new(0, math.huge, 0)
-            spin.AngularVelocity = Vector3.new(0, 50, 0)
+        -- HAWK: Replaced task.spawn/while loop with Utils:BindLoop to prevent zombies
+        Utils:BindLoop("Spinbot", "Heartbeat", function()
+            local char = LocalPlayer.Character
+            if not char then return end
             
-            while State.Spinbot do
-                pcall(function()
-                    local root = LocalPlayer.Character.HumanoidRootPart
-                    if root and not root:FindFirstChild("FSS_Spin") then 
-                        spin:Clone().Parent = root 
-                    end
-                end)
-                task.wait(0.5)
-            end
-            
-            pcall(function()
-                if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
-                    LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Recreate BodyAngularVelocity if missing
+                if not root:FindFirstChild("FSS_Spin") then
+                    local spin = Instance.new("BodyAngularVelocity")
+                    spin.Name = "FSS_Spin"
+                    spin.MaxTorque = Vector3.new(0, math.huge, 0)
+                    spin.AngularVelocity = Vector3.new(0, 50, 0)
+                    spin.Parent = root
                 end
-            end)
+            end
         end)
     else
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin") then
-                LocalPlayer.Character.HumanoidRootPart.FSS_Spin:Destroy()
-            end
-        end)
+        Utils:UnbindLoop("Spinbot")
+        -- Safe Cleanup
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local existing = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FSS_Spin")
+            if existing then existing:Destroy() end
+        end
     end
 end
 
@@ -165,18 +161,22 @@ end
 
 local function ToggleInfJump(active)
     State.InfJump = active
+
+    -- HAWK: Cleanup old connection first
+    if State.InfJumpConnection then
+        State.InfJumpConnection:Disconnect()
+        State.InfJumpConnection = nil
+    end
+
     if active then
-        Utils:Connect(UserInputService.JumpRequest, function()
+        -- We do NOT use Utils:Connect here because we need to manually manage this specific connection
+        -- for toggling. Utils:Connect stores it in a global list which is hard to pick from.
+        State.InfJumpConnection = UserInputService.JumpRequest:Connect(function()
             if State.InfJump and LocalPlayer.Character then
                 local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
                 if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
             end
         end)
-    else
-        -- Utils:DeepClean clears connections, but for individual toggle we might need specific disconnect.
-        -- Utils doesn't support named connections yet, so we just rely on Cleanup or specific logic.
-        -- For now, if disabled, the flag State.InfJump prevents action.
-        -- Optimization: Utils could be improved to return connection for disconnection.
     end
 end
 
@@ -184,7 +184,6 @@ local function ApplyFullbright(active)
     State.Fullbright = active
     if active then
         Utils:BindLoop("Fullbright", "Heartbeat", function()
-             -- Using Heartbeat ensures it stays applied even if game changes it
              Lighting.Brightness = 2
              Lighting.ClockTime = 14
              Lighting.GlobalShadows = false
@@ -221,18 +220,20 @@ local function ToggleESP(active)
     State.ESP = active
     Utils.ESP:Toggle(active)
 
+    -- HAWK: Cleanup PlayerAdded connection to prevent stacking listeners
+    if State.ESPConnection then
+        State.ESPConnection:Disconnect()
+        State.ESPConnection = nil
+    end
+
     if active then
         -- Add to existing players
         for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
-        -- Connect for new players
-        Utils:Connect(Players.PlayerAdded, CreateESP)
+
+        -- Connect for new players manually
+        State.ESPConnection = Players.PlayerAdded:Connect(CreateESP)
     else
         Utils.ESP:Clear()
-        -- Note: We rely on Utils:DeepClean() or manually disconnecting PlayerAdded if we wanted to fully stop listening.
-        -- But since Utils:Connect doesn't return an ID we can easily target, we rely on the flag check inside CreateESP
-        -- or just leave the listener (it's lightweight) until DeepClean.
-        -- For better performance, we should probably clear the connections associated with ESP.
-        -- But Utils currently stores all connections in one list.
     end
 end
 
@@ -243,13 +244,23 @@ local function ServerHop()
     local _servers = Api.._place.."/servers/Public?sortOrder=Asc&limit=100"
     
     local function ListServers(cursor)
-       local Raw = game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
-       return HttpService:JSONDecode(Raw)
+       local success, result = pcall(function()
+           return game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
+       end)
+
+       if not success then
+           warn("[HAWK] ServerHop Http Failed: " .. tostring(result))
+           return nil
+       end
+
+       return HttpService:JSONDecode(result)
     end
     
     local Server, Next
     repeat
        local Servers = ListServers(Next)
+       if not Servers then return end -- Fail safe
+
        Server = Servers.data[1]
        Next = Servers.nextPageCursor
     until Server
@@ -263,6 +274,17 @@ end
 local function Cleanup()
     print("[FSSHUB] Universal Unload (Via Utils)...")
 
+    -- Clean specific toggles first
+    if State.InfJumpConnection then
+        State.InfJumpConnection:Disconnect()
+        State.InfJumpConnection = nil
+    end
+
+    if State.ESPConnection then
+        State.ESPConnection:Disconnect()
+        State.ESPConnection = nil
+    end
+
     if Utils then
         Utils:DeepClean()
     end
@@ -275,7 +297,6 @@ local function Cleanup()
     State.Fullbright = false
     State.Noclip = false
     
-    -- Additional Cleanup if Utils didn't catch something (Utils catches most)
     getgenv().FSS_Universal_Stop = nil
     
     print("[FSSHUB] Universal Unload Complete.")
@@ -285,7 +306,7 @@ getgenv().FSS_Universal_Stop = Cleanup
 
 -- 5. Return Configuration
 return {
-    Name = "Universal V7.1",
+    Name = "Universal V7.2",
     OnUnload = Cleanup,
 
     Tabs = {
