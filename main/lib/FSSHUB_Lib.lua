@@ -166,10 +166,11 @@ function library:Notify(title, text, duration)
         Size = UDim2.new(1, 0, 0, 3),
         Position = UDim2.new(0, 0, 1, -3),
         BorderSizePixel = 0,
+        ZIndex = 5, -- Ensure it is on top of other content
         BackgroundColor3 = library.theme.Accent
     })
     library:RegisterTheme(TimerBar, "BackgroundColor3", "Accent")
-    Create("UICorner", {Parent = TimerBar, CornerRadius = UDim.new(0, 2)}) -- Slight roundness
+    Create("UICorner", {Parent = TimerBar, CornerRadius = UDim.new(0, 2)})
 
     -- Animation Sequence
     task.spawn(function()
@@ -618,7 +619,22 @@ function library:Window(title)
                 TweenService:Create(Circle, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetPos}):Play()
             end
             library:RegisterThemeFunc(UpdateVisuals)
-            local function SetState(val) toggled = val; library.flags[text] = val; UpdateVisuals(); pcall(function() callback(toggled) end) end
+
+            local firstSet = true
+            local function SetState(val)
+                toggled = val
+                library.flags[text] = val
+                UpdateVisuals()
+
+                -- State Change Notification
+                if not firstSet then
+                     local status = toggled and "Enabled" or "Disabled"
+                     library:Notify(text, "Feature has been " .. status, 2)
+                end
+                firstSet = false
+
+                pcall(function() callback(toggled) end)
+            end
             Btn.MouseButton1Click:Connect(function()
                 CreateRipple(Frame)
                 SetState(not toggled)
