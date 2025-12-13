@@ -40,10 +40,21 @@ local function GetGameName()
 end
 
 -- Load URL dengan parameter anti-cache
+-- Load URL dengan parameter anti-cache (SECURE)
 local function LoadUrl(path)
     local full_url = BASE_URL .. path .. "?t=" .. tostring(os.time())
     DebugLog("Fetching: " .. full_url)
-    return game:HttpGet(full_url)
+
+    local success, result = pcall(function()
+        return game:HttpGet(full_url)
+    end)
+
+    if not success then
+        warn("[SENTINEL] Network Error: " .. tostring(result))
+        return nil
+    end
+
+    return result
 end
 
 -- Mengirim notifikasi ke layar pemain
@@ -212,26 +223,34 @@ function Core.Init()
     local success, AuthUI = pcall(function() return loadstring(LoadUrl("main/modules/AuthUI.lua"))() end)
     
     if success and AuthUI then
-        AuthUI.Show({
-            OnSuccess = function(key)
-                -- Callback saat tombol Login ditekan di AuthUI
-                local result = Core.ValidateKey(key)
-                
-                if result.valid then
-                    -- Simpan key baru ke file
-                    writefile(FILE_NAME, key)
+        -- SENTINEL: Wrap UI Show in pcall to prevent crash
+        local uiSuccess, uiErr = pcall(function()
+            AuthUI.Show({
+                OnSuccess = function(key)
+                    -- Callback saat tombol Login ditekan di AuthUI
+                    local result = Core.ValidateKey(key)
                     
-                    -- Load Game dalam thread baru agar UI Auth bisa tertutup mulus
-                    task.spawn(function()
-                        Core.LoadGame()
-                    end)
+                    if result.valid then
+                        -- Simpan key baru ke file
+                        writefile(FILE_NAME, key)
+
+                        -- Load Game dalam thread baru agar UI Auth bisa tertutup mulus
+                        task.spawn(function()
+                            Core.LoadGame()
+                        end)
+
+                        return {success = true, info = result.info}
+                    end
                     
-                    return {success = true, info = result.info} 
+                    return {success = false}
                 end
-                
-                return {success = false}
-            end
-        })
+            })
+        end)
+
+        if not uiSuccess then
+            warn("[SENTINEL] UI Error: " .. tostring(uiErr))
+            Notify("UI ERROR", "Auth UI crashed. Check console.")
+        end
     else
         Notify("ERROR", "Auth UI Failed to Load. Re-execute script.")
     end
