@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V3.4 (STRING-FIRST ARCHITECTURE) ]] --
--- Status: Keybind Persistence Solved via Library Adapter.
+-- [[ FSSHUB: UI MANAGER V3.5 (SURGEON FIX) ]] --
+-- Status: Keybinds Fixed via Force-Cast & Flags Injection.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V3.4 Loading...")
+print("[FSSHUB DEBUG] UIManager V3.5 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -70,7 +70,6 @@ end
 local function SafeEnum(val)
     if type(val) == "string" then
         if val == "None" then return Enum.KeyCode.Unknown end
-        -- Robust: Handle both "Q" and "Enum.KeyCode.Q"
         local clean = val:gsub("Enum.KeyCode.", "")
         return Enum.KeyCode[clean] or Enum.KeyCode.Unknown
     end
@@ -89,10 +88,6 @@ local function LoadState()
         local clean = {}
         for k, v in pairs(data) do
             clean[k] = Deserialize(v)
-            -- Blueprint Logic: Detect Keybinds on Load
-            if string.find(k, "_Keybind") and type(v) == "string" then
-                -- Note: We just decode here, application happens in Build
-            end
         end
         return clean
     end
@@ -103,7 +98,6 @@ local function SaveState()
     if not LibraryInstance then return end
 
     local data = {}
-    -- Blueprint Logic: Create Safe Table
     for key, val in pairs(LibraryInstance.flags) do
         data[key] = Serialize(val)
     end
@@ -131,12 +125,18 @@ local function LoadLibrary()
 end
 
 function UIManager.Build(GameConfig, AuthData)
-    -- A. PRE-LOAD STATE (SMOOTH LOAD)
+    -- A. PRE-LOAD STATE
     SavedState = LoadState()
     
     local Library = LoadLibrary()
     if not Library then return end
     LibraryInstance = Library
+
+    -- [SURGEON] Inject Flags Immediately
+    -- This ensures Toggles with "_Bind" suffixes pick up their keybinds automatically
+    for k, v in pairs(SavedState) do
+        Library.flags[k] = v
+    end
 
     -- Setup Status
     local statusIcon = "👤"
@@ -172,7 +172,7 @@ function UIManager.Build(GameConfig, AuthData)
         end)
     end
 
-    -- [[ GENERATOR LOOP (INJECTING STATE) ]] --
+    -- [[ GENERATOR LOOP ]] --
     ConfigItems = {}
     if GameConfig.Tabs then
         for _, tabData in ipairs(GameConfig.Tabs) do
@@ -182,29 +182,13 @@ function UIManager.Build(GameConfig, AuthData)
             for _, element in ipairs(tabData.Elements) do
                 local newItem = nil
                 
-                -- Determine Effective Default (Saved > Default)
+                -- Values are already injected into Library.flags, so we rely on that mostly.
+                -- However, we still pass defaults if needed.
                 local savedVal = SavedState[element.Title]
                 local effectiveDef = (savedVal ~= nil) and savedVal or element.Default
 
                 if element.Type == "Toggle" then 
                     newItem = Tab:Toggle(element.Title, effectiveDef, element.Callback)
-
-                    -- BLUEPRINT LOGIC: Handle Keybind Suffix
-                    local keybindFlag = element.Title .. "_Keybind"
-                    local savedKey = SavedState[keybindFlag]
-
-                    if newItem.SetKeybind then
-                         -- Using defer to Ensure Library Registration
-                         task.defer(function()
-                             if savedKey then
-                                 -- Blueprint: Restore from String
-                                 newItem.SetKeybind(SafeEnum(savedKey))
-                                 -- print("[FSSHUB DEBUG] Restored Keybind: " .. tostring(savedKey))
-                             elseif element.Keybind and not savedKey then
-                                 newItem.SetKeybind(element.Keybind)
-                             end
-                         end)
-                    end
 
                 elseif element.Type == "Slider" then 
                     newItem = Tab:Slider(element.Title, element.Min, element.Max, effectiveDef, element.Callback)
@@ -213,7 +197,7 @@ function UIManager.Build(GameConfig, AuthData)
                 elseif element.Type == "Button" then 
                     Tab:Button(element.Title, element.Callback)
                 elseif element.Type == "Keybind" then 
-                    -- Ensure Keybind is Enum
+                    -- Pass SafeEnum for constructor compatibility
                     local bindVal = SafeEnum(effectiveDef)
                     newItem = Tab:Keybind(element.Title, bindVal, element.Callback)
                 elseif element.Type == "TextBox" then
@@ -222,7 +206,7 @@ function UIManager.Build(GameConfig, AuthData)
                     Tab:Label(element.Title)
                 end
                 
-                -- Store for Reset Logic
+                -- Store Metadata
                 if newItem then
                     ConfigItems[element.Title] = {
                         Object = newItem,
@@ -242,29 +226,21 @@ function UIManager.Build(GameConfig, AuthData)
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
 
-    -- Theme
     local savedTheme = SavedState["Theme"] or "FSS Purple"
     if safePresets[savedTheme] then Library:SetTheme(savedTheme) end
-    local themeDrop = UI_Group:Dropdown("Theme", themeNames, savedTheme, function(selected)
-        Library:SetTheme(selected)
-    end)
+    local themeDrop = UI_Group:Dropdown("Theme", themeNames, savedTheme, function(selected) Library:SetTheme(selected) end)
     ConfigItems["Theme"] = {Object = themeDrop, Type = "Dropdown", Default = "FSS Purple"}
 
-    -- Transparency
     local savedTrans = SavedState["Menu Transparency"] or 0
     Library:SetTransparency(savedTrans/100)
-    local transSlide = UI_Group:Slider("Menu Transparency", 0, 90, savedTrans, function(v)
-        Library:SetTransparency(v/100)
-    end)
+    local transSlide = UI_Group:Slider("Menu Transparency", 0, 90, savedTrans, function(v) Library:SetTransparency(v/100) end)
     ConfigItems["Menu Transparency"] = {Object = transSlide, Type = "Slider", Default = 0}
 
-    -- Watermark Toggle
     local savedWaterTog = (SavedState["Show Watermark"] ~= nil) and SavedState["Show Watermark"] or true
     Library:ToggleWatermark(savedWaterTog)
     local waterTog = UI_Group:Toggle("Show Watermark", savedWaterTog, function(s) Library:ToggleWatermark(s) end)
     ConfigItems["Show Watermark"] = {Object = waterTog, Type = "Toggle", Default = true}
 
-    -- Watermark Pos
     local savedPos = SavedState["Watermark Pos"] or "Top Right"
     if Library.SetWatermarkAlign then Library:SetWatermarkAlign(savedPos) end
     local waterPos = UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, savedPos, function(p)
@@ -272,12 +248,9 @@ function UIManager.Build(GameConfig, AuthData)
     end)
     ConfigItems["Watermark Pos"] = {Object = waterPos, Type = "Dropdown", Default = "Top Right"}
 
-    -- Notifications
     local savedNotif = (SavedState["Show Notifications"] ~= nil) and SavedState["Show Notifications"] or true
     Library.flags["Show Notifications"] = savedNotif
-    local notifTog = UI_Group:Toggle("Show Notifications", savedNotif, function(state)
-        Library.flags["Show Notifications"] = state
-    end)
+    local notifTog = UI_Group:Toggle("Show Notifications", savedNotif, function(state) Library.flags["Show Notifications"] = state end)
     ConfigItems["Show Notifications"] = {Object = notifTog, Type = "Toggle", Default = true}
     
     UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
@@ -286,6 +259,26 @@ function UIManager.Build(GameConfig, AuthData)
             if main then main.Visible = not main.Visible end
         end
     end)
+
+    -- [[ SURGEON: FORCE-CAST LOADING ]] --
+    -- Re-apply Keybinds strictly as Enums to handle any initialization misses
+    for title, val in pairs(SavedState) do
+        -- Handle Standalone Keybinds
+        local itemData = ConfigItems[title]
+        if itemData and itemData.Object and itemData.Object.SetKeybind then
+            if type(val) == "string" then
+                local s, k = pcall(function()
+                    local clean = val:gsub("Enum.KeyCode.", "")
+                    return Enum.KeyCode[clean]
+                end)
+                if s and k then
+                    itemData.Object.SetKeybind(k)
+                end
+            end
+        end
+
+        -- Note: Toggle Keybinds are handled via Flags Injection + Library Init
+    end
 
     -- Utilities
     local Utils_Group = SettingsTab:Group("Utilities")
@@ -304,20 +297,13 @@ function UIManager.Build(GameConfig, AuthData)
             elseif itemData.Type == "TextBox" then
                 if item.Set then item.Set(def or "") end
             elseif itemData.Type == "Keybind" then
-                -- [V3.4] Use new .Set() adapter if available, fallback to .SetKeybind
-                if item.Set then
-                    item.Set(def or Enum.KeyCode.None)
-                elseif item.SetKeybind then
-                    item.SetKeybind(def or Enum.KeyCode.None)
-                end
+                if item.SetKeybind then item.SetKeybind(def or Enum.KeyCode.None) end
             end
         end
         Library:Notify("System", "All Features Reset", 2)
     end)
 
-    Utils_Group:Button("Rejoin Server", function()
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-    end)
+    Utils_Group:Button("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
 
     if AuthData and AuthData.IsDev then
          Utils_Group:Button("Open Debug Console", function()
@@ -328,14 +314,12 @@ function UIManager.Build(GameConfig, AuthData)
     end
 
     Utils_Group:Button("Unload Script", function()
-        SaveState() -- Force Save
+        SaveState()
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
         if Library.base then Library.base:Destroy() end
     end)
 
     -- [[ AUTO-SAVE SYSTEM ]] --
-
-    -- 1. Periodic Save (Every 60s)
     task.spawn(function()
         while Library.base do
             task.wait(60)
@@ -343,28 +327,16 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
 
-    -- 2. Exit Save (Crash Safe)
     pcall(function()
-        if game.OnClose then
-             game.OnClose = function() SaveState() end
-        end
-
-        game:BindToClose(function()
-            SaveState()
-        end)
+        if game.OnClose then game.OnClose = function() SaveState() end end
+        game:BindToClose(function() SaveState() end)
     end)
 
-    -- 3. Teleport Save
     if LocalPlayer.OnTeleport then
-        LocalPlayer.OnTeleport:Connect(function()
-            SaveState()
-        end)
+        LocalPlayer.OnTeleport:Connect(function() SaveState() end)
     end
 
-    -- Welcome
-    task.delay(1, function()
-        Library:Notify("Welcome", "State Restored Successfully", 4)
-    end)
+    task.delay(1, function() Library:Notify("Welcome", "State Restored Successfully", 4) end)
 end
 
 return UIManager
