@@ -77,15 +77,19 @@ local function Create(class, props)
     return inst
 end
 
-local function UpdateKeybind(tableBinds, oldKey, newKey, callback)
+local function UpdateKeybind(tableBinds, flag, oldKey, newKey, callback)
+    -- [V2] Clean Cleanup (Removes specific flag from old key)
     if oldKey and tableBinds[oldKey] then
-        for i, func in ipairs(tableBinds[oldKey]) do
-            if func == callback then table.remove(tableBinds[oldKey], i) break end
-        end
+        tableBinds[oldKey][flag] = nil
+        -- Remove empty tables to prevent memory ghosting
+        local isEmpty = true; for _ in pairs(tableBinds[oldKey]) do isEmpty = false break end
+        if isEmpty then tableBinds[oldKey] = nil end
     end
+
+    -- [V2] Register New Bind (Stacks allowed, overwrites same flag)
     if newKey then
         if not tableBinds[newKey] then tableBinds[newKey] = {} end
-        table.insert(tableBinds[newKey], callback)
+        tableBinds[newKey][flag] = callback
     end
 end
 
@@ -320,9 +324,13 @@ function library:Init()
     
     if getgenv().FSS_InputConnection then getgenv().FSS_InputConnection:Disconnect(); getgenv().FSS_InputConnection = nil end
     getgenv().FSS_InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.KeyCode ~= Enum.KeyCode.Unknown then
+        -- [V2] Chat Safe Protocol: Only block if typing
+        if UserInputService:GetFocusedTextBox() then return end
+
+        if input.KeyCode ~= Enum.KeyCode.Unknown then
             if library.keybinds[input.KeyCode] then
-                for _, bindCallback in ipairs(library.keybinds[input.KeyCode]) do pcall(bindCallback) end
+                -- [V2] Iterate Pairs (Dictionary Support)
+                for _, bindCallback in pairs(library.keybinds[input.KeyCode]) do pcall(bindCallback) end
             end
         end
     end)
@@ -666,12 +674,28 @@ function library:Window(title)
             Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
             
             local bindFlag = text .. "_Bind"
+            local boundKey = nil
+
             local function SetBind(key) 
-                boundKey = key; BindBtn.Text = key.Name; library.flags[bindFlag] = key.Name 
-                UpdateKeybind(library.keybinds, nil, key, function() SetState(not toggled) end) 
+                -- [V2] Unbind Logic
+                if key == Enum.KeyCode.Backspace or key == Enum.KeyCode.Delete then
+                    UpdateKeybind(library.keybinds, text, boundKey, nil, nil)
+                    boundKey = nil; BindBtn.Text = "NONE"; library.flags[bindFlag] = nil
+                    return
+                end
+
+                local oldKey = boundKey; boundKey = key; BindBtn.Text = key.Name; library.flags[bindFlag] = key.Name
+                UpdateKeybind(library.keybinds, text, oldKey, key, function() SetState(not toggled) end)
             end
+
             if library.flags[bindFlag] then local s,k = pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end); if s and k then SetBind(k) end end
-            BindBtn.MouseButton1Click:Connect(function() local c; c = UserInputService.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end end) end)
+
+            BindBtn.MouseButton1Click:Connect(function()
+                BindBtn.Text = "..."; local c;
+                c = UserInputService.InputBegan:Connect(function(i)
+                    if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end
+                end)
+            end)
             
             return { Set = SetState }
         end
@@ -791,9 +815,31 @@ function library:Window(title)
              library:RegisterTheme(T, "TextColor3", "Text")
              local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), BackgroundColor3 = library.theme.Main})
              library:RegisterTheme(BindBtn, "TextColor3", "TextDim"); library:RegisterTheme(BindBtn, "BackgroundColor3", "Main"); Create("UICorner", {Parent = BindBtn, CornerRadius = UDim.new(0, 4)})
-             local bindFlag = text.."_Keybind"; local function SetBind(k) BindBtn.Text = k.Name; library.flags[bindFlag] = k.Name; UpdateKeybind(library.keybinds, nil, k, callback) end
-             if defaultKey then UpdateKeybind(library.keybinds, nil, defaultKey, callback) end; if library.flags[bindFlag] then local s,k=pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end); if s and k then SetBind(k) end end
-             BindBtn.MouseButton1Click:Connect(function() local c; c=UserInputService.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end end) end)
+
+             local bindFlag = text.."_Keybind"
+             local boundKey = nil
+
+             local function SetBind(k)
+                -- [V2] Unbind Logic
+                if k == Enum.KeyCode.Backspace or k == Enum.KeyCode.Delete then
+                    UpdateKeybind(library.keybinds, text, boundKey, nil, nil)
+                    boundKey = nil; BindBtn.Text = "NONE"; library.flags[bindFlag] = nil
+                    return
+                end
+
+                local oldKey = boundKey; boundKey = k; BindBtn.Text = k.Name; library.flags[bindFlag] = k.Name
+                UpdateKeybind(library.keybinds, text, oldKey, k, callback)
+             end
+
+             if defaultKey then SetBind(defaultKey) end
+             if library.flags[bindFlag] then local s,k=pcall(function() return Enum.KeyCode[library.flags[bindFlag]] end); if s and k then SetBind(k) end end
+
+             BindBtn.MouseButton1Click:Connect(function()
+                BindBtn.Text = "..."; local c;
+                c=UserInputService.InputBegan:Connect(function(i)
+                    if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end
+                end)
+             end)
              return { SetKeybind = SetBind }
         end
 
