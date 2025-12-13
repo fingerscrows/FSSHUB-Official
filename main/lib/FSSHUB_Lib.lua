@@ -5,7 +5,7 @@
 local library = {
     flags = {}, 
     windows = {}, 
-    open = true,
+    open = true, -- Initial state matches visible window
     keybinds = {},
     gui_objects = {},
     wm_obj = nil,
@@ -337,7 +337,8 @@ function library:Window(title)
     
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = self.base, Size = UDim2.new(0, 550, 0, 350), 
-        Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0
+        Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0,
+        ClipsDescendants = true -- Prevent content bleeding during open/close animations
     })
     library:RegisterTheme(MainFrame, "BackgroundColor3", "Main")
     table.insert(library.transparencyFrames, MainFrame)
@@ -353,6 +354,17 @@ function library:Window(title)
     table.insert(library.transparencyFrames, Header)
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
     
+    -- [UX] Glassy Gradient for Header
+    local H_Grad = Create("UIGradient", {
+        Parent = Header,
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.9), -- Slight white tint at top
+            NumberSequenceKeypoint.new(1, 1)    -- Fully transparent at bottom
+        })
+    })
+
     local HeaderLine = Create("Frame", {Parent = Header, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel=0}) 
     library:RegisterTheme(HeaderLine, "BackgroundColor3", "Sidebar")
     table.insert(library.transparencyFrames, HeaderLine)
@@ -372,6 +384,17 @@ function library:Window(title)
     })
     library:RegisterTheme(Sidebar, "BackgroundColor3", "Sidebar")
     table.insert(library.transparencyFrames, Sidebar)
+
+    -- [UX] Subtle Gradient for Sidebar consistency
+    local S_Grad = Create("UIGradient", {
+        Parent = Sidebar,
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.95), -- Very subtle tint
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
     
     Create("UICorner", {Parent = Sidebar, CornerRadius = UDim.new(0,0)})
     Create("UIListLayout", {Parent = Sidebar, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})

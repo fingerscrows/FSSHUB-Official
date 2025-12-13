@@ -99,6 +99,7 @@ function AuthUI.Show(options)
     Main.Size = UDim2.new(0, 0, 0, 0) -- Start small for pop-in
     Main.Position = UDim2.new(0.5, 0, 0.5, 0)
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    Main.ClipsDescendants = true -- Prevent bleeding during pop-in
 
     -- Pop-in Animation
     TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 380, 0, 240)}):Play()
