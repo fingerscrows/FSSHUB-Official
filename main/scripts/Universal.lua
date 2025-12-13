@@ -45,7 +45,17 @@ local State = {
     ESP = false,
     ESP_TeamCheck = false,
     ESP_MaxDistance = 1500,
+
+    -- Internal State
+    OriginalSpeed = nil,
+    OriginalJump = nil,
 }
+
+-- Track character changes to reset original values
+Utils:Connect(LocalPlayer.CharacterAdded, function()
+    State.OriginalSpeed = nil
+    State.OriginalJump = nil
+end)
 
 -- 3. Logic Functions
 
@@ -53,14 +63,31 @@ local function UpdateSpeed()
     if State.SpeedEnabled then
         Utils:BindLoop("WalkSpeed", "Heartbeat", function()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                if LocalPlayer.Character.Humanoid.WalkSpeed ~= State.Speed then
-                    LocalPlayer.Character.Humanoid.WalkSpeed = State.Speed
+                local hum = LocalPlayer.Character.Humanoid
+
+                -- Capture original speed if not yet captured
+                if not State.OriginalSpeed then
+                    State.OriginalSpeed = hum.WalkSpeed
+                end
+
+                if hum.WalkSpeed ~= State.Speed then
+                    hum.WalkSpeed = State.Speed
                 end
             end
         end)
     else
         Utils:UnbindLoop("WalkSpeed")
-        pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end)
+        pcall(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local hum = LocalPlayer.Character.Humanoid
+                if State.OriginalSpeed then
+                    hum.WalkSpeed = State.OriginalSpeed
+                    State.OriginalSpeed = nil
+                else
+                    hum.WalkSpeed = 16 -- Fallback
+                end
+            end
+        end)
     end
 end
 
@@ -68,15 +95,32 @@ local function UpdateJump()
     if State.JumpEnabled then
         Utils:BindLoop("JumpPower", "Heartbeat", function()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.UseJumpPower = true
-                if LocalPlayer.Character.Humanoid.JumpPower ~= State.Jump then
-                    LocalPlayer.Character.Humanoid.JumpPower = State.Jump
+                local hum = LocalPlayer.Character.Humanoid
+                hum.UseJumpPower = true
+
+                -- Capture original jump if not yet captured
+                if not State.OriginalJump then
+                    State.OriginalJump = hum.JumpPower
+                end
+
+                if hum.JumpPower ~= State.Jump then
+                    hum.JumpPower = State.Jump
                 end
             end
         end)
     else
         Utils:UnbindLoop("JumpPower")
-        pcall(function() if LocalPlayer.Character then LocalPlayer.Character.Humanoid.JumpPower = 50 end end)
+        pcall(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local hum = LocalPlayer.Character.Humanoid
+                if State.OriginalJump then
+                    hum.JumpPower = State.OriginalJump
+                    State.OriginalJump = nil
+                else
+                    hum.JumpPower = 50 -- Fallback
+                end
+            end
+        end)
     end
 end
 
