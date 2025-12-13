@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V2.0 (ARCHITECT OVERHAUL) ]] --
--- Status: Set and Forget System. Robust Serialization.
+-- [[ FSSHUB: UI MANAGER V2.1 (FIXED RESTORATION) ]] --
+-- Status: Config Fixed (Keys/Themes). Features Restored.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V2.0 Loading...")
+print("[FSSHUB DEBUG] UIManager V2.1 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -113,10 +113,20 @@ local function LoadConfigInternal(configName)
 
     for key, rawVal in pairs(decoded) do
         local val = Deserialize(rawVal)
-        local item = ConfigItems[key]
 
-        -- Special Handling: Keybinds (String -> Enum)
-        if item and item.SetKeybind and type(val) == "string" then
+        -- Logic Upgrade: Handle Keybind Suffix
+        local actualKey = key
+        local isKeybindVal = false
+
+        if string.sub(key, -8) == "_Keybind" then
+             actualKey = string.sub(key, 1, -9) -- Strip "_Keybind"
+             isKeybindVal = true
+        end
+
+        local item = ConfigItems[actualKey] or ConfigItems[key] -- Fallback
+
+        -- Special Handling: Enum Reconstitution
+        if isKeybindVal and type(val) == "string" then
             if Enum.KeyCode[val] then
                 val = Enum.KeyCode[val]
             end
@@ -127,15 +137,15 @@ local function LoadConfigInternal(configName)
 
         -- Update UI Visuals
         if item then
-            if item.SetKeybind then
+            if isKeybindVal and item.SetKeybind then
                 item.SetKeybind(val)
-            elseif item.Set then
+            elseif not isKeybindVal and item.Set then
                 item.Set(val)
             end
         end
     end
 
-    -- Refresh Theme if registry exists
+    -- Refresh Theme (Explicit Trigger)
     if LibraryInstance.themeRegistry then
         for _, item in ipairs(LibraryInstance.themeRegistry) do
             if item.Type == "Func" then pcall(item.Func) end
@@ -338,15 +348,23 @@ function UIManager.Build(GameConfig, AuthData)
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
 
-    UI_Group:Dropdown("Theme", themeNames, "FSS Purple", function(selected)
+    local themeDrop = UI_Group:Dropdown("Theme", themeNames, "FSS Purple", function(selected)
         Library:SetTheme(selected)
     end)
-    
-    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v)
+    ConfigItems["Theme"] = themeDrop -- [FIX] Added to Config System
+
+    local transSlider = UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v)
         Library:SetTransparency(v/100)
     end)
-    
-    UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
+    ConfigItems["Menu Transparency"] = transSlider -- [FIX] Added to Config System
+
+    local waterTog = UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
+    ConfigItems["Show Watermark"] = waterTog -- [FIX] Added to Config System
+
+    local notifTog = UI_Group:Toggle("Show Notifications", true, function(state)
+        Library.flags["Show Notifications"] = state
+    end)
+    ConfigItems["Show Notifications"] = notifTog -- [FIX] Added to Config System
     
     UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
         if Library.base then
@@ -358,6 +376,25 @@ function UIManager.Build(GameConfig, AuthData)
     -- Utilities
     local Utils_Group = SettingsTab:Group("Utilities")
     
+    Utils_Group:Button("Reset All Features", function()
+        for title, item in pairs(ConfigItems) do
+            if item.Set then item.Set(false) end
+        end
+        Library:Notify("System", "All settings reset to default", 3)
+    end)
+
+    Utils_Group:Button("Rejoin Server", function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+    end)
+
+    if AuthData and AuthData.IsDev then
+         Utils_Group:Button("Open Debug Console", function()
+            local dbgUrl = BaseUrl .. "main/modules/Debugger.lua"
+            local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
+            if s and m then m.Show() end
+        end)
+    end
+
     Utils_Group:Button("Unload Script", function()
         SaveConfigInternal() -- Auto Save on exit
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
