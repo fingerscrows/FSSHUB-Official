@@ -1,6 +1,7 @@
 -- [[ FSSHUB DATA: WAVE Z V6.5 (FULL VERBOSE) ]] --
 -- Status: All features expanded, Icons updated to Keywords
 -- Path: main/scripts/SurviveWaveZ.lua
+-- Optimized by BOLT ⚡
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -37,24 +38,76 @@ local State = {
     TargetMode = "All"
 }
 
+-- [[ ⚡ BOLT OPTIMIZATION: ZOMBIE CACHE ]] --
+local ZombieCache = {}
+local ZombieFolder = nil
+local ZombieFolderConn = nil
+local ESPConnection = nil
+
+local function AddToCache(child)
+    if not table.find(ZombieCache, child) then
+        table.insert(ZombieCache, child)
+        -- If ESP is active, add it immediately
+        if State.ESP and Utils.ESP then
+             task.wait(0.1) -- Wait for model load
+             if child.Parent then -- Verify still exists
+                 Utils.ESP:Add(child, {Color = Color3.fromRGB(140, 80, 255)})
+             end
+        end
+    end
+end
+
+local function RemoveFromCache(child)
+    local idx = table.find(ZombieCache, child)
+    if idx then table.remove(ZombieCache, idx) end
+end
+
+local function InitZombieFolder(folder)
+    ZombieFolder = folder
+    ZombieCache = {} -- Reset cache
+
+    -- Initial population
+    for _, child in ipairs(folder:GetChildren()) do
+        AddToCache(child)
+    end
+
+    -- Listen for changes
+    if ZombieFolderConn then ZombieFolderConn:Disconnect() end
+    ZombieFolderConn = Utils:Connect(folder.ChildAdded, AddToCache)
+    Utils:Connect(folder.ChildRemoved, RemoveFromCache)
+end
+
+-- Initialize if exists
+local existingZombies = Workspace:FindFirstChild("ServerZombies")
+if existingZombies then InitZombieFolder(existingZombies) end
+
+-- Watch for folder spawn
+Utils:Connect(Workspace.ChildAdded, function(child)
+    if child.Name == "ServerZombies" then
+        InitZombieFolder(child)
+    end
+end)
+
+
 -- 3. Logic Functions (Ditulis Lengkap)
 
 local function UpdateAutoFarm()
     if State.AutoFarm then
+        local RotationOffset = CFrame.Angles(math.rad(-90), 0, 0) -- Cache rotation
+
         Utils:BindLoop("AutoFarm", "Heartbeat", function()
             local char = LocalPlayer.Character
             local myRoot = char and char:FindFirstChild("HumanoidRootPart")
             if not myRoot then return end
             
-            local zFolder = Workspace:FindFirstChild("ServerZombies")
-            if not zFolder then return end
+            if #ZombieCache == 0 then return end
             
             -- Hitung posisi target di depan pemain
             local targetPos = myRoot.CFrame.Position + (myRoot.CFrame.LookVector * State.BringDist) + Vector3.new(0, State.LevitateHeight, 0)
             local facePlayer = CFrame.lookAt(targetPos, myRoot.Position + Vector3.new(0, State.LevitateHeight, 0))
-            local finalCFrame = facePlayer * CFrame.Angles(math.rad(-90), 0, 0)
+            local finalCFrame = facePlayer * RotationOffset
             
-            for _, z in ipairs(zFolder:GetChildren()) do
+            for _, z in ipairs(ZombieCache) do
                 local zRoot = z:FindFirstChild("RootPart") or z:FindFirstChild("HumanoidRootPart")
                 local zHum = z:FindFirstChild("Humanoid")
                 
@@ -109,19 +162,11 @@ local function UpdateESP()
     end
     
     if State.ESP then
-        local zFolder = Workspace:FindFirstChild("ServerZombies")
-        if zFolder then
-            -- Tambahkan ESP ke zombie yang sudah ada
-            for _, z in ipairs(zFolder:GetChildren()) do 
-                Utils.ESP:Add(z, {Color = Color3.fromRGB(140, 80, 255)}) 
-            end
-            
-            -- Auto-add untuk zombie yang baru spawn
-            Utils:Connect(zFolder.ChildAdded, function(child)
-                task.wait(0.1) -- Tunggu model load
-                Utils.ESP:Add(child, {Color = Color3.fromRGB(140, 80, 255)})
-            end)
+        -- Add ESP to existing cached zombies
+        for _, z in ipairs(ZombieCache) do
+            Utils.ESP:Add(z, {Color = Color3.fromRGB(140, 80, 255)})
         end
+        -- New zombies are handled in AddToCache now
     else
         Utils.ESP:Clear()
     end
@@ -132,10 +177,9 @@ local function StartAimbot()
         Utils:BindLoop("Aimbot", "RenderStepped", function()
             local closest, minMag = nil, 300
             local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-            local zFolder = Workspace:FindFirstChild("ServerZombies")
             
-            if zFolder then
-                for _, z in ipairs(zFolder:GetChildren()) do
+            if #ZombieCache > 0 then
+                for _, z in ipairs(ZombieCache) do
                     local head = z:FindFirstChild("Head")
                     local hum = z:FindFirstChild("Humanoid")
                     
