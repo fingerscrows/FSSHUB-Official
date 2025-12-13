@@ -105,54 +105,50 @@ end
 
 local function UpdateAutoLoot()
     if State.AutoLoot then
+        -- Define helpers outside loop for performance
+        local function getDropPart(obj)
+            local n = obj.Name
+            -- 1. Check Specific Names (High Priority)
+            if n == "MysteryBox" or n == "Pickup" or n == "AmmoBox" or n == "RewardChest" then
+                if obj:IsA("BasePart") then return obj end
+                if obj:IsA("Model") and obj.PrimaryPart then return obj.PrimaryPart end
+                if obj:IsA("Model") and obj:FindFirstChild("Handle") then return obj.Handle end
+            end
+
+            -- 2. General Tool/Drop Logic (Low Priority)
+            if obj:IsA("Tool") and obj:FindFirstChild("Handle") then return obj.Handle end
+
+            if obj:IsA("Model") and not obj:FindFirstChild("Humanoid") then
+                local nameLow = n:lower()
+                if nameLow:find("cash") or nameLow:find("ammo") or nameLow:find("drop") or nameLow:find("item") then
+                    return obj:FindFirstChild("Handle") or obj.PrimaryPart
+                end
+            end
+            return nil
+        end
+
         Utils:BindLoop("AutoLoot", "Heartbeat", function()
             local char = LocalPlayer.Character
             local myRoot = char and char:FindFirstChild("HumanoidRootPart")
             if not myRoot then return end
 
-            local closestDrop = nil
-            local minMag = State.LootRange or 50
-
-            local function getDropPart(obj)
-                -- 1. Check Specific Names (High Priority)
-                local n = obj.Name
-                if n == "MysteryBox" or n == "Pickup" or n == "AmmoBox" or n == "RewardChest" then
-                    if obj:IsA("BasePart") then return obj end
-                    if obj:IsA("Model") and obj.PrimaryPart then return obj.PrimaryPart end
-                    if obj:IsA("Model") and obj:FindFirstChild("Handle") then return obj.Handle end
-                end
-
-                -- 2. General Tool/Drop Logic (Low Priority)
-                if obj:IsA("Tool") and obj:FindFirstChild("Handle") then return obj.Handle end
-
-                if obj:IsA("Model") and not obj:FindFirstChild("Humanoid") then
-                    local nameLow = n:lower()
-                    if nameLow:find("cash") or nameLow:find("ammo") or nameLow:find("drop") or nameLow:find("item") then
-                        return obj:FindFirstChild("Handle") or obj.PrimaryPart
-                    end
-                end
-                return nil
-            end
-
             local containers = {Workspace}
             if Workspace:FindFirstChild("Drops") then table.insert(containers, Workspace.Drops) end
             if Workspace:FindFirstChild("Items") then table.insert(containers, Workspace.Items) end
 
+            local range = State.LootRange or 50
+
+            -- Bring Loot Logic (Teleport item ke pemain)
             for _, container in ipairs(containers) do
                 for _, v in ipairs(container:GetChildren()) do
                     local targetPart = getDropPart(v)
                     if targetPart then
-                        local dist = (targetPart.Position - myRoot.Position).Magnitude
-                        if dist < minMag then
-                            minMag = dist
-                            closestDrop = targetPart
+                        if (targetPart.Position - myRoot.Position).Magnitude <= range then
+                            targetPart.CanCollide = false
+                            targetPart.CFrame = myRoot.CFrame
                         end
                     end
                 end
-            end
-
-            if closestDrop then
-                myRoot.CFrame = closestDrop.CFrame
             end
         end)
     else
