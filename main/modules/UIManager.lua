@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V2.1 (FIXED RESTORATION) ]] --
--- Status: Config Fixed (Keys/Themes). Features Restored.
+-- [[ FSSHUB: UI MANAGER V2.2 (FINAL POLISH) ]] --
+-- Status: All Features Restored. Keybind Logic Perfected.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V2.1 Loading...")
+print("[FSSHUB DEBUG] UIManager V2.2 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -116,30 +116,35 @@ local function LoadConfigInternal(configName)
 
         -- Logic Upgrade: Handle Keybind Suffix
         local actualKey = key
-        local isKeybindVal = false
+        local isSuffixKeybind = false
 
         if string.sub(key, -8) == "_Keybind" then
              actualKey = string.sub(key, 1, -9) -- Strip "_Keybind"
-             isKeybindVal = true
+             isSuffixKeybind = true
         end
 
         local item = ConfigItems[actualKey] or ConfigItems[key] -- Fallback
 
-        -- Special Handling: Enum Reconstitution
-        if isKeybindVal and type(val) == "string" then
-            if Enum.KeyCode[val] then
-                val = Enum.KeyCode[val]
-            end
-        end
-
-        -- Update Memory
-        LibraryInstance.flags[key] = val
-
-        -- Update UI Visuals
         if item then
-            if isKeybindVal and item.SetKeybind then
-                item.SetKeybind(val)
-            elseif not isKeybindVal and item.Set then
+            -- Determine if this is a keybind operation
+            -- 1. Suffix detected (attached to toggle)
+            -- 2. Item has SetKeybind but NO Set (standalone keybind)
+            local useKeybindMethod = isSuffixKeybind or (item.SetKeybind and not item.Set)
+
+            if useKeybindMethod then
+                -- Ensure val is Enum
+                if type(val) == "string" then
+                     -- Handle "None"
+                    if val == "None" then
+                        val = Enum.KeyCode.Unknown
+                    elseif Enum.KeyCode[val] then
+                        val = Enum.KeyCode[val]
+                    end
+                end
+
+                if item.SetKeybind then item.SetKeybind(val) end
+            elseif item.Set then
+                -- Standard element
                 item.Set(val)
             end
         end
@@ -351,20 +356,27 @@ function UIManager.Build(GameConfig, AuthData)
     local themeDrop = UI_Group:Dropdown("Theme", themeNames, "FSS Purple", function(selected)
         Library:SetTheme(selected)
     end)
-    ConfigItems["Theme"] = themeDrop -- [FIX] Added to Config System
+    ConfigItems["Theme"] = themeDrop
 
     local transSlider = UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v)
         Library:SetTransparency(v/100)
     end)
-    ConfigItems["Menu Transparency"] = transSlider -- [FIX] Added to Config System
+    ConfigItems["Menu Transparency"] = transSlider
 
     local waterTog = UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
-    ConfigItems["Show Watermark"] = waterTog -- [FIX] Added to Config System
+    ConfigItems["Show Watermark"] = waterTog
+
+    local waterPos = UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p)
+        if Library.SetWatermarkAlign then
+            Library:SetWatermarkAlign(p)
+        end
+    end)
+    ConfigItems["Watermark Pos"] = waterPos -- [RESTORED]
 
     local notifTog = UI_Group:Toggle("Show Notifications", true, function(state)
         Library.flags["Show Notifications"] = state
     end)
-    ConfigItems["Show Notifications"] = notifTog -- [FIX] Added to Config System
+    ConfigItems["Show Notifications"] = notifTog
     
     UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
         if Library.base then
