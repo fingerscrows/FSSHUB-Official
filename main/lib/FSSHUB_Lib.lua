@@ -140,9 +140,21 @@ function library:Notify(title, text, duration)
     -- Compact Main Frame
     local Main = Create("Frame", {
         Parent = Container, Size = UDim2.new(1, 0, 0, 42), -- Smaller Height
-        Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main
+        Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main,
+        BackgroundTransparency = 0.1 -- Glassy Base
     })
     library:RegisterTheme(Main, "BackgroundColor3", "Main")
+
+    -- [UX] Glassy Gradient for Notification
+    Create("UIGradient", {
+        Parent = Main,
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.1), -- Slightly transparent top
+            NumberSequenceKeypoint.new(1, 0.4)  -- More transparent bottom
+        })
+    })
 
     Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 6)})
     local S = Create("UIStroke", {Parent = Main, Thickness = 1, Color = library.theme.Accent})
