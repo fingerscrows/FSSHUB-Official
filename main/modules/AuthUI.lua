@@ -9,6 +9,42 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 
+-- Helper Ripple for AuthUI
+local function CreateRipple(Parent)
+    Parent.ClipsDescendants = true
+
+    local Ripple = Instance.new("Frame")
+    Ripple.Name = "Ripple"
+    Ripple.Parent = Parent
+    Ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Ripple.BackgroundTransparency = 0.85
+    Ripple.ZIndex = 9
+    Ripple.BorderSizePixel = 0
+    Ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+
+    local MouseLocation = UserInputService:GetMouseLocation()
+    local RelativeX = MouseLocation.X - Parent.AbsolutePosition.X
+    local RelativeY = MouseLocation.Y - Parent.AbsolutePosition.Y
+
+    Ripple.Position = UDim2.new(0, RelativeX, 0, RelativeY)
+    Ripple.Size = UDim2.new(0, 0, 0, 0)
+
+    local Corner = Instance.new("UICorner", Ripple)
+    Corner.CornerRadius = UDim.new(1, 0)
+
+    local TargetSize = math.max(Parent.AbsoluteSize.X, Parent.AbsoluteSize.Y) * 2.5
+
+    local Tween = TweenService:Create(Ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, TargetSize, 0, TargetSize),
+        BackgroundTransparency = 1
+    })
+
+    Tween:Play()
+    Tween.Completed:Connect(function()
+        Ripple:Destroy()
+    end)
+end
+
 local Theme = {
     Bg = Color3.fromRGB(15, 15, 20),
     Accent = Color3.fromRGB(140, 80, 255),
@@ -60,9 +96,13 @@ function AuthUI.Show(options)
     
     local Main = Instance.new("Frame", Screen)
     Main.BackgroundColor3 = Theme.Bg
-    Main.Size = UDim2.new(0, 380, 0, 240)
+    Main.Size = UDim2.new(0, 0, 0, 0) -- Start small for pop-in
     Main.Position = UDim2.new(0.5, 0, 0.5, 0)
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    Main.ClipsDescendants = true -- Prevent bleeding during pop-in
+
+    -- Pop-in Animation
+    TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 380, 0, 240)}):Play()
     
     local Corner = Instance.new("UICorner", Main)
     Corner.CornerRadius = UDim.new(0, 12)
@@ -132,6 +172,8 @@ function AuthUI.Show(options)
         Btn.MouseButton1Click:Connect(function() 
             if isClicking then return end
             isClicking = true
+
+            CreateRipple(Btn)
 
             -- Add Click Feedback (Bounce)
             local originalSize = Btn.Size
@@ -225,15 +267,16 @@ function AuthUI.Show(options)
             btn.BackgroundColor3 = oldColor
             
             Title.Text = "INVALID KEY"
-            Stroke.Color = Theme.Error
-            Title.TextColor3 = Theme.Error
+            -- Tween Colors
+            TweenService:Create(Stroke, TweenInfo.new(0.3), {Color = Theme.Error}):Play()
+            TweenService:Create(Title, TweenInfo.new(0.3), {TextColor3 = Theme.Error}):Play()
             
             task.wait(1.5)
             
             -- Reset Tampilan
             Title.Text = "FSS HUB | GATEWAY"
-            Title.TextColor3 = Theme.Accent
-            Stroke.Color = Theme.Accent
+            TweenService:Create(Title, TweenInfo.new(0.3), {TextColor3 = Theme.Accent}):Play()
+            TweenService:Create(Stroke, TweenInfo.new(0.3), {Color = Theme.Accent}):Play()
         end
     end)
     

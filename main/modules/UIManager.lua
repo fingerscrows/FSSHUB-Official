@@ -216,6 +216,10 @@ function UIManager.Build(GameConfig, AuthData)
             Library:SetWatermarkAlign(p) 
         end 
     end)
+
+    UI_Group:Toggle("Show Notifications", true, function(state)
+        Library.flags["Show Notifications"] = state
+    end)
     
     UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
         if Library.base then 
@@ -371,6 +375,11 @@ function UIManager.Build(GameConfig, AuthData)
     Utils_Group:Button("Unload Script", function()
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
         if Library.base then Library.base:Destroy() end
+    end)
+
+    -- Welcome Notification
+    task.delay(1, function()
+        Library:Notify("Welcome", "Script loaded successfully!", 5)
     end)
 end
 

@@ -5,7 +5,7 @@
 local library = {
     flags = {}, 
     windows = {}, 
-    open = true,
+    open = true, -- Initial state matches visible window
     keybinds = {},
     gui_objects = {},
     wm_obj = nil,
@@ -111,61 +111,97 @@ local function MakeDraggable(topbarobject, object)
 end
 
 function library:Notify(title, text, duration)
+    -- Check Feature Flag
+    if self.flags["Show Notifications"] == false then return end
+
     -- Fallback if GUI isn't ready
-    if not self.base then
-        pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
-        return
-    end
+    if not self.base then return end
 
     local Holder = self.base:FindFirstChild("FSS_Notifications")
     if not Holder then
         Holder = Create("Frame", {
             Name = "FSS_Notifications", Parent = self.base,
-            Size = UDim2.new(0, 250, 1, -20), Position = UDim2.new(1, -260, 0, -20),
-            AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1
+            -- Boxy Style: Narrower (200px)
+            Size = UDim2.new(0, 200, 0.8, 0), Position = UDim2.new(1, -20, 1, -20),
+            AnchorPoint = Vector2.new(1, 1), BackgroundTransparency = 1
         })
         Create("UIListLayout", {
             Parent = Holder, SortOrder = Enum.SortOrder.LayoutOrder,
-            VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 8)
+            VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 5)
         })
     end
 
+    -- Boxy Container
     local Container = Create("Frame", {
         Parent = Holder, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = false
     })
 
+    -- Boxy Main Frame (Taller Height)
     local Main = Create("Frame", {
-        Parent = Container, Size = UDim2.new(1, 0, 0, 50),
-        Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main
+        Parent = Container, Size = UDim2.new(1, 0, 0, 60),
+        Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main,
+        BackgroundTransparency = 0.1 -- Glassy Base
     })
     library:RegisterTheme(Main, "BackgroundColor3", "Main")
 
-    Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 6)})
+    -- [UX] Glassy Gradient
+    Create("UIGradient", {
+        Parent = Main,
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.1),
+            NumberSequenceKeypoint.new(1, 0.4)
+        })
+    })
+
+    Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 8)})
     local S = Create("UIStroke", {Parent = Main, Thickness = 1, Color = library.theme.Accent})
     library:RegisterTheme(S, "Color", "Accent")
 
+    -- High Contrast Title
     local TTitle = Create("TextLabel", {
         Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 13,
-        Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0, 10, 0, 5),
+        Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 5),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = library.theme.Accent
+        TextColor3 = library.theme.Accent,
+        TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
     })
     library:RegisterTheme(TTitle, "TextColor3", "Accent")
 
+    -- High Contrast Text (Wrapped & Aligned Top)
     local TText = Create("TextLabel", {
-        Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 12,
-        Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0, 10, 0, 25),
+        Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 11,
+        Size = UDim2.new(1, -10, 1, -30), Position = UDim2.new(0, 10, 0, 22),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = library.theme.Text, TextWrapped = true
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextColor3 = library.theme.Text, TextWrapped = true,
+        TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
     })
     library:RegisterTheme(TText, "TextColor3", "Text")
 
+    -- [UX] Time Decay Bar
+    local TimerBar = Create("Frame", {
+        Parent = Main,
+        Size = UDim2.new(1, 0, 0, 3),
+        Position = UDim2.new(0, 0, 1, -3),
+        BorderSizePixel = 0,
+        ZIndex = 5,
+        BackgroundColor3 = library.theme.Accent
+    })
+    library:RegisterTheme(TimerBar, "BackgroundColor3", "Accent")
+    Create("UICorner", {Parent = TimerBar, CornerRadius = UDim.new(0, 2)})
+
     -- Animation Sequence
     task.spawn(function()
-        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,50)}):Play()
+        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,60)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
 
-        task.wait((duration or 3))
+        -- Start Timer Animation
+        local totalDuration = duration or 3
+        TweenService:Create(TimerBar, TweenInfo.new(totalDuration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 2)}):Play()
+
+        task.wait(totalDuration)
 
         TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 50, 0, 0)}):Play()
         task.wait(0.2)
@@ -231,6 +267,41 @@ local function AddHover(frame)
     frame.MouseLeave:Connect(function() TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemBg}):Play() end)
 end
 
+local function CreateRipple(Parent)
+    Parent.ClipsDescendants = true
+
+    local Ripple = Instance.new("Frame")
+    Ripple.Name = "Ripple"
+    Ripple.Parent = Parent
+    Ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Ripple.BackgroundTransparency = 0.85
+    Ripple.ZIndex = 9
+    Ripple.BorderSizePixel = 0
+    Ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+
+    local MouseLocation = UserInputService:GetMouseLocation()
+    local RelativeX = MouseLocation.X - Parent.AbsolutePosition.X
+    local RelativeY = MouseLocation.Y - Parent.AbsolutePosition.Y
+
+    Ripple.Position = UDim2.new(0, RelativeX, 0, RelativeY)
+    Ripple.Size = UDim2.new(0, 0, 0, 0)
+
+    local Corner = Instance.new("UICorner", Ripple)
+    Corner.CornerRadius = UDim.new(1, 0)
+
+    local TargetSize = math.max(Parent.AbsoluteSize.X, Parent.AbsoluteSize.Y) * 2.5
+
+    local Tween = TweenService:Create(Ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, TargetSize, 0, TargetSize),
+        BackgroundTransparency = 1
+    })
+
+    Tween:Play()
+    Tween.Completed:Connect(function()
+        Ripple:Destroy()
+    end)
+end
+
 function library:Init()
     if self.base then return self.base end
     
@@ -267,10 +338,31 @@ function library:Init()
         local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", Font = Enum.Font.GothamBlack})
         library:RegisterTheme(Btn, "TextColor3", "Accent")
         
-        Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
+        Btn.MouseButton1Click:Connect(function() library:Toggle() end)
     end
     
     return gui
+end
+
+function library:Toggle()
+    if not self.base then return end
+    local MainFrame = self.base:FindFirstChild("MainFrame")
+    if not MainFrame then return end
+
+    self.open = not self.open
+
+    if self.open then
+        MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 550, 0, 350)}):Play()
+        -- Restore children transparency if needed, but Visible handles main visibility.
+    else
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not self.open then MainFrame.Visible = false end
+        end)
+    end
 end
 
 function library:Window(title)
@@ -281,7 +373,8 @@ function library:Window(title)
     
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = self.base, Size = UDim2.new(0, 550, 0, 350), 
-        Position = UDim2.new(0.5, -275, 0.5, -175), BorderSizePixel = 0
+        Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0,
+        ClipsDescendants = true -- Prevent content bleeding during open/close animations
     })
     library:RegisterTheme(MainFrame, "BackgroundColor3", "Main")
     table.insert(library.transparencyFrames, MainFrame)
@@ -297,6 +390,17 @@ function library:Window(title)
     table.insert(library.transparencyFrames, Header)
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
     
+    -- [UX] Glassy Gradient for Header
+    local H_Grad = Create("UIGradient", {
+        Parent = Header,
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.9), -- Slight white tint at top
+            NumberSequenceKeypoint.new(1, 1)    -- Fully transparent at bottom
+        })
+    })
+
     local HeaderLine = Create("Frame", {Parent = Header, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel=0}) 
     library:RegisterTheme(HeaderLine, "BackgroundColor3", "Sidebar")
     table.insert(library.transparencyFrames, HeaderLine)
@@ -316,6 +420,17 @@ function library:Window(title)
     })
     library:RegisterTheme(Sidebar, "BackgroundColor3", "Sidebar")
     table.insert(library.transparencyFrames, Sidebar)
+
+    -- [UX] Subtle Gradient for Sidebar consistency
+    local S_Grad = Create("UIGradient", {
+        Parent = Sidebar,
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.95), -- Very subtle tint
+            NumberSequenceKeypoint.new(1, 1)
+        })
+    })
     
     Create("UICorner", {Parent = Sidebar, CornerRadius = UDim.new(0,0)})
     Create("UIListLayout", {Parent = Sidebar, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})
@@ -380,6 +495,10 @@ function library:Window(title)
                     t.label.TextColor3 = library.theme.Text
                     if t.icon then t.icon.ImageColor3 = library.theme.Text end
                     t.page.CanvasSize = UDim2.new(0, 0, 0, t.page.UIListLayout.AbsoluteContentSize.Y + 20)
+
+                    -- Slide Up Animation
+                    t.page.Position = UDim2.new(0, 0, 0, 20)
+                    TweenService:Create(t.page, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
                 else
                     t.page.Visible = false; t.indicator.Visible = false
                     t.label.TextColor3 = library.theme.TextDim
@@ -516,12 +635,30 @@ function library:Window(title)
             local function UpdateVisuals()
                 local targetColor = toggled and library.theme.Accent or Color3.fromRGB(50,50,55)
                 local targetPos = toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
-                TweenService:Create(CheckBox, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-                TweenService:Create(Circle, TweenInfo.new(0.2), {Position = targetPos}):Play()
+                TweenService:Create(CheckBox, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
+                TweenService:Create(Circle, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetPos}):Play()
             end
             library:RegisterThemeFunc(UpdateVisuals)
-            local function SetState(val) toggled = val; library.flags[text] = val; UpdateVisuals(); pcall(function() callback(toggled) end) end
-            Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
+
+            local firstSet = true
+            local function SetState(val)
+                toggled = val
+                library.flags[text] = val
+                UpdateVisuals()
+
+                -- State Change Notification
+                if not firstSet then
+                     local status = val and "Enabled" or "Disabled"
+                     library:Notify(text, "Feature has been " .. status, 2)
+                end
+                firstSet = false
+
+                pcall(function() callback(toggled) end)
+            end
+            Btn.MouseButton1Click:Connect(function()
+                CreateRipple(Frame)
+                SetState(not toggled)
+            end)
             if library.flags[text] ~= nil then SetState(library.flags[text]) elseif default then SetState(true) else library.flags[text] = false end
             
             local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
@@ -547,6 +684,7 @@ function library:Window(title)
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Frame.MouseButton1Click:Connect(function() 
+                CreateRipple(Frame)
                 TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play()
                 task.wait(0.1)
                 TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play()
@@ -582,8 +720,12 @@ function library:Window(title)
             
             local Trigger = Create("TextButton", {Parent = Frame, Size = UDim2.new(1, -24, 0, 24), Position = UDim2.new(0, 12, 0, 24), BackgroundTransparency = 1, Text = ""})
             
-            Trigger.MouseEnter:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end)
-            Trigger.MouseLeave:Connect(function() TweenService:Create(Dot, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end)
+            Trigger.MouseEnter:Connect(function()
+                TweenService:Create(Dot, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0, Size = UDim2.new(0, 14, 0, 14)}):Play()
+            end)
+            Trigger.MouseLeave:Connect(function()
+                TweenService:Create(Dot, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1, Size = UDim2.new(0, 10, 0, 10)}):Play()
+            end)
             
             local function Update(v)
                 val = math.clamp(v, min, max); library.flags[text] = val
@@ -624,6 +766,14 @@ function library:Window(title)
                  for _, opt in ipairs(opts) do 
                     local B = Create("TextButton", {Parent = OptionContainer, Text = opt, Font = Enum.Font.Gotham, TextSize = 12, Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = Color3.fromRGB(45,45,50), AutoButtonColor = false}); 
                     library:RegisterTheme(B, "TextColor3", "TextDim"); Create("UICorner", {Parent = B, CornerRadius = UDim.new(0, 4)}); 
+
+                    B.MouseEnter:Connect(function()
+                        TweenService:Create(B, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover, TextColor3 = library.theme.Text}):Play()
+                    end)
+                    B.MouseLeave:Connect(function()
+                        TweenService:Create(B, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45,45,50), TextColor3 = library.theme.TextDim}):Play()
+                    end)
+
                     B.MouseButton1Click:Connect(function() Set(opt) end) 
                  end
              end
