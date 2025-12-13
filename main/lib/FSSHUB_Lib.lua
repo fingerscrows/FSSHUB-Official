@@ -113,7 +113,8 @@ end
 function library:Notify(title, text, duration)
     -- Fallback if GUI isn't ready
     if not self.base then
-        pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
+        -- Removed CoreGui Fallback to ensure unified design
+        -- pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
         return
     end
 
@@ -121,21 +122,24 @@ function library:Notify(title, text, duration)
     if not Holder then
         Holder = Create("Frame", {
             Name = "FSS_Notifications", Parent = self.base,
-            Size = UDim2.new(0, 250, 1, -20), Position = UDim2.new(1, -260, 0, -20),
+            -- Compact Size & Bottom Right Positioning (Roblox style)
+            Size = UDim2.new(0, 220, 1, -20), Position = UDim2.new(1, -230, 0, -20),
             AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1
         })
         Create("UIListLayout", {
             Parent = Holder, SortOrder = Enum.SortOrder.LayoutOrder,
-            VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 8)
+            VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 5)
         })
     end
 
+    -- Compact Container
     local Container = Create("Frame", {
         Parent = Holder, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = false
     })
 
+    -- Compact Main Frame
     local Main = Create("Frame", {
-        Parent = Container, Size = UDim2.new(1, 0, 0, 50),
+        Parent = Container, Size = UDim2.new(1, 0, 0, 42), -- Smaller Height
         Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main
     })
     library:RegisterTheme(Main, "BackgroundColor3", "Main")
@@ -145,28 +149,28 @@ function library:Notify(title, text, duration)
     library:RegisterTheme(S, "Color", "Accent")
 
     local TTitle = Create("TextLabel", {
-        Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 13,
-        Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0, 10, 0, 5),
+        Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 12,
+        Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 3),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
         TextColor3 = library.theme.Accent
     })
     library:RegisterTheme(TTitle, "TextColor3", "Accent")
 
     local TText = Create("TextLabel", {
-        Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 12,
-        Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0, 10, 0, 25),
+        Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 11,
+        Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 20),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
         TextColor3 = library.theme.Text, TextWrapped = true
     })
     library:RegisterTheme(TText, "TextColor3", "Text")
 
-    -- [UX] Time Decay Bar
+    -- [UX] Time Decay Bar (Slightly Thinner for compact mode)
     local TimerBar = Create("Frame", {
         Parent = Main,
-        Size = UDim2.new(1, 0, 0, 3),
-        Position = UDim2.new(0, 0, 1, -3),
+        Size = UDim2.new(1, 0, 0, 2),
+        Position = UDim2.new(0, 0, 1, -2),
         BorderSizePixel = 0,
-        ZIndex = 5, -- Ensure it is on top of other content
+        ZIndex = 5,
         BackgroundColor3 = library.theme.Accent
     })
     library:RegisterTheme(TimerBar, "BackgroundColor3", "Accent")
@@ -174,12 +178,12 @@ function library:Notify(title, text, duration)
 
     -- Animation Sequence
     task.spawn(function()
-        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,50)}):Play()
+        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,42)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
 
         -- Start Timer Animation
         local totalDuration = duration or 3
-        TweenService:Create(TimerBar, TweenInfo.new(totalDuration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 3)}):Play()
+        TweenService:Create(TimerBar, TweenInfo.new(totalDuration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 2)}):Play()
 
         task.wait(totalDuration)
 
