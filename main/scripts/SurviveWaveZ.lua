@@ -113,13 +113,25 @@ local function UpdateAutoLoot()
             local closestDrop = nil
             local minMag = State.LootRange or 50
 
-            local function isDrop(obj)
-                if obj:IsA("Tool") then return true end
-                if obj:IsA("Model") and obj:FindFirstChild("Handle") and not obj:FindFirstChild("Humanoid") then
-                    local n = obj.Name:lower()
-                    return n:find("cash") or n:find("ammo") or n:find("drop") or n:find("item")
+            local function getDropPart(obj)
+                -- 1. Check Specific Names (High Priority)
+                local n = obj.Name
+                if n == "MysteryBox" or n == "Pickup" or n == "AmmoBox" or n == "RewardChest" then
+                    if obj:IsA("BasePart") then return obj end
+                    if obj:IsA("Model") and obj.PrimaryPart then return obj.PrimaryPart end
+                    if obj:IsA("Model") and obj:FindFirstChild("Handle") then return obj.Handle end
                 end
-                return false
+
+                -- 2. General Tool/Drop Logic (Low Priority)
+                if obj:IsA("Tool") and obj:FindFirstChild("Handle") then return obj.Handle end
+
+                if obj:IsA("Model") and not obj:FindFirstChild("Humanoid") then
+                    local nameLow = n:lower()
+                    if nameLow:find("cash") or nameLow:find("ammo") or nameLow:find("drop") or nameLow:find("item") then
+                        return obj:FindFirstChild("Handle") or obj.PrimaryPart
+                    end
+                end
+                return nil
             end
 
             local containers = {Workspace}
@@ -128,14 +140,12 @@ local function UpdateAutoLoot()
 
             for _, container in ipairs(containers) do
                 for _, v in ipairs(container:GetChildren()) do
-                    if isDrop(v) then
-                        local handle = v:FindFirstChild("Handle")
-                        if handle then
-                            local dist = (handle.Position - myRoot.Position).Magnitude
-                            if dist < minMag then
-                                minMag = dist
-                                closestDrop = handle
-                            end
+                    local targetPart = getDropPart(v)
+                    if targetPart then
+                        local dist = (targetPart.Position - myRoot.Position).Magnitude
+                        if dist < minMag then
+                            minMag = dist
+                            closestDrop = targetPart
                         end
                     end
                 end
