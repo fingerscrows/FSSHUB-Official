@@ -177,6 +177,25 @@ function AuthUI.Show(options)
         local oldTxt = btn.Text
         local oldColor = btn.BackgroundColor3
         
+        -- SENTINEL: Pre-Validation (Length Check)
+        if #txt < 5 then
+            Shake(Main)
+            btn.Text = "TOO SHORT"
+            btn.BackgroundColor3 = Theme.Error
+            Title.Text = "INVALID KEY"
+            Title.TextColor3 = Theme.Error
+            Stroke.Color = Theme.Error
+
+            task.delay(1.5, function()
+                btn.Text = oldTxt
+                btn.BackgroundColor3 = oldColor
+                Title.Text = "FSS HUB | GATEWAY"
+                Title.TextColor3 = Theme.Accent
+                Stroke.Color = Theme.Accent
+            end)
+            return
+        end
+
         btn.Text = "CHECKING..."
         
         -- Panggil callback OnSuccess dari Core
