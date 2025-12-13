@@ -111,19 +111,18 @@ local function MakeDraggable(topbarobject, object)
 end
 
 function library:Notify(title, text, duration)
+    -- Check Feature Flag
+    if self.flags["Show Notifications"] == false then return end
+
     -- Fallback if GUI isn't ready
-    if not self.base then
-        -- Removed CoreGui Fallback to ensure unified design
-        -- pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
-        return
-    end
+    if not self.base then return end
 
     local Holder = self.base:FindFirstChild("FSS_Notifications")
     if not Holder then
         Holder = Create("Frame", {
             Name = "FSS_Notifications", Parent = self.base,
-            -- Native Roblox Style: Wider (280px) & 20px Margin
-            Size = UDim2.new(0, 280, 0.8, 0), Position = UDim2.new(1, -20, 1, -20),
+            -- Boxy Style: Narrower (200px)
+            Size = UDim2.new(0, 200, 0.8, 0), Position = UDim2.new(1, -20, 1, -20),
             AnchorPoint = Vector2.new(1, 1), BackgroundTransparency = 1
         })
         Create("UIListLayout", {
@@ -132,55 +131,60 @@ function library:Notify(title, text, duration)
         })
     end
 
-    -- Compact Container
+    -- Boxy Container
     local Container = Create("Frame", {
         Parent = Holder, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = false
     })
 
-    -- Compact Main Frame
+    -- Boxy Main Frame (Taller Height)
     local Main = Create("Frame", {
-        Parent = Container, Size = UDim2.new(1, 0, 0, 42), -- Smaller Height
+        Parent = Container, Size = UDim2.new(1, 0, 0, 60),
         Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main,
         BackgroundTransparency = 0.1 -- Glassy Base
     })
     library:RegisterTheme(Main, "BackgroundColor3", "Main")
 
-    -- [UX] Glassy Gradient for Notification
+    -- [UX] Glassy Gradient
     Create("UIGradient", {
         Parent = Main,
         Rotation = 90,
         Color = ColorSequence.new(Color3.new(1,1,1)),
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.1), -- Slightly transparent top
-            NumberSequenceKeypoint.new(1, 0.4)  -- More transparent bottom
+            NumberSequenceKeypoint.new(0, 0.1),
+            NumberSequenceKeypoint.new(1, 0.4)
         })
     })
 
-    Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 6)})
+    Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 8)})
     local S = Create("UIStroke", {Parent = Main, Thickness = 1, Color = library.theme.Accent})
     library:RegisterTheme(S, "Color", "Accent")
 
+    -- High Contrast Title
     local TTitle = Create("TextLabel", {
-        Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 12,
-        Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 3),
+        Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 13,
+        Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 5),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = library.theme.Accent
+        TextColor3 = library.theme.Accent,
+        TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
     })
     library:RegisterTheme(TTitle, "TextColor3", "Accent")
 
+    -- High Contrast Text (Wrapped & Aligned Top)
     local TText = Create("TextLabel", {
         Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 11,
-        Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 20),
+        Size = UDim2.new(1, -10, 1, -30), Position = UDim2.new(0, 10, 0, 22),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = library.theme.Text, TextWrapped = true
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextColor3 = library.theme.Text, TextWrapped = true,
+        TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
     })
     library:RegisterTheme(TText, "TextColor3", "Text")
 
-    -- [UX] Time Decay Bar (Slightly Thinner for compact mode)
+    -- [UX] Time Decay Bar
     local TimerBar = Create("Frame", {
         Parent = Main,
-        Size = UDim2.new(1, 0, 0, 2),
-        Position = UDim2.new(0, 0, 1, -2),
+        Size = UDim2.new(1, 0, 0, 3),
+        Position = UDim2.new(0, 0, 1, -3),
         BorderSizePixel = 0,
         ZIndex = 5,
         BackgroundColor3 = library.theme.Accent
@@ -190,7 +194,7 @@ function library:Notify(title, text, duration)
 
     -- Animation Sequence
     task.spawn(function()
-        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,42)}):Play()
+        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,60)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
 
         -- Start Timer Animation

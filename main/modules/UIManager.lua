@@ -214,6 +214,10 @@ function UIManager.Build(GameConfig, AuthData)
             Library:SetWatermarkAlign(p) 
         end 
     end)
+
+    UI_Group:Toggle("Show Notifications", true, function(state)
+        Library.flags["Show Notifications"] = state
+    end)
     
     UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
         if Library.base then 
