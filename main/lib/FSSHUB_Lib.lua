@@ -840,7 +840,20 @@ function library:Window(title)
                     if i.UserInputType==Enum.UserInputType.Keyboard then c:Disconnect(); SetBind(i.KeyCode) end
                 end)
              end)
-             return { SetKeybind = SetBind }
+
+             return {
+                 SetKeybind = SetBind,
+                 Set = function(val)
+                     -- Adapter: String -> Enum
+                     local k = val
+                     if typeof(val) == "string" then
+                         if val == "None" then k = Enum.KeyCode.Unknown
+                         elseif Enum.KeyCode[val] then k = Enum.KeyCode[val]
+                         else k = Enum.KeyCode.Unknown end
+                     end
+                     SetBind(k)
+                 end
+             }
         end
 
         return tab
