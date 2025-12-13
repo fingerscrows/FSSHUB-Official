@@ -160,12 +160,27 @@ function library:Notify(title, text, duration)
     })
     library:RegisterTheme(TText, "TextColor3", "Text")
 
+    -- [UX] Time Decay Bar
+    local TimerBar = Create("Frame", {
+        Parent = Main,
+        Size = UDim2.new(1, 0, 0, 3),
+        Position = UDim2.new(0, 0, 1, -3),
+        BorderSizePixel = 0,
+        BackgroundColor3 = library.theme.Accent
+    })
+    library:RegisterTheme(TimerBar, "BackgroundColor3", "Accent")
+    Create("UICorner", {Parent = TimerBar, CornerRadius = UDim.new(0, 2)}) -- Slight roundness
+
     -- Animation Sequence
     task.spawn(function()
         TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,50)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
 
-        task.wait((duration or 3))
+        -- Start Timer Animation
+        local totalDuration = duration or 3
+        TweenService:Create(TimerBar, TweenInfo.new(totalDuration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 3)}):Play()
+
+        task.wait(totalDuration)
 
         TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 50, 0, 0)}):Play()
         task.wait(0.2)
