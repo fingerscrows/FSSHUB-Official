@@ -9,6 +9,42 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 
+-- Helper Ripple for AuthUI
+local function CreateRipple(Parent)
+    Parent.ClipsDescendants = true
+
+    local Ripple = Instance.new("Frame")
+    Ripple.Name = "Ripple"
+    Ripple.Parent = Parent
+    Ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Ripple.BackgroundTransparency = 0.85
+    Ripple.ZIndex = 9
+    Ripple.BorderSizePixel = 0
+    Ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+
+    local MouseLocation = UserInputService:GetMouseLocation()
+    local RelativeX = MouseLocation.X - Parent.AbsolutePosition.X
+    local RelativeY = MouseLocation.Y - Parent.AbsolutePosition.Y
+
+    Ripple.Position = UDim2.new(0, RelativeX, 0, RelativeY)
+    Ripple.Size = UDim2.new(0, 0, 0, 0)
+
+    local Corner = Instance.new("UICorner", Ripple)
+    Corner.CornerRadius = UDim.new(1, 0)
+
+    local TargetSize = math.max(Parent.AbsoluteSize.X, Parent.AbsoluteSize.Y) * 2.5
+
+    local Tween = TweenService:Create(Ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, TargetSize, 0, TargetSize),
+        BackgroundTransparency = 1
+    })
+
+    Tween:Play()
+    Tween.Completed:Connect(function()
+        Ripple:Destroy()
+    end)
+end
+
 local Theme = {
     Bg = Color3.fromRGB(15, 15, 20),
     Accent = Color3.fromRGB(140, 80, 255),
@@ -135,6 +171,8 @@ function AuthUI.Show(options)
         Btn.MouseButton1Click:Connect(function() 
             if isClicking then return end
             isClicking = true
+
+            CreateRipple(Btn)
 
             -- Add Click Feedback (Bounce)
             local originalSize = Btn.Size

@@ -231,6 +231,41 @@ local function AddHover(frame)
     frame.MouseLeave:Connect(function() TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemBg}):Play() end)
 end
 
+local function CreateRipple(Parent)
+    Parent.ClipsDescendants = true
+
+    local Ripple = Instance.new("Frame")
+    Ripple.Name = "Ripple"
+    Ripple.Parent = Parent
+    Ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Ripple.BackgroundTransparency = 0.85
+    Ripple.ZIndex = 9
+    Ripple.BorderSizePixel = 0
+    Ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+
+    local MouseLocation = UserInputService:GetMouseLocation()
+    local RelativeX = MouseLocation.X - Parent.AbsolutePosition.X
+    local RelativeY = MouseLocation.Y - Parent.AbsolutePosition.Y
+
+    Ripple.Position = UDim2.new(0, RelativeX, 0, RelativeY)
+    Ripple.Size = UDim2.new(0, 0, 0, 0)
+
+    local Corner = Instance.new("UICorner", Ripple)
+    Corner.CornerRadius = UDim.new(1, 0)
+
+    local TargetSize = math.max(Parent.AbsoluteSize.X, Parent.AbsoluteSize.Y) * 2.5
+
+    local Tween = TweenService:Create(Ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, TargetSize, 0, TargetSize),
+        BackgroundTransparency = 1
+    })
+
+    Tween:Play()
+    Tween.Completed:Connect(function()
+        Ripple:Destroy()
+    end)
+end
+
 function library:Init()
     if self.base then return self.base end
     
@@ -546,7 +581,10 @@ function library:Window(title)
             end
             library:RegisterThemeFunc(UpdateVisuals)
             local function SetState(val) toggled = val; library.flags[text] = val; UpdateVisuals(); pcall(function() callback(toggled) end) end
-            Btn.MouseButton1Click:Connect(function() SetState(not toggled) end)
+            Btn.MouseButton1Click:Connect(function()
+                CreateRipple(Frame)
+                SetState(not toggled)
+            end)
             if library.flags[text] ~= nil then SetState(library.flags[text]) elseif default then SetState(true) else library.flags[text] = false end
             
             local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextSize = 10, Size = UDim2.new(0, 35, 0, 18), Position = UDim2.new(1, -95, 0.5, -9), BackgroundColor3 = library.theme.Main, ZIndex = 10})
@@ -572,6 +610,7 @@ function library:Window(title)
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
             Frame.MouseButton1Click:Connect(function() 
+                CreateRipple(Frame)
                 TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play()
                 task.wait(0.1)
                 TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = library.theme.ItemHover}):Play()
