@@ -122,6 +122,8 @@ function UIManager.Build(GameConfig, AuthData)
             end
             
             while true do
+                if not TimerLabel.Parent then break end -- Stop loop if UI is destroyed
+
                 local t = os.time()
                 local left = AuthData.Expiry - t
                 
