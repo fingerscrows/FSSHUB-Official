@@ -324,6 +324,38 @@ Active: %s]],
         AddLog("ALL SCRIPTS NUKED MANUALLY", Enum.MessageType.MessageError)
     end, Color3.fromRGB(255, 80, 80))
 
+    CreateBtn("SCAN", UDim2.new(1, -215, 0, 45), function()
+        local path = workspace
+        local term = SearchInput.Text:lower() -- Use search box as filter
+
+        AddLog("Scanning Workspace for: " .. (term == "" and "Everything" or term) .. "...", Enum.MessageType.MessageOutput)
+
+        local count = 0
+        for _, v in ipairs(path:GetDescendants()) do
+            local name = v.Name:lower()
+            local class = v.ClassName:lower()
+
+            if term == "" or name:find(term) or class:find(term) then
+                if v:IsA("Model") or v:IsA("Tool") or v:IsA("Part") then
+                    local parentName = v.Parent and v.Parent.Name or "Nil"
+                    local msg = string.format("FOUND: %s [%s] in %s", v.Name, v.ClassName, parentName)
+                    AddLog(msg, Enum.MessageType.MessageOutput)
+                    count = count + 1
+                    if count > 100 then -- Prevent lag
+                        AddLog("... Scan limit reached (100 items) ...", Enum.MessageType.MessageWarning)
+                        break
+                    end
+                end
+            end
+        end
+
+        if count == 0 then
+            AddLog("No items found matching: " .. term, Enum.MessageType.MessageWarning)
+        else
+            AddLog("Scan Complete. Found " .. count .. " items.", Enum.MessageType.MessageOutput)
+        end
+    end, Color3.fromRGB(80, 200, 255))
+
     -- Minimize & Close
     local MinBtn = Instance.new("TextButton")
     MinBtn.Parent = Main; MinBtn.Text = "-"; MinBtn.BackgroundTransparency = 1
