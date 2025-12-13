@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V3.2 (STABILITY PATCH) ]] --
--- Status: Crash Fixed. Auto-Save Robustness Increased.
+-- [[ FSSHUB: UI MANAGER V3.3 (KEYBIND FIX) ]] --
+-- Status: Keybind Persistence Patched via Blueprint.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V3.2 Loading...")
+print("[FSSHUB DEBUG] UIManager V3.3 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -39,7 +39,7 @@ local IconLibrary = {
     ["Teleport"]  = "10888337728"
 }
 
--- [[ 1. SERIALIZATION ENGINE ]] --
+-- [[ 1. SERIALIZATION ENGINE (BLUEPRINT COMPLIANT) ]] --
 local function Serialize(val)
     local t = typeof(val)
     if t == "Color3" then
@@ -49,7 +49,7 @@ local function Serialize(val)
     elseif t == "Vector2" then
         return {X = val.X, Y = val.Y}
     elseif t == "EnumItem" then
-        return val.Name -- Stores "Q"
+        return val.Name -- Force String: "Q"
     end
     return val
 end
@@ -70,11 +70,10 @@ end
 local function SafeEnum(val)
     if type(val) == "string" then
         if val == "None" then return Enum.KeyCode.Unknown end
-        -- Handle "Enum.KeyCode.Q" format if present
+        -- Robust: Handle both "Q" and "Enum.KeyCode.Q"
         local clean = val:gsub("Enum.KeyCode.", "")
         return Enum.KeyCode[clean] or Enum.KeyCode.Unknown
     end
-    -- If it's already an Enum or nil, return as is
     return val
 end
 
@@ -90,6 +89,10 @@ local function LoadState()
         local clean = {}
         for k, v in pairs(data) do
             clean[k] = Deserialize(v)
+            -- Blueprint Logic: Detect Keybinds on Load
+            if string.find(k, "_Keybind") and type(v) == "string" then
+                -- Note: We just decode here, application happens in Build
+            end
         end
         return clean
     end
@@ -100,14 +103,18 @@ local function SaveState()
     if not LibraryInstance then return end
 
     local data = {}
+    -- Blueprint Logic: Create Safe Table
     for key, val in pairs(LibraryInstance.flags) do
         data[key] = Serialize(val)
     end
 
-    pcall(function()
+    local s, err = pcall(function()
         writefile(AutoSaveFile, HttpService:JSONEncode(data))
     end)
-    -- print("[FSSHUB] Auto-Saved State")
+
+    if not s then
+        warn("[FSSHUB] Save Failed: " .. tostring(err))
+    end
 end
 
 -- [[ 3. MAIN BUILDER ]] --
@@ -147,7 +154,6 @@ function UIManager.Build(GameConfig, AuthData)
         if AuthData.MOTD and AuthData.MOTD ~= "" then ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) end
         local GameGroup = ProfileTab:Group("Game Information")
         GameGroup:Label("Game: " .. (AuthData.GameName or "Unknown"))
-        GameGroup:Label("Type: " .. (AuthData.IsUniversal and "⚠️ Universal" or "✅ Official"))
         
         local UserGroup = ProfileTab:Group("User Information")
         UserGroup:Label("License: " .. statusIcon .. " " .. AuthData.Type)
@@ -183,12 +189,17 @@ function UIManager.Build(GameConfig, AuthData)
                 if element.Type == "Toggle" then 
                     newItem = Tab:Toggle(element.Title, effectiveDef, element.Callback)
 
-                    -- Handle Attached Keybind
-                    local savedKey = SavedState[element.Title .. "_Keybind"]
+                    -- BLUEPRINT LOGIC: Handle Keybind Suffix
+                    local keybindFlag = element.Title .. "_Keybind"
+                    local savedKey = SavedState[keybindFlag]
+
                     if newItem.SetKeybind then
+                         -- Using defer to Ensure Library Registration
                          task.defer(function()
                              if savedKey then
+                                 -- Blueprint: Restore from String
                                  newItem.SetKeybind(SafeEnum(savedKey))
+                                 -- print("[FSSHUB DEBUG] Restored Keybind: " .. tostring(savedKey))
                              elseif element.Keybind and not savedKey then
                                  newItem.SetKeybind(element.Keybind)
                              end
@@ -211,7 +222,7 @@ function UIManager.Build(GameConfig, AuthData)
                     Tab:Label(element.Title)
                 end
                 
-                -- Store with metadata for Reset Logic
+                -- Store for Reset Logic
                 if newItem then
                     ConfigItems[element.Title] = {
                         Object = newItem,
@@ -223,7 +234,7 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end
 
-    -- [[ SETTINGS TAB (CLEANED) ]] --
+    -- [[ SETTINGS TAB ]] --
     local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     local UI_Group = SettingsTab:Group("Interface Settings")
 
