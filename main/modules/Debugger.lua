@@ -448,6 +448,7 @@ function Debugger.Show()
     ScannerBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     ScannerBar.Size = UDim2.new(1, -20, 0, 35)
     ScannerBar.Position = UDim2.new(0, 10, 0, 0)
+    ScannerBar.ZIndex = 20 -- High ZIndex to float over Results
     Instance.new("UICorner", ScannerBar).CornerRadius = UDim.new(0, 6)
 
     -- Resolve Path Helper
