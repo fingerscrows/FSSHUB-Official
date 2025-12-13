@@ -376,13 +376,15 @@ function Debugger.Show()
             DropList.Visible = false
         end
 
-        local function Populate()
+        local function Populate(ignoreFilter)
             for _, c in ipairs(DropList:GetChildren()) do
                 if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
             end
 
             local rawItems = getItemsFunc()
             local filter = Input.Text:lower()
+            if ignoreFilter then filter = "" end
+
             local count = 0
 
             for _, item in ipairs(rawItems) do
@@ -431,12 +433,12 @@ function Debugger.Show()
         end
 
         Input:GetPropertyChangedSignal("Text"):Connect(function()
-            if DropList.Visible then Populate() end
+            if DropList.Visible then Populate(false) end
         end)
 
         ArrowBtn.MouseButton1Click:Connect(function()
             DropList.Visible = not DropList.Visible
-            if DropList.Visible then Populate() end
+            if DropList.Visible then Populate(true) end
         end)
 
         return Input
@@ -455,8 +457,17 @@ function Debugger.Show()
     local function ResolvePath(pathStr)
         if pathStr == "" then return nil end
         local segments = pathStr:split(".")
-        local current = game
-        if segments[1] == "game" then table.remove(segments, 1) end
+
+        local current
+        if segments[1]:lower() == "game" then
+            current = game
+            table.remove(segments, 1)
+        elseif segments[1]:lower() == "workspace" then
+            current = workspace
+            table.remove(segments, 1)
+        else
+            current = game
+        end
 
         for _, name in ipairs(segments) do
             if current:FindFirstChild(name) then
@@ -520,7 +531,7 @@ function Debugger.Show()
     PathInput = CreateCombobox(ScannerBar, UDim2.new(0, 5, 0.5, -12.5), UDim2.new(0, 180, 0, 25), "Target Path...", GetPathSuggestions)
     local ClassInput = CreateCombobox(ScannerBar, UDim2.new(0, 190, 0.5, -12.5), UDim2.new(0, 120, 0, 25), "Class Filter", GetClassSuggestions)
 
-    PathInput.Text = "workspace.ServerZombies"
+    PathInput.Text = "workspace"
     ClassInput.Text = "Model"
 
     local ScanBtn = Instance.new("TextButton")
