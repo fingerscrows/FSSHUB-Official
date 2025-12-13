@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V3.0 (INVISIBLE STATE) ]] --
--- Status: "Modern App" Experience. Zero Friction.
+-- [[ FSSHUB: UI MANAGER V3.1 (POLISHED STATE) ]] --
+-- Status: "Modern App" Experience. Keybinds Fixed. Reset Fixed.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V3.0 Loading...")
+print("[FSSHUB DEBUG] UIManager V3.1 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -14,7 +14,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 local LibraryInstance = nil
-local ConfigItems = {} -- Registry
+local ConfigItems = {} -- Registry: {Object, Type, Default}
 local SavedState = {}  -- In-Memory State Cache
 
 -- [[ FILE SYSTEM & PATHS ]] --
@@ -70,8 +70,11 @@ end
 local function SafeEnum(val)
     if type(val) == "string" then
         if val == "None" then return Enum.KeyCode.Unknown end
-        return Enum.KeyCode[val] or Enum.KeyCode.Unknown
+        -- Handle "Enum.KeyCode.Q" format if present
+        local clean = val:gsub("Enum.KeyCode.", "")
+        return Enum.KeyCode[clean] or Enum.KeyCode.Unknown
     end
+    -- If it's already an Enum or nil, return as is
     return val
 end
 
@@ -104,7 +107,6 @@ local function SaveState()
     pcall(function()
         writefile(AutoSaveFile, HttpService:JSONEncode(data))
     end)
-    -- print("[FSSHUB] State Saved") -- Silent Save
 end
 
 -- [[ 3. MAIN BUILDER ]] --
@@ -182,11 +184,15 @@ function UIManager.Build(GameConfig, AuthData)
 
                     -- Handle Attached Keybind
                     local savedKey = SavedState[element.Title .. "_Keybind"]
-                    if savedKey and newItem.SetKeybind then
-                        newItem.SetKeybind(SafeEnum(savedKey))
-                    elseif element.Keybind and newItem.SetKeybind and not savedKey then
-                        -- Fallback to script default if never saved
-                        newItem.SetKeybind(element.Keybind)
+                    if newItem.SetKeybind then
+                         -- Use defer to prevent init overrides
+                         task.defer(function()
+                             if savedKey then
+                                 newItem.SetKeybind(SafeEnum(savedKey))
+                             elseif element.Keybind and not savedKey then
+                                 newItem.SetKeybind(element.Keybind)
+                             end
+                         end)
                     end
 
                 elseif element.Type == "Slider" then 
@@ -205,7 +211,14 @@ function UIManager.Build(GameConfig, AuthData)
                     Tab:Label(element.Title)
                 end
                 
-                if newItem then ConfigItems[element.Title] = newItem end
+                -- Store with metadata for Reset Logic
+                if newItem then
+                    ConfigItems[element.Title] = {
+                        Object = newItem,
+                        Type = element.Type,
+                        Default = element.Default
+                    }
+                end
             end
         end
     end
@@ -218,39 +231,43 @@ function UIManager.Build(GameConfig, AuthData)
     local themeNames = {}
     for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
 
-    -- Theme (Auto Load)
+    -- Theme
     local savedTheme = SavedState["Theme"] or "FSS Purple"
     if safePresets[savedTheme] then Library:SetTheme(savedTheme) end
-
-    UI_Group:Dropdown("Theme", themeNames, savedTheme, function(selected)
+    local themeDrop = UI_Group:Dropdown("Theme", themeNames, savedTheme, function(selected)
         Library:SetTheme(selected)
     end)
+    ConfigItems["Theme"] = {Object = themeDrop, Type = "Dropdown", Default = "FSS Purple"}
 
     -- Transparency
     local savedTrans = SavedState["Menu Transparency"] or 0
     Library:SetTransparency(savedTrans/100)
-    UI_Group:Slider("Menu Transparency", 0, 90, savedTrans, function(v)
+    local transSlide = UI_Group:Slider("Menu Transparency", 0, 90, savedTrans, function(v)
         Library:SetTransparency(v/100)
     end)
+    ConfigItems["Menu Transparency"] = {Object = transSlide, Type = "Slider", Default = 0}
 
     -- Watermark Toggle
     local savedWaterTog = (SavedState["Show Watermark"] ~= nil) and SavedState["Show Watermark"] or true
     Library:ToggleWatermark(savedWaterTog)
-    UI_Group:Toggle("Show Watermark", savedWaterTog, function(s) Library:ToggleWatermark(s) end)
+    local waterTog = UI_Group:Toggle("Show Watermark", savedWaterTog, function(s) Library:ToggleWatermark(s) end)
+    ConfigItems["Show Watermark"] = {Object = waterTog, Type = "Toggle", Default = true}
 
     -- Watermark Pos
     local savedPos = SavedState["Watermark Pos"] or "Top Right"
     if Library.SetWatermarkAlign then Library:SetWatermarkAlign(savedPos) end
-    UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, savedPos, function(p)
+    local waterPos = UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, savedPos, function(p)
         if Library.SetWatermarkAlign then Library:SetWatermarkAlign(p) end
     end)
+    ConfigItems["Watermark Pos"] = {Object = waterPos, Type = "Dropdown", Default = "Top Right"}
 
     -- Notifications
     local savedNotif = (SavedState["Show Notifications"] ~= nil) and SavedState["Show Notifications"] or true
     Library.flags["Show Notifications"] = savedNotif
-    UI_Group:Toggle("Show Notifications", savedNotif, function(state)
+    local notifTog = UI_Group:Toggle("Show Notifications", savedNotif, function(state)
         Library.flags["Show Notifications"] = state
     end)
+    ConfigItems["Show Notifications"] = {Object = notifTog, Type = "Toggle", Default = true}
     
     UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
         if Library.base then
@@ -263,10 +280,23 @@ function UIManager.Build(GameConfig, AuthData)
     local Utils_Group = SettingsTab:Group("Utilities")
     
     Utils_Group:Button("Reset All Features", function()
-        for title, item in pairs(ConfigItems) do
-            if item.Set then item.Set(false) end
+        for title, itemData in pairs(ConfigItems) do
+            local item = itemData.Object
+            local def = itemData.Default
+
+            if itemData.Type == "Toggle" then
+                if item.Set then item.Set(def or false) end
+            elseif itemData.Type == "Slider" then
+                if item.Set then item.Set(def or 0) end
+            elseif itemData.Type == "Dropdown" then
+                if item.Set then item.Set(def) end
+            elseif itemData.Type == "TextBox" then
+                if item.Set then item.Set(def or "") end
+            elseif itemData.Type == "Keybind" then
+                if item.SetKeybind then item.SetKeybind(def or Enum.KeyCode.None) end
+            end
         end
-        Library:Notify("System", "Features Reset", 2)
+        Library:Notify("System", "All Features Reset", 2)
     end)
 
     Utils_Group:Button("Rejoin Server", function()
