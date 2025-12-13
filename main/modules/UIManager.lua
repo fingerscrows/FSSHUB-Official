@@ -241,7 +241,9 @@ function UIManager.Build(GameConfig, AuthData)
                 elseif element.Type == "Button" then 
                     local b = Tab:Button(element.Title, element.Callback)
                 elseif element.Type == "Keybind" then 
-                    Tab:Keybind(element.Title, element.Default, element.Callback)
+                    newItem = Tab:Keybind(element.Title, element.Default, element.Callback)
+                elseif element.Type == "TextBox" then
+                    newItem = Tab:TextBox(element.Title, element.Default, element.Callback)
                 elseif element.Type == "Label" then 
                     Tab:Label(element.Title)
                 end
@@ -250,7 +252,8 @@ function UIManager.Build(GameConfig, AuthData)
                     newItem.SetKeybind(element.Keybind) 
                 end
                 
-                if newItem and newItem.Set then
+                -- Simpan ke ConfigItems jika elemen ini bisa di-set valuenya (Toggle/Slider/Dropdown/TextBox/Keybind)
+                if newItem and (newItem.Set or newItem.SetKeybind) then
                     ConfigItems[element.Title] = newItem
                 end
             end
@@ -354,7 +357,16 @@ function UIManager.Build(GameConfig, AuthData)
         -- Apply settings
         for title, value in pairs(data) do
             Library.flags[title] = value
-            if ConfigItems[title] then
+
+            -- [FIX] Handle Keybinds vs Standard Values
+            if title:sub(-8) == "_Keybind" then
+                -- This is a Keybind Flag (e.g. "Aimbot Key_Keybind")
+                local realTitle = title:sub(1, -9) -- Remove "_Keybind"
+                if ConfigItems[realTitle] and ConfigItems[realTitle].SetKeybind then
+                    ConfigItems[realTitle].SetKeybind(value)
+                end
+            elseif ConfigItems[title] and ConfigItems[title].Set then
+                -- Standard Value (Toggle, Slider, Dropdown, TextBox)
                 ConfigItems[title].Set(value)
             end
         end
@@ -464,8 +476,21 @@ function UIManager.Build(GameConfig, AuthData)
         local data = Deserialize(rawData)
         for title, value in pairs(data) do
             Library.flags[title] = value
-            if ConfigItems[title] then
+
+            -- [FIX] Handle Keybinds vs Standard Values (Same as Load Logic)
+            if title:sub(-8) == "_Keybind" then
+                local realTitle = title:sub(1, -9)
+                if ConfigItems[realTitle] and ConfigItems[realTitle].SetKeybind then
+                    ConfigItems[realTitle].SetKeybind(value)
+                end
+            elseif ConfigItems[title] and ConfigItems[title].Set then
                 ConfigItems[title].Set(value)
+            end
+        end
+
+        if Library.themeRegistry then
+            for _, item in ipairs(Library.themeRegistry) do
+                if item.Type == "Func" then pcall(item.Func) end
             end
         end
 
