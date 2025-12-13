@@ -161,15 +161,15 @@ function UIManager.Build(GameConfig, AuthData)
                 local newItem = nil
                 
                 if element.Type == "Toggle" then 
-                    newItem = Tab:Toggle(element.Title, element.Default, element.Callback)
+                    newItem = Tab:Toggle(element.Title, element.Default, element.Callback, element.Description)
                 elseif element.Type == "Slider" then 
-                    newItem = Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback)
+                    newItem = Tab:Slider(element.Title, element.Min, element.Max, element.Default, element.Callback, element.Description)
                 elseif element.Type == "Dropdown" then 
-                    newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
+                    newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback, element.Description)
                 elseif element.Type == "Button" then 
-                    local b = Tab:Button(element.Title, element.Callback)
+                    local b = Tab:Button(element.Title, element.Callback, element.Description)
                 elseif element.Type == "Keybind" then 
-                    Tab:Keybind(element.Title, element.Default, element.Callback)
+                    Tab:Keybind(element.Title, element.Default, element.Callback, element.Description)
                 elseif element.Type == "Label" then 
                     Tab:Label(element.Title)
                 end

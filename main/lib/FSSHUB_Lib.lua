@@ -302,6 +302,93 @@ local function CreateRipple(Parent)
     end)
 end
 
+local function AddTooltip(targetObj, text)
+    if not text or text == "" then return end
+    if UserInputService.TouchEnabled then return end
+
+    local tooltipGui
+    local isHovering = false
+
+    targetObj.MouseEnter:Connect(function()
+        isHovering = true
+        task.delay(0.5, function()
+            if not isHovering then return end
+
+            -- Resolve Parent (Prefer existing base, else CoreGui)
+            local targetParent = library.base and library.base.Parent
+            if not targetParent then return end
+
+            tooltipGui = Instance.new("ScreenGui")
+            tooltipGui.Name = "FSS_Tooltip"
+            tooltipGui.Parent = targetParent
+            tooltipGui.DisplayOrder = 100
+
+            local Container = Instance.new("Frame")
+            Container.Parent = tooltipGui
+            Container.BackgroundColor3 = library.theme.Main
+            Container.BackgroundTransparency = 1 -- Start hidden
+            Container.AutomaticSize = Enum.AutomaticSize.XY
+
+            local Corner = Instance.new("UICorner")
+            Corner.CornerRadius = UDim.new(0, 6)
+            Corner.Parent = Container
+
+            local Stroke = Instance.new("UIStroke")
+            Stroke.Parent = Container
+            Stroke.Thickness = 1
+            Stroke.Color = library.theme.Accent
+            Stroke.Transparency = 1 -- Start hidden
+
+            local Padding = Instance.new("UIPadding")
+            Padding.Parent = Container
+            Padding.PaddingTop = UDim.new(0, 6)
+            Padding.PaddingBottom = UDim.new(0, 6)
+            Padding.PaddingLeft = UDim.new(0, 8)
+            Padding.PaddingRight = UDim.new(0, 8)
+
+            local Label = Instance.new("TextLabel")
+            Label.Parent = Container
+            Label.Text = text
+            Label.Font = Enum.Font.Gotham
+            Label.TextSize = 12
+            Label.TextColor3 = library.theme.Text
+            Label.BackgroundTransparency = 1
+            Label.TextTransparency = 1 -- Start hidden
+            Label.AutomaticSize = Enum.AutomaticSize.XY
+
+            -- Calculate Position
+            local mouse = UserInputService:GetMouseLocation()
+            local viewport = workspace.CurrentCamera.ViewportSize
+
+            -- Predict Size
+            local txtSize = game:GetService("TextService"):GetTextSize(text, 12, Enum.Font.Gotham, Vector2.new(viewport.X, viewport.Y))
+            local w, h = txtSize.X + 16, txtSize.Y + 12
+
+            local x = mouse.X + 15
+            local y = mouse.Y + 15
+
+            if (x + w) > viewport.X then x = viewport.X - w - 5 end
+            if (y + h) > viewport.Y then y = viewport.Y - h - 5 end
+
+            Container.Position = UDim2.new(0, x, 0, y)
+
+            -- Animate In
+            TweenService:Create(Container, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
+            TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
+            TweenService:Create(Label, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+        end)
+    end)
+
+    targetObj.MouseLeave:Connect(function()
+        isHovering = false
+        if tooltipGui then tooltipGui:Destroy() tooltipGui = nil end
+    end)
+
+    targetObj.Destroying:Connect(function()
+        if tooltipGui then tooltipGui:Destroy() end
+    end)
+end
+
 function library:Init()
     if self.base then return self.base end
     
@@ -550,19 +637,24 @@ function library:Window(title)
                 TweenService:Create(Container, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetH)}):Play()
             end)
             
-            function group:Toggle(t, d, c) return tab:Toggle(t, d, c, Container) end
-            function group:Button(t, c) return tab:Button(t, c, Container) end
-            function group:Slider(t, min, max, d, c) return tab:Slider(t, min, max, d, c, Container) end
-            function group:Dropdown(t, o, d, c) return tab:Dropdown(t, o, d, c, Container) end
+            function group:Toggle(t, d, c, desc) return tab:Toggle(t, d, c, desc, Container) end
+            function group:Button(t, c, desc) return tab:Button(t, c, desc, Container) end
+            function group:Slider(t, min, max, d, c, desc) return tab:Slider(t, min, max, d, c, desc, Container) end
+            function group:Dropdown(t, o, d, c, desc) return tab:Dropdown(t, o, d, c, desc, Container) end
             function group:Label(t) return tab:Label(t, Container) end
-            function group:Keybind(t, d, c) return tab:Keybind(t, d, c, Container) end
-            function group:TextBox(t, d, c) return tab:TextBox(t, d, c, Container) end
+            function group:Keybind(t, d, c, desc) return tab:Keybind(t, d, c, desc, Container) end
+            function group:TextBox(t, d, c, desc) return tab:TextBox(t, d, c, desc, Container) end
             
             return group
         end
         
         -- [NEW FEATURE] TEXTBOX ELEMENT
-        function tab:TextBox(text, default, callback, parent)
+        function tab:TextBox(text, default, callback, arg4, arg5)
+            local description = nil
+            local parent = nil
+            if type(arg4) == "string" then description = arg4; parent = arg5
+            elseif typeof(arg4) == "Instance" then parent = arg4 end
+
             local target = parent or Page
             local value = default or ""
             if library.flags[text] ~= nil then value = library.flags[text] end
@@ -571,6 +663,7 @@ function library:Window(title)
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            if description then AddTooltip(Frame, description) end
             
             local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -120, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
             library:RegisterTheme(T, "TextColor3", "Text")
@@ -611,7 +704,12 @@ function library:Window(title)
             library:RegisterTheme(C, "TextColor3", "Text")
         end
 
-        function tab:Toggle(text, default, callback, parent)
+        function tab:Toggle(text, default, callback, arg4, arg5)
+            local description = nil
+            local parent = nil
+            if type(arg4) == "string" then description = arg4; parent = arg5
+            elseif typeof(arg4) == "Instance" then parent = arg4 end
+
             local target = parent or Page
             local toggled = default or false
             if library.flags[text] ~= nil then toggled = library.flags[text] end
@@ -620,6 +718,7 @@ function library:Window(title)
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            if description then AddTooltip(Frame, description) end
             
             local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextSize = 13, Size = UDim2.new(1, -90, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
             library:RegisterTheme(T, "TextColor3", "Text")
@@ -676,13 +775,20 @@ function library:Window(title)
             return { Set = SetState }
         end
 
-        function tab:Button(text, callback, parent)
+        function tab:Button(text, callback, arg3, arg4)
+            local description = nil
+            local parent = nil
+            if type(arg3) == "string" then description = arg3; parent = arg4
+            elseif typeof(arg3) == "Instance" then parent = arg3 end
+
             local target = parent or Page
             local Frame = Create("TextButton", {Parent = target, Size = UDim2.new(1, 0, 0, 34), Text = text, Font = Enum.Font.Gotham, TextSize = 13, AutoButtonColor = false})
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
             library:RegisterTheme(Frame, "TextColor3", "Text")
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            if description then AddTooltip(Frame, description) end
+
             Frame.MouseButton1Click:Connect(function() 
                 CreateRipple(Frame)
                 TweenService:Create(Frame, TweenInfo.new(0.1), {BackgroundColor3 = library.theme.Accent}):Play()
@@ -693,7 +799,12 @@ function library:Window(title)
             return { SetKeybind = function() end }
         end
         
-        function tab:Slider(text, min, max, default, callback, parent)
+        function tab:Slider(text, min, max, default, callback, arg6, arg7)
+            local description = nil
+            local parent = nil
+            if type(arg6) == "string" then description = arg6; parent = arg7
+            elseif typeof(arg6) == "Instance" then parent = arg6 end
+
             local target = parent or Page
             local val = default or min
             if library.flags[text] ~= nil then val = library.flags[text] end
@@ -703,6 +814,8 @@ function library:Window(title)
             library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg")
             AddHover(Frame)
             Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+            if description then AddTooltip(Frame, description) end
+
             local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextSize = 13, Position = UDim2.new(0, 12, 0, 10), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
             library:RegisterTheme(T, "TextColor3", "Text")
             local ValLbl = Create("TextLabel", {Parent = Frame, Text = tostring(val), Font = Enum.Font.Code, TextSize = 12, Position = UDim2.new(1, -50, 0, 10), Size = UDim2.new(0, 40, 0, 15), BackgroundTransparency = 1})
@@ -745,12 +858,19 @@ function library:Window(title)
         end
 
         -- [UPDATED] Dropdown with Refresh & Verbose Logic
-        function tab:Dropdown(text, options, default, callback, parent)
+        function tab:Dropdown(text, options, default, callback, arg5, arg6)
+             local description = nil
+             local parent = nil
+             if type(arg5) == "string" then description = arg5; parent = arg6
+             elseif typeof(arg5) == "Instance" then parent = arg5 end
+
              local target = parent or Page
              local isDropped = false; if library.flags[text] ~= nil then default = library.flags[text] end; library.flags[text] = default
              
              local Frame = Create("Frame", {Parent = target, Size = UDim2.new(1, 0, 0, 36), ClipsDescendants = true})
              library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg"); AddHover(Frame); Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+             if description then AddTooltip(Frame, description) end
+
              local Header = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Name = "Header"})
              local Title = Create("TextLabel", {Parent = Header, Text = text..": "..(default or "None"), Font = Enum.Font.Gotham, TextColor3 = library.theme.Text, TextSize = 13, Size = UDim2.new(1, -30, 0, 36), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
              library:RegisterTheme(Title, "TextColor3", "Text")
@@ -783,10 +903,17 @@ function library:Window(title)
              return { Set = Set, Refresh = function(newOpts, newDef) options = newOpts; default = newDef or options[1]; BuildOptions(options); Set(default) end }
         end
         
-        function tab:Keybind(text, defaultKey, callback, parent)
+        function tab:Keybind(text, defaultKey, callback, arg4, arg5)
+             local description = nil
+             local parent = nil
+             if type(arg4) == "string" then description = arg4; parent = arg5
+             elseif typeof(arg4) == "Instance" then parent = arg4 end
+
              local target = parent or Page
              local Frame = Create("Frame", {Parent = target, Size = UDim2.new(1, 0, 0, 38)})
              library:RegisterTheme(Frame, "BackgroundColor3", "ItemBg"); AddHover(Frame); Create("UICorner", {Parent = Frame, CornerRadius = UDim.new(0, 6)})
+             if description then AddTooltip(Frame, description) end
+
              local T = Create("TextLabel", {Parent = Frame, Text = text, Font = Enum.Font.Gotham, TextSize = 13, Position = UDim2.new(0, 12, 0, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left})
              library:RegisterTheme(T, "TextColor3", "Text")
              local BindBtn = Create("TextButton", {Parent = Frame, Text = "NONE", Font = Enum.Font.Code, TextSize = 12, Size = UDim2.new(0, 80, 0, 24), Position = UDim2.new(1, -90, 0.5, -12), BackgroundColor3 = library.theme.Main})
