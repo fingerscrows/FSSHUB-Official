@@ -1,5 +1,5 @@
--- [[ FSSHUB MODULE: DEV SUITE V4.2 (SECURE GUI) ]] --
--- Features: F10 Toggle, RichText Logs (Colors fixed), Copy All, Detailed Monitor Toggle
+-- [[ FSSHUB MODULE: DEV SUITE V4.3 (OPTIMIZED) ]] --
+-- Features: F10 Toggle, Optimized Logs (table.concat), Smooth Drag, Auto-Cleanup
 -- Path: main/modules/Debugger.lua
 
 local Debugger = {}
@@ -9,20 +9,25 @@ local Stats = game:GetService("Stats")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 function Debugger.Show()
     -- Secure GUI Container Resolution
     local Parent = gethui and gethui() or CoreGui
+
+    -- Cleanup Existing
     if Parent:FindFirstChild("FSSHUB_DevSuite") then
         Parent.FSSHUB_DevSuite:Destroy()
     end
 
-    -- 1. MAIN UI
+    -- 1. MAIN UI SETUP
     local Screen = Instance.new("ScreenGui")
     Screen.Name = "FSSHUB_DevSuite"
     Screen.Parent = Parent
     Screen.ResetOnSpawn = false
     Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local Connections = {} -- Store connections for cleanup
 
     local Main = Instance.new("Frame")
     Main.Name = "MainFrame"
@@ -33,13 +38,45 @@ function Debugger.Show()
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
     Main.Size = UDim2.new(0, 700, 0, 500)
     Main.Active = true
-    Main.Draggable = true 
     Main.ClipsDescendants = true 
 
     Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
     local Stroke = Instance.new("UIStroke", Main)
     Stroke.Color = Color3.fromRGB(140, 80, 255)
     Stroke.Thickness = 2 
+
+    -- [[ SMOOTH DRAG HANDLER ]] --
+    local Dragging, DragInput, DragStart, StartPos
+
+    table.insert(Connections, Main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            Dragging = true
+            DragStart = input.Position
+            StartPos = Main.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    Dragging = false
+                end
+            end)
+        end
+    end))
+
+    table.insert(Connections, Main.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            DragInput = input
+        end
+    end))
+
+    table.insert(Connections, UserInputService.InputChanged:Connect(function(input)
+        if input == DragInput and Dragging then
+            local Delta = input.Position - DragStart
+            Main.Position = UDim2.new(
+                StartPos.X.Scale, StartPos.X.Offset + Delta.X,
+                StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y
+            )
+        end
+    end))
 
     -- Header
     local Title = Instance.new("TextLabel")
@@ -48,7 +85,7 @@ function Debugger.Show()
     Title.Position = UDim2.new(0, 15, 0, 10)
     Title.Size = UDim2.new(1, -100, 0, 20)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "FSSHUB DEBUGGER [F10] | V4.2"
+    Title.Text = "FSSHUB DEBUGGER [F10] | V4.3 (HAWK)"
     Title.TextColor3 = Color3.fromRGB(140, 80, 255)
     Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -89,12 +126,12 @@ function Debugger.Show()
         Btn.TextSize = 11
         Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
         
-        Btn.MouseButton1Click:Connect(function()
+        table.insert(Connections, Btn.MouseButton1Click:Connect(function()
             Filters[key] = not Filters[key]
             Btn.BackgroundTransparency = Filters[key] and 0 or 0.6
             SearchInput.Text = SearchInput.Text .. " " 
             SearchInput.Text = string.sub(SearchInput.Text, 1, -2) 
-        end)
+        end))
     end
 
     CreateFilterBtn("I", Color3.fromRGB(255, 255, 255), 0, "Info")
@@ -138,11 +175,11 @@ function Debugger.Show()
     ToggleStatsBtn.TextSize = 10
     Instance.new("UICorner", ToggleStatsBtn).CornerRadius = UDim.new(0, 4)
     
-    ToggleStatsBtn.MouseButton1Click:Connect(function()
+    table.insert(Connections, ToggleStatsBtn.MouseButton1Click:Connect(function()
         StatsVisible = not StatsVisible
         MonitorFrame.Visible = StatsVisible
         ToggleStatsBtn.BackgroundColor3 = StatsVisible and Color3.fromRGB(140, 80, 255) or Color3.fromRGB(50, 50, 60)
-    end)
+    end))
 
     -- [[ LOG CONTAINER (RICHTEXT ENABLED) ]] --
     local LogScroll = Instance.new("ScrollingFrame")
@@ -183,7 +220,7 @@ function Debugger.Show()
 
     local function RefreshLogs()
         local query = SearchInput.Text:lower()
-        local finalStr = ""
+        local buffer = {}
         
         for _, log in ipairs(LogsCache) do
             -- Filter Logic
@@ -212,17 +249,20 @@ function Debugger.Show()
                     prefix = "[ERR] "
                 end
                 
-                -- Gabungkan: Waktu + Warna(Prefix + Pesan) + Tutup Warna
-                finalStr = finalStr .. string.format('<font color="#AAAAAA">%s</font> %s%s%s</font>\n', 
-                    log.time, colorTag, prefix, EscapeXml(log.rawMsg))
+                -- Optimization: Use table.insert instead of string concatenation
+                table.insert(buffer, string.format('<font color="#AAAAAA">%s</font> %s%s%s</font>',
+                    log.time, colorTag, prefix, EscapeXml(log.rawMsg)))
             end
         end
-        LogDisplay.Text = finalStr
+        -- Optimization: table.concat is much faster
+        LogDisplay.Text = table.concat(buffer, "\n")
         LogScroll.CanvasPosition = Vector2.new(0, 99999)
     end
 
     local function AddLog(msg, type)
-        if not Main.Parent then return end
+        -- Safety: Check if UI is still alive
+        if not Main or not Main.Parent then return end
+
         local t = os.date("%X")
         local typeStr = "Info"
         if type == Enum.MessageType.MessageWarning then typeStr = "Warn"
@@ -234,39 +274,43 @@ function Debugger.Show()
         RefreshLogs()
     end
 
-    SearchInput:GetPropertyChangedSignal("Text"):Connect(RefreshLogs)
-    LogService.MessageOut:Connect(AddLog)
+    table.insert(Connections, SearchInput:GetPropertyChangedSignal("Text"):Connect(RefreshLogs))
+
+    -- Global Log Listener (Will be cleaned up on Destroy)
+    table.insert(Connections, LogService.MessageOut:Connect(AddLog))
 
     -- [[ MONITOR UPDATE LOOP ]] --
-    task.spawn(function()
-        while Main.Parent do
-            if Main.Visible and StatsVisible then
-                local fps = math.floor(workspace:GetRealPhysicsFPS())
-                local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
-                local mem = math.floor(Stats:GetTotalMemoryUsageMb())
-                
-                local ws, jp, sit, rootPos, vel = "N/A", "N/A", "N/A", "N/A", 0
-                local char = Players.LocalPlayer.Character
-                if char then
-                    local hum = char:FindFirstChild("Humanoid")
-                    local root = char:FindFirstChild("HumanoidRootPart")
-                    if hum then
-                        ws = math.floor(hum.WalkSpeed)
-                        jp = math.floor(hum.JumpPower)
-                        sit = tostring(hum.Sit)
-                    end
-                    if root then
-                        rootPos = string.format("%d, %d, %d", math.floor(root.Position.X), math.floor(root.Position.Y), math.floor(root.Position.Z))
-                        vel = math.floor(root.AssemblyLinearVelocity.Magnitude)
-                    end
-                end
-                
-                local activeFlags = ""
-                if getgenv().FSS_Universal_Stop then activeFlags = activeFlags .. "[UNI] " end
-                if getgenv().FSS_WaveZ_Stop then activeFlags = activeFlags .. "[WVZ] " end
-                if activeFlags == "" then activeFlags = "None" end
+    -- Replaced while loop with RunService for better lifecycle management
+    table.insert(Connections, RunService.Heartbeat:Connect(function()
+        if not Main or not Main.Parent then return end -- Safety break
 
-                MonitorText.Text = string.format(
+        if Main.Visible and StatsVisible then
+            local fps = math.floor(workspace:GetRealPhysicsFPS())
+            local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
+            local mem = math.floor(Stats:GetTotalMemoryUsageMb())
+
+            local ws, jp, sit, rootPos, vel = "N/A", "N/A", "N/A", "N/A", 0
+            local char = Players.LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if hum then
+                    ws = math.floor(hum.WalkSpeed)
+                    jp = math.floor(hum.JumpPower)
+                    sit = tostring(hum.Sit)
+                end
+                if root then
+                    rootPos = string.format("%d, %d, %d", math.floor(root.Position.X), math.floor(root.Position.Y), math.floor(root.Position.Z))
+                    vel = math.floor(root.AssemblyLinearVelocity.Magnitude)
+                end
+            end
+
+            local activeFlags = ""
+            if getgenv().FSS_Universal_Stop then activeFlags = activeFlags .. "[UNI] " end
+            if getgenv().FSS_WaveZ_Stop then activeFlags = activeFlags .. "[WVZ] " end
+            if activeFlags == "" then activeFlags = "None" end
+
+            MonitorText.Text = string.format(
 [[[SYSTEM]
 FPS:  %d
 Ping: %d ms
@@ -281,11 +325,9 @@ Position:  %s
 
 [SCRIPTS]
 Active: %s]], 
-                fps, ping, mem, ws, jp, sit, vel, rootPos, activeFlags)
-            end
-            task.wait(0.2)
+            fps, ping, mem, ws, jp, sit, vel, rootPos, activeFlags)
         end
-    end)
+    end))
 
     -- [[ WINDOW CONTROLS ]] --
     local function CreateBtn(text, pos, func, color)
@@ -299,7 +341,7 @@ Active: %s]],
         B.Font = Enum.Font.Code
         B.TextSize = 10
         Instance.new("UICorner", B).CornerRadius = UDim.new(0, 4)
-        B.MouseButton1Click:Connect(func)
+        table.insert(Connections, B.MouseButton1Click:Connect(func))
     end
 
     -- Copy All (Hapus tag rich text sebelum copy agar bersih)
@@ -313,8 +355,11 @@ Active: %s]],
             
             local oldText = LogDisplay.Text
             LogDisplay.Text = ">> COPIED CLEAN LOGS TO CLIPBOARD <<"
-            task.wait(0.5)
-            LogDisplay.Text = oldText
+            task.delay(0.5, function()
+                if LogDisplay and LogDisplay.Parent then
+                    LogDisplay.Text = oldText
+                end
+            end)
         end
     end, Color3.fromRGB(100, 255, 100))
 
@@ -331,23 +376,35 @@ Active: %s]],
     MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextSize = 18; MinBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
     
     local isMin = false
-    MinBtn.MouseButton1Click:Connect(function()
+    table.insert(Connections, MinBtn.MouseButton1Click:Connect(function()
         isMin = not isMin
         if isMin then Main:TweenSize(UDim2.new(0, 700, 0, 40), "Out", "Quad", 0.3, true)
         else Main:TweenSize(UDim2.new(0, 700, 0, 500), "Out", "Quad", 0.3, true) end
-    end)
+    end))
 
     local CloseBtn = Instance.new("TextButton")
     CloseBtn.Parent = Main; CloseBtn.Text = "X"; CloseBtn.BackgroundTransparency = 1
     CloseBtn.Size = UDim2.new(0, 25, 0, 25); CloseBtn.Position = UDim2.new(1, -30, 0, 8)
     CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-    CloseBtn.MouseButton1Click:Connect(function() Screen:Destroy() end)
+    table.insert(Connections, CloseBtn.MouseButton1Click:Connect(function() Screen:Destroy() end))
 
-    UserInputService.InputBegan:Connect(function(i, p)
-        if not p and i.KeyCode == Enum.KeyCode.F10 then Main.Visible = not Main.Visible end
+    -- Global Keybind Listener
+    table.insert(Connections, UserInputService.InputBegan:Connect(function(i, p)
+        if not p and i.KeyCode == Enum.KeyCode.F10 then
+            if Main then Main.Visible = not Main.Visible end
+        end
+    end))
+
+    -- [[ AUTO CLEANUP SYSTEM ]] --
+    Screen.Destroying:Connect(function()
+        print("[FSSHUB] Debugger UI Destroyed. Cleaning up " .. #Connections .. " connections...")
+        for _, conn in ipairs(Connections) do
+            if conn.Connected then conn:Disconnect() end
+        end
+        Connections = {}
     end)
 
-    AddLog("Debugger V4.2 Loaded. RichText Enabled.", Enum.MessageType.MessageOutput)
+    AddLog("Debugger V4.3 Loaded. Hawk Optimized.", Enum.MessageType.MessageOutput)
 end
 
 return Debugger
