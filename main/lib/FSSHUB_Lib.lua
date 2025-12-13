@@ -111,7 +111,70 @@ local function MakeDraggable(topbarobject, object)
 end
 
 function library:Notify(title, text, duration)
-    pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
+    -- Fallback if GUI isn't ready
+    if not self.base then
+        pcall(function() game.StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3}) end)
+        return
+    end
+
+    local Holder = self.base:FindFirstChild("FSS_Notifications")
+    if not Holder then
+        Holder = Create("Frame", {
+            Name = "FSS_Notifications", Parent = self.base,
+            Size = UDim2.new(0, 250, 1, -20), Position = UDim2.new(1, -260, 0, -20),
+            AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1
+        })
+        Create("UIListLayout", {
+            Parent = Holder, SortOrder = Enum.SortOrder.LayoutOrder,
+            VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 8)
+        })
+    end
+
+    local Container = Create("Frame", {
+        Parent = Holder, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = false
+    })
+
+    local Main = Create("Frame", {
+        Parent = Container, Size = UDim2.new(1, 0, 0, 50),
+        Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main
+    })
+    library:RegisterTheme(Main, "BackgroundColor3", "Main")
+
+    Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 6)})
+    local S = Create("UIStroke", {Parent = Main, Thickness = 1, Color = library.theme.Accent})
+    library:RegisterTheme(S, "Color", "Accent")
+
+    local TTitle = Create("TextLabel", {
+        Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 13,
+        Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0, 10, 0, 5),
+        BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+        TextColor3 = library.theme.Accent
+    })
+    library:RegisterTheme(TTitle, "TextColor3", "Accent")
+
+    local TText = Create("TextLabel", {
+        Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 12,
+        Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0, 10, 0, 25),
+        BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+        TextColor3 = library.theme.Text, TextWrapped = true
+    })
+    library:RegisterTheme(TText, "TextColor3", "Text")
+
+    -- Animation Sequence
+    task.spawn(function()
+        TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,50)}):Play()
+        TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
+
+        task.wait((duration or 3))
+
+        TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 50, 0, 0)}):Play()
+        task.wait(0.2)
+
+        local close = TweenService:Create(Container, TweenInfo.new(0.2), {Size = UDim2.new(1,0,0,0)})
+        close:Play()
+        close.Completed:Wait()
+        Container:Destroy()
+    end)
 end
 
 function library:Watermark(headerText)
@@ -144,7 +207,11 @@ function library:Watermark(headerText)
             local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001))
             local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
             label.Text = string.format("%s | FPS: %d | Ping: %dms | %s", headerText, fps, ping, os.date("%H:%M:%S"))
-            wm.Size = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
+
+            -- Smooth Resize
+            local targetSize = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
+            TweenService:Create(wm, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+
             task.wait(1)
         end
     end)

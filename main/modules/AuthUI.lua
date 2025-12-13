@@ -23,6 +23,27 @@ local function GetHWID()
     return s and id or "UNKNOWN"
 end
 
+local isShaking = false
+local function Shake(frame)
+    if isShaking then return end
+    isShaking = true
+
+    local originalPos = frame.Position
+    local intensity = 6
+    local duration = 0.05
+
+    task.spawn(function()
+        for i = 1, 6 do
+            local offset = (i % 2 == 0) and intensity or -intensity
+            local targetPos = UDim2.new(originalPos.X.Scale, originalPos.X.Offset + offset, originalPos.Y.Scale, originalPos.Y.Offset)
+            TweenService:Create(frame, TweenInfo.new(duration, Enum.EasingStyle.Sine), {Position = targetPos}):Play()
+            task.wait(duration)
+        end
+        TweenService:Create(frame, TweenInfo.new(duration, Enum.EasingStyle.Sine), {Position = originalPos}):Play()
+        isShaking = false
+    end)
+end
+
 function AuthUI.Show(options)
     -- Gunakan gethui untuk keamanan ekstra jika didukung executor
     local Parent = gethui and gethui() or CoreGui
@@ -95,9 +116,36 @@ function AuthUI.Show(options)
             s.Color = Theme.Outline
             s.Thickness = 1 
         end
+
+        -- Add Hover Feedback
+        Btn.MouseEnter:Connect(function()
+            local hoverColor = (text == "GET KEY") and Theme.Bg:Lerp(Color3.new(1,1,1), 0.1) or Theme.Accent:Lerp(Color3.new(1,1,1), 0.1)
+            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+        end)
+
+        Btn.MouseLeave:Connect(function()
+            local baseColor = (text == "GET KEY") and Theme.Bg or Theme.Accent
+            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = baseColor}):Play()
+        end)
         
+        local isClicking = false
         Btn.MouseButton1Click:Connect(function() 
-            func(Btn) 
+            if isClicking then return end
+            isClicking = true
+
+            -- Add Click Feedback (Bounce)
+            local originalSize = Btn.Size
+            local targetSize = UDim2.new(originalSize.X.Scale, originalSize.X.Offset - 4, originalSize.Y.Scale, originalSize.Y.Offset - 4)
+
+            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = targetSize}):Play()
+            task.wait(0.1)
+            TweenService:Create(Btn, TweenInfo.new(0.1), {Size = originalSize}):Play()
+
+            func(Btn)
+
+            -- Wait for the restore animation to finish before allowing another click
+            task.wait(0.1)
+            isClicking = false
         end)
         
         return Btn
@@ -152,6 +200,8 @@ function AuthUI.Show(options)
             Screen:Destroy()
         else
             -- Animasi jika gagal
+            Shake(Main) -- Visual feedback for error
+
             btn.Text = oldTxt
             btn.BackgroundColor3 = oldColor
             
