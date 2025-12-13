@@ -123,8 +123,8 @@ function library:Notify(title, text, duration)
         Holder = Create("Frame", {
             Name = "FSS_Notifications", Parent = self.base,
             -- Compact Size & Bottom Right Positioning (Roblox style)
-            Size = UDim2.new(0, 220, 1, -20), Position = UDim2.new(1, -230, 0, -20),
-            AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1
+            Size = UDim2.new(0, 220, 0.8, 0), Position = UDim2.new(1, -10, 1, -20),
+            AnchorPoint = Vector2.new(1, 1), BackgroundTransparency = 1
         })
         Create("UIListLayout", {
             Parent = Holder, SortOrder = Enum.SortOrder.LayoutOrder,
@@ -632,7 +632,7 @@ function library:Window(title)
 
                 -- State Change Notification
                 if not firstSet then
-                     local status = toggled and "Enabled" or "Disabled"
+                     local status = val and "Enabled" or "Disabled"
                      library:Notify(text, "Feature has been " .. status, 2)
                 end
                 firstSet = false

@@ -370,6 +370,11 @@ function UIManager.Build(GameConfig, AuthData)
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
         if Library.base then Library.base:Destroy() end
     end)
+
+    -- Welcome Notification
+    task.delay(1, function()
+        Library:Notify("Welcome", "Script loaded successfully!", 5)
+    end)
 end
 
 return UIManager
