@@ -100,9 +100,10 @@ function AuthUI.Show(options)
     Main.Position = UDim2.new(0.5, 0, 0.5, 0)
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
     Main.ClipsDescendants = true -- Prevent bleeding during pop-in
+    Main.BackgroundTransparency = 1 -- Start Invisible for fade-in
 
     -- Pop-in Animation
-    TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 380, 0, 240)}):Play()
+    TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 380, 0, 240), BackgroundTransparency = 0}):Play()
     
     local Corner = Instance.new("UICorner", Main)
     Corner.CornerRadius = UDim.new(0, 12)

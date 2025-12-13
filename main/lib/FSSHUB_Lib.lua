@@ -1,11 +1,11 @@
--- [[ FSSHUB LIBRARY: V19.0 (STABLE + INPUT) ]] --
--- Changelog: Added TextBox & Dropdown Refresh based on V18.1 (No cuts)
+-- [[ FSSHUB LIBRARY: V20.0 (FLUID NAV + OVERHAUL) ]] --
+-- Changelog: Fluid Tab Animations, Sliding Sidebar, Notification Polish, Structural Refactor
 -- Path: main/lib/FSSHUB_Lib.lua
 
 local library = {
     flags = {}, 
     windows = {}, 
-    open = true, -- Initial state matches visible window
+    open = true,
     keybinds = {},
     gui_objects = {},
     wm_obj = nil,
@@ -78,15 +78,11 @@ local function Create(class, props)
 end
 
 local function UpdateKeybind(tableBinds, flag, oldKey, newKey, callback)
-    -- [V2] Clean Cleanup (Removes specific flag from old key)
     if oldKey and tableBinds[oldKey] then
         tableBinds[oldKey][flag] = nil
-        -- Remove empty tables to prevent memory ghosting
         local isEmpty = true; for _ in pairs(tableBinds[oldKey]) do isEmpty = false break end
         if isEmpty then tableBinds[oldKey] = nil end
     end
-
-    -- [V2] Register New Bind (Stacks allowed, overwrites same flag)
     if newKey then
         if not tableBinds[newKey] then tableBinds[newKey] = {} end
         tableBinds[newKey][flag] = callback
@@ -115,17 +111,13 @@ local function MakeDraggable(topbarobject, object)
 end
 
 function library:Notify(title, text, duration)
-    -- Check Feature Flag
     if self.flags["Show Notifications"] == false then return end
-
-    -- Fallback if GUI isn't ready
     if not self.base then return end
 
     local Holder = self.base:FindFirstChild("FSS_Notifications")
     if not Holder then
         Holder = Create("Frame", {
             Name = "FSS_Notifications", Parent = self.base,
-            -- Boxy Style: Narrower (200px)
             Size = UDim2.new(0, 200, 0.8, 0), Position = UDim2.new(1, -20, 1, -20),
             AnchorPoint = Vector2.new(1, 1), BackgroundTransparency = 1
         })
@@ -135,73 +127,54 @@ function library:Notify(title, text, duration)
         })
     end
 
-    -- Boxy Container
     local Container = Create("Frame", {
         Parent = Holder, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = false
     })
 
-    -- Boxy Main Frame (Taller Height)
     local Main = Create("Frame", {
         Parent = Container, Size = UDim2.new(1, 0, 0, 60),
         Position = UDim2.new(1, 50, 0, 0), BackgroundColor3 = library.theme.Main,
-        BackgroundTransparency = 0.1 -- Glassy Base
+        BackgroundTransparency = 0.1
     })
     library:RegisterTheme(Main, "BackgroundColor3", "Main")
 
-    -- [UX] Glassy Gradient
     Create("UIGradient", {
-        Parent = Main,
-        Rotation = 90,
-        Color = ColorSequence.new(Color3.new(1,1,1)),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.1),
-            NumberSequenceKeypoint.new(1, 0.4)
-        })
+        Parent = Main, Rotation = 90, Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 0.4)})
     })
 
     Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 8)})
     local S = Create("UIStroke", {Parent = Main, Thickness = 1, Color = library.theme.Accent})
     library:RegisterTheme(S, "Color", "Accent")
 
-    -- High Contrast Title
     local TTitle = Create("TextLabel", {
         Parent = Main, Text = title, Font = Enum.Font.GothamBold, TextSize = 13,
         Size = UDim2.new(1, -10, 0, 18), Position = UDim2.new(0, 10, 0, 5),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-        TextColor3 = library.theme.Accent,
-        TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
+        TextColor3 = library.theme.Accent, TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
     })
     library:RegisterTheme(TTitle, "TextColor3", "Accent")
 
-    -- High Contrast Text (Wrapped & Aligned Top)
     local TText = Create("TextLabel", {
         Parent = Main, Text = text, Font = Enum.Font.Gotham, TextSize = 11,
         Size = UDim2.new(1, -10, 1, -30), Position = UDim2.new(0, 10, 0, 22),
         BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        TextColor3 = library.theme.Text, TextWrapped = true,
+        TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = library.theme.Text, TextWrapped = true,
         TextStrokeTransparency = 0.3, TextStrokeColor3 = Color3.new(0,0,0)
     })
     library:RegisterTheme(TText, "TextColor3", "Text")
 
-    -- [UX] Time Decay Bar
     local TimerBar = Create("Frame", {
-        Parent = Main,
-        Size = UDim2.new(1, 0, 0, 3),
-        Position = UDim2.new(0, 0, 1, -3),
-        BorderSizePixel = 0,
-        ZIndex = 5,
-        BackgroundColor3 = library.theme.Accent
+        Parent = Main, Size = UDim2.new(1, 0, 0, 3), Position = UDim2.new(0, 0, 1, -3),
+        BorderSizePixel = 0, ZIndex = 5, BackgroundColor3 = library.theme.Accent
     })
     library:RegisterTheme(TimerBar, "BackgroundColor3", "Accent")
     Create("UICorner", {Parent = TimerBar, CornerRadius = UDim.new(0, 2)})
 
-    -- Animation Sequence
     task.spawn(function()
         TweenService:Create(Container, TweenInfo.new(0.3), {Size = UDim2.new(1,0,0,60)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
 
-        -- Start Timer Animation
         local totalDuration = duration or 3
         TweenService:Create(TimerBar, TweenInfo.new(totalDuration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 2)}):Play()
 
@@ -247,11 +220,8 @@ function library:Watermark(headerText)
             local fps = math.floor(1 / math.max(RunService.RenderStepped:Wait(), 0.001))
             local ping = 0; pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString():split(" ")[1]) end)
             label.Text = string.format("%s | FPS: %d | Ping: %dms | %s", headerText, fps, ping, os.date("%H:%M:%S"))
-
-            -- Smooth Resize
             local targetSize = UDim2.new(0, label.AbsoluteSize.X + 20, 0, 26)
             TweenService:Create(wm, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-
             task.wait(1)
         end
     end)
@@ -273,37 +243,21 @@ end
 
 local function CreateRipple(Parent)
     Parent.ClipsDescendants = true
-
-    local Ripple = Instance.new("Frame")
-    Ripple.Name = "Ripple"
-    Ripple.Parent = Parent
-    Ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Ripple.BackgroundTransparency = 0.85
-    Ripple.ZIndex = 9
-    Ripple.BorderSizePixel = 0
-    Ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+    local Ripple = Instance.new("Frame", Parent)
+    Ripple.Name = "Ripple"; Ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Ripple.BackgroundTransparency = 0.85
+    Ripple.ZIndex = 9; Ripple.BorderSizePixel = 0; Ripple.AnchorPoint = Vector2.new(0.5, 0.5)
 
     local MouseLocation = UserInputService:GetMouseLocation()
     local RelativeX = MouseLocation.X - Parent.AbsolutePosition.X
     local RelativeY = MouseLocation.Y - Parent.AbsolutePosition.Y
-
-    Ripple.Position = UDim2.new(0, RelativeX, 0, RelativeY)
-    Ripple.Size = UDim2.new(0, 0, 0, 0)
-
-    local Corner = Instance.new("UICorner", Ripple)
-    Corner.CornerRadius = UDim.new(1, 0)
+    Ripple.Position = UDim2.new(0, RelativeX, 0, RelativeY); Ripple.Size = UDim2.new(0, 0, 0, 0)
+    Create("UICorner", {Parent = Ripple, CornerRadius = UDim.new(1, 0)})
 
     local TargetSize = math.max(Parent.AbsoluteSize.X, Parent.AbsoluteSize.Y) * 2.5
-
-    local Tween = TweenService:Create(Ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, TargetSize, 0, TargetSize),
-        BackgroundTransparency = 1
-    })
-
-    Tween:Play()
-    Tween.Completed:Connect(function()
-        Ripple:Destroy()
-    end)
+    TweenService:Create(Ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, TargetSize, 0, TargetSize), BackgroundTransparency = 1
+    }):Play()
+    task.delay(0.5, function() Ripple:Destroy() end)
 end
 
 function library:Init()
@@ -319,33 +273,23 @@ function library:Init()
     local gui = Create("ScreenGui", {
         Name = "FSSHUB_V10", Parent = TargetParent, ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 9999
     })
-    
     self.base = gui
     
     if getgenv().FSS_InputConnection then getgenv().FSS_InputConnection:Disconnect(); getgenv().FSS_InputConnection = nil end
     getgenv().FSS_InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        -- [V2] Chat Safe Protocol: Only block if typing
         if UserInputService:GetFocusedTextBox() then return end
-
-        if input.KeyCode ~= Enum.KeyCode.Unknown then
-            if library.keybinds[input.KeyCode] then
-                -- [V2] Iterate Pairs (Dictionary Support)
-                for _, bindCallback in pairs(library.keybinds[input.KeyCode]) do pcall(bindCallback) end
-            end
+        if input.KeyCode ~= Enum.KeyCode.Unknown and library.keybinds[input.KeyCode] then
+            for _, bindCallback in pairs(library.keybinds[input.KeyCode]) do pcall(bindCallback) end
         end
     end)
 
     if UserInputService.TouchEnabled then
         local ToggleFrame = Create("Frame", {Parent = gui, Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(0, 20, 0.5, -20)})
         library:RegisterTheme(ToggleFrame, "BackgroundColor3", "Main")
-        
         Create("UICorner", {Parent = ToggleFrame, CornerRadius = UDim.new(0, 8)})
-        local s = Create("UIStroke", {Parent = ToggleFrame, Thickness = 2})
-        library:RegisterTheme(s, "Color", "Accent")
-        
+        local s = Create("UIStroke", {Parent = ToggleFrame, Thickness = 2}); library:RegisterTheme(s, "Color", "Accent")
         local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", Font = Enum.Font.GothamBlack})
         library:RegisterTheme(Btn, "TextColor3", "Accent")
-        
         Btn.MouseButton1Click:Connect(function() library:Toggle() end)
     end
     
@@ -363,13 +307,10 @@ function library:Toggle()
         MainFrame.Visible = true
         MainFrame.Size = UDim2.new(0, 0, 0, 0)
         TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 550, 0, 350)}):Play()
-        -- Restore children transparency if needed, but Visible handles main visibility.
     else
         local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
         tween:Play()
-        tween.Completed:Connect(function()
-            if not self.open then MainFrame.Visible = false end
-        end)
+        tween.Completed:Connect(function() if not self.open then MainFrame.Visible = false end end)
     end
 end
 
@@ -382,15 +323,13 @@ function library:Window(title)
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = self.base, Size = UDim2.new(0, 550, 0, 350), 
         Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0,
-        ClipsDescendants = true -- Prevent content bleeding during open/close animations
+        ClipsDescendants = true
     })
     library:RegisterTheme(MainFrame, "BackgroundColor3", "Main")
     table.insert(library.transparencyFrames, MainFrame)
     
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
-    local MainStroke = Create("UIStroke", {Parent = MainFrame, Thickness = 1})
-    library:RegisterTheme(MainStroke, "Color", "Stroke")
-
+    local MainStroke = Create("UIStroke", {Parent = MainFrame, Thickness = 1}); library:RegisterTheme(MainStroke, "Color", "Stroke")
     Create("TextButton", {Parent = MainFrame, BackgroundTransparency = 1, Text = "", Size = UDim2.new(0,0,0,0), Modal = true})
 
     local Header = Create("Frame", {Parent = MainFrame, Size = UDim2.new(1, 0, 0, 45)})
@@ -398,15 +337,9 @@ function library:Window(title)
     table.insert(library.transparencyFrames, Header)
     Create("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 8)})
     
-    -- [UX] Glassy Gradient for Header
-    local H_Grad = Create("UIGradient", {
-        Parent = Header,
-        Rotation = 90,
-        Color = ColorSequence.new(Color3.new(1,1,1)),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.9), -- Slight white tint at top
-            NumberSequenceKeypoint.new(1, 1)    -- Fully transparent at bottom
-        })
+    Create("UIGradient", {
+        Parent = Header, Rotation = 90, Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 1)})
     })
 
     local HeaderLine = Create("Frame", {Parent = Header, Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0,0,1,-10), BorderSizePixel=0}) 
@@ -429,20 +362,21 @@ function library:Window(title)
     library:RegisterTheme(Sidebar, "BackgroundColor3", "Sidebar")
     table.insert(library.transparencyFrames, Sidebar)
 
-    -- [UX] Subtle Gradient for Sidebar consistency
-    local S_Grad = Create("UIGradient", {
-        Parent = Sidebar,
-        Rotation = 90,
-        Color = ColorSequence.new(Color3.new(1,1,1)),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.95), -- Very subtle tint
-            NumberSequenceKeypoint.new(1, 1)
-        })
+    Create("UIGradient", {
+        Parent = Sidebar, Rotation = 90, Color = ColorSequence.new(Color3.new(1,1,1)),
+        Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.95), NumberSequenceKeypoint.new(1, 1)})
     })
     
     Create("UICorner", {Parent = Sidebar, CornerRadius = UDim.new(0,0)})
-    Create("UIListLayout", {Parent = Sidebar, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})
-    Create("UIPadding", {Parent = Sidebar, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
+
+    -- STRUCTURAL REFACTOR: ButtonsHolder
+    local ButtonsHolder = Create("Frame", {
+        Name = "ButtonsHolder", Parent = Sidebar, Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y
+    })
+
+    Create("UIListLayout", {Parent = ButtonsHolder, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})
+    Create("UIPadding", {Parent = ButtonsHolder, PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
 
     local Content = Create("Frame", {
         Parent = MainFrame, Size = UDim2.new(1, -160, 1, -46),
@@ -453,15 +387,23 @@ function library:Window(title)
     
     MakeDraggable(Header, MainFrame)
     
-    local window = {tabs = {}}
+    local window = {activeTab = nil, indicator = nil}
     local firstTab = true
+
+    -- Sliding Indicator (Sibling to ButtonsHolder, inside Sidebar)
+    window.indicator = Create("Frame", {
+        Parent = Sidebar, Size = UDim2.new(0, 3, 0, 20),
+        BackgroundColor3 = library.theme.Accent, BorderSizePixel = 0, ZIndex = 20, Visible = false
+    })
+    library:RegisterTheme(window.indicator, "BackgroundColor3", "Accent")
+    Create("UICorner", {Parent = window.indicator, CornerRadius = UDim.new(0, 2)})
 
     function window:Section(name, iconId) 
         local Page = Create("ScrollingFrame", {
             Parent = Content, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
             ScrollBarThickness = 6, ScrollBarImageColor3 = library.theme.Accent, Visible = false,
-            AutomaticCanvasSize = Enum.AutomaticSize.None, 
-            CanvasSize = UDim2.new(0, 0, 0, 0)
+            AutomaticCanvasSize = Enum.AutomaticSize.None, CanvasSize = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(1, 0, 0, 0) -- Start Right
         })
         library:RegisterTheme(Page, "ScrollBarImageColor3", "Accent")
         
@@ -472,60 +414,104 @@ function library:Window(title)
             Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
         end)
         
-        local TabBtn = Create("TextButton", {Parent = Sidebar, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false})
+        -- Parented to ButtonsHolder for layout
+        local TabBtn = Create("TextButton", {Parent = ButtonsHolder, Text = "", Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, AutoButtonColor = false})
         local textOffset = 0
         local IconImg
         if iconId and iconId ~= "" then
             textOffset = 25
             IconImg = Create("ImageLabel", {Parent = TabBtn, Image = "rbxassetid://" .. iconId, BackgroundTransparency = 1, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 5, 0.5, -9)})
+            library:RegisterTheme(IconImg, "ImageColor3", "TextDim")
         end
         
         local TabLabel = Create("TextLabel", {
             Parent = TabBtn, Text = name, Font = Enum.Font.GothamMedium,
             TextSize = 13, Size = UDim2.new(1, -textOffset, 1, 0), Position = UDim2.new(0, textOffset + 5, 0, 0),
-            BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left
+            BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = library.theme.TextDim
         })
-        
-        local Indicator = Create("Frame", {
-            Parent = TabBtn, Size = UDim2.new(0, 3, 0, 18),
-            Position = UDim2.new(0, -10, 0.5, -9), Visible = false
-        })
-        library:RegisterTheme(Indicator, "BackgroundColor3", "Accent")
-        Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(0, 2)})
+        library:RegisterTheme(TabLabel, "TextColor3", "TextDim")
 
-        local tabObj = {page = Page, btn = TabBtn, label = TabLabel, indicator = Indicator, icon = IconImg, active = false}
-        table.insert(window.tabs, tabObj)
-
-        local function UpdateTabVisuals()
-            for _, t in ipairs(window.tabs) do
-                if t.active then
-                    t.page.Visible = true; t.indicator.Visible = true
-                    t.label.TextColor3 = library.theme.Text
-                    if t.icon then t.icon.ImageColor3 = library.theme.Text end
-                    t.page.CanvasSize = UDim2.new(0, 0, 0, t.page.UIListLayout.AbsoluteContentSize.Y + 20)
-
-                    -- Slide Up Animation
-                    t.page.Position = UDim2.new(0, 0, 0, 20)
-                    TweenService:Create(t.page, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
-                else
-                    t.page.Visible = false; t.indicator.Visible = false
-                    t.label.TextColor3 = library.theme.TextDim
-                    if t.icon then t.icon.ImageColor3 = library.theme.TextDim end
-                end
-            end
-        end
-        library:RegisterThemeFunc(UpdateTabVisuals)
+        local tabObj = {page = Page, btn = TabBtn, label = TabLabel, icon = IconImg, active = false}
 
         TabBtn.MouseButton1Click:Connect(function()
-            for _, t in ipairs(window.tabs) do t.active = false end
+            if window.activeTab == tabObj then return end
+
+            -- ANIMATE OLD TAB (Exit Left)
+            if window.activeTab then
+                local old = window.activeTab
+                old.active = false
+
+                TweenService:Create(old.label, TweenInfo.new(0.3), {TextColor3 = library.theme.TextDim}):Play()
+                if old.icon then TweenService:Create(old.icon, TweenInfo.new(0.3), {ImageColor3 = library.theme.TextDim}):Play() end
+
+                local outTween = TweenService:Create(old.page, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(-1, 0, 0, 0)})
+                outTween:Play()
+                task.delay(0.4, function() if not old.active then old.page.Visible = false end end)
+            end
+
+            -- ANIMATE NEW TAB (Enter Right -> Center)
+            window.activeTab = tabObj
             tabObj.active = true
-            UpdateTabVisuals()
+
+            tabObj.page.Visible = true
+            tabObj.page.Position = UDim2.new(1, 0, 0, 0)
+            TweenService:Create(tabObj.page, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+
+            TweenService:Create(tabObj.label, TweenInfo.new(0.3), {TextColor3 = library.theme.Text}):Play()
+            if tabObj.icon then TweenService:Create(tabObj.icon, TweenInfo.new(0.3), {ImageColor3 = library.theme.Text}):Play() end
+
+            -- Move Indicator
+            window.indicator.Visible = true
+            -- Calculate Position relative to Sidebar since Button is in Holder
+            -- Y = Button.Position.Y (Scale is 0 because of ListLayout) + Offset inside Holder
+            -- LayoutOrder or AbsolutePosition needed?
+            -- Safest: Use relative position logic if ListLayout uses Scale/Offset
+            -- But ListLayout sets Position automatically.
+            -- Since ButtonsHolder is Transparency=1 and same size,
+            -- Indicator Y should match TabBtn.AbsolutePosition.Y - Sidebar.AbsolutePosition.Y
+            -- BUT we can't use AbsolutePosition reliably before rendering.
+
+            -- FIX: We can simply set the Indicator Y to match the button's Position inside the Holder
+            -- Because Holder and Sidebar align.
+            -- WAIT: ListLayout positions elements. We need to wait for layout or use frame position.
+            -- The Button's Position property IS updated by ListLayout.
+
+            local targetY = TabBtn.Position.Y.Offset + TabBtn.Position.Y.Scale * ButtonsHolder.AbsoluteSize.Y
+            -- Add padding top of Holder?
+            -- ListLayout positions relative to Holder.
+            -- Padding adds to the content start.
+
+            -- Better way: Move indicator to match TabBtn.AbsolutePosition.Y - Sidebar.AbsolutePosition.Y + ScrollY
+            -- But we can't easily get scroll Y in simple UDim2
+
+            -- Alternative: Simply Tween to the Button's Position.
+            -- TabBtn.Position is relative to ButtonsHolder.
+            -- ButtonsHolder is at 0,0 inside Sidebar.
+            -- So TabBtn.Position works directly for Indicator if we add the Padding offset from ButtonsHolder?
+            -- No, ListLayout respects Padding.
+
+            local targetPos = UDim2.new(0, 0, TabBtn.Position.Y.Scale, TabBtn.Position.Y.Offset + 7)
+            -- +7 centers the 20px indicator on 34px button (34-20)/2 = 7
+
+            TweenService:Create(window.indicator, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = targetPos}):Play()
         end)
 
         if firstTab then
-            tabObj.active = true
-            task.delay(0.1, UpdateTabVisuals)
             firstTab = false
+            window.activeTab = tabObj
+            tabObj.active = true
+
+            tabObj.page.Visible = true
+            tabObj.page.Position = UDim2.new(0, 0, 0, 0)
+
+            TabLabel.TextColor3 = library.theme.Text
+            if IconImg then IconImg.ImageColor3 = library.theme.Text end
+
+            task.delay(0.1, function()
+                window.indicator.Visible = true
+                -- Same logic as above
+                window.indicator.Position = UDim2.new(0, 0, TabBtn.Position.Y.Scale, TabBtn.Position.Y.Offset + 7)
+            end)
         end
 
         local tab = {}
