@@ -1,5 +1,5 @@
--- [[ FSSHUB MODULE: DEV SUITE V4.2 (SECURE GUI) ]] --
--- Features: F10 Toggle, RichText Logs (Colors fixed), Copy All, Detailed Monitor Toggle
+-- [[ FSSHUB MODULE: DEV SUITE V4.3 (SCANNER EDITION) ]] --
+-- Features: F10 Toggle, RichText Logs, Tab System, Smart Object Scanner
 -- Path: main/modules/Debugger.lua
 
 local Debugger = {}
@@ -48,17 +48,66 @@ function Debugger.Show()
     Title.Position = UDim2.new(0, 15, 0, 10)
     Title.Size = UDim2.new(1, -100, 0, 20)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "FSSHUB DEBUGGER [F10] | V4.2"
+    Title.Text = "FSSHUB DEBUGGER [F10] | V4.3"
     Title.TextColor3 = Color3.fromRGB(140, 80, 255)
     Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- [[ CONTROL BAR ]] --
+    -- [[ TAB SYSTEM ]] --
+    local TabContainer = Instance.new("Frame")
+    TabContainer.Parent = Main
+    TabContainer.BackgroundTransparency = 1
+    TabContainer.Position = UDim2.new(0, 250, 0, 8)
+    TabContainer.Size = UDim2.new(0, 200, 0, 25)
+
+    local CurrentTab = "Console"
+    local Tabs = {}
+
+    local function SwitchTab(tabName)
+        CurrentTab = tabName
+        for name, frame in pairs(Tabs) do
+            frame.Visible = (name == tabName)
+        end
+    end
+
+    local function CreateTabBtn(text, xOffset, tabName)
+        local Btn = Instance.new("TextButton")
+        Btn.Parent = TabContainer
+        Btn.BackgroundTransparency = 1
+        Btn.Position = UDim2.new(0, xOffset, 0, 0)
+        Btn.Size = UDim2.new(0, 80, 1, 0)
+        Btn.Font = Enum.Font.GothamBold
+        Btn.Text = text
+        Btn.TextSize = 12
+        Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+
+        Btn.MouseButton1Click:Connect(function()
+            SwitchTab(tabName)
+            -- Visual update for active tab could be added here
+        end)
+    end
+
+    CreateTabBtn("[CONSOLE]", 0, "Console")
+    CreateTabBtn("[SCANNER]", 90, "Scanner")
+
+
+    -- ====================================================================
+    -- [[ TAB: CONSOLE (EXISTING LOGIC) ]]
+    -- ====================================================================
+    local ConsoleTab = Instance.new("Frame")
+    ConsoleTab.Name = "ConsoleTab"
+    ConsoleTab.Parent = Main
+    ConsoleTab.BackgroundTransparency = 1
+    ConsoleTab.Size = UDim2.new(1, 0, 1, -40)
+    ConsoleTab.Position = UDim2.new(0, 0, 0, 40)
+    Tabs["Console"] = ConsoleTab
+
+    -- Control Bar
     local ControlBar = Instance.new("Frame")
-    ControlBar.Parent = Main
+    ControlBar.Parent = ConsoleTab
     ControlBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     ControlBar.Size = UDim2.new(1, -20, 0, 35)
-    ControlBar.Position = UDim2.new(0, 10, 0, 40)
+    ControlBar.Position = UDim2.new(0, 10, 0, 0)
     Instance.new("UICorner", ControlBar).CornerRadius = UDim.new(0, 6)
 
     -- Search Box
@@ -74,9 +123,8 @@ function Debugger.Show()
     SearchInput.TextSize = 12
     Instance.new("UICorner", SearchInput).CornerRadius = UDim.new(0, 4)
 
-    -- Filter Buttons Logic
+    -- Filter Buttons
     local Filters = {Info = true, Warn = true, Error = true}
-    
     local function CreateFilterBtn(text, color, xOffset, key)
         local Btn = Instance.new("TextButton")
         Btn.Parent = ControlBar
@@ -96,17 +144,16 @@ function Debugger.Show()
             SearchInput.Text = string.sub(SearchInput.Text, 1, -2) 
         end)
     end
-
     CreateFilterBtn("I", Color3.fromRGB(255, 255, 255), 0, "Info")
     CreateFilterBtn("W", Color3.fromRGB(255, 200, 50), 30, "Warn")
     CreateFilterBtn("E", Color3.fromRGB(255, 80, 80), 60, "Error")
 
-    -- [[ MONITOR PANEL (HIDDEN BY DEFAULT) ]] --
+    -- Stats Toggle
     local StatsVisible = false
     local MonitorFrame = Instance.new("Frame")
-    MonitorFrame.Parent = Main
+    MonitorFrame.Parent = Main -- Keep Monitor on top level
     MonitorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    MonitorFrame.Size = UDim2.new(0, 200, 1, -85) -- Side Panel
+    MonitorFrame.Size = UDim2.new(0, 200, 1, -85)
     MonitorFrame.Position = UDim2.new(1, -210, 0, 80)
     MonitorFrame.Visible = false
     MonitorFrame.ZIndex = 10
@@ -126,7 +173,6 @@ function Debugger.Show()
     MonitorText.TextYAlignment = Enum.TextYAlignment.Top
     MonitorText.Text = "Loading Stats..."
 
-    -- Toggle Monitor Button
     local ToggleStatsBtn = Instance.new("TextButton")
     ToggleStatsBtn.Parent = ControlBar
     ToggleStatsBtn.Text = "STATS"
@@ -137,19 +183,18 @@ function Debugger.Show()
     ToggleStatsBtn.Font = Enum.Font.GothamBold
     ToggleStatsBtn.TextSize = 10
     Instance.new("UICorner", ToggleStatsBtn).CornerRadius = UDim.new(0, 4)
-    
     ToggleStatsBtn.MouseButton1Click:Connect(function()
         StatsVisible = not StatsVisible
         MonitorFrame.Visible = StatsVisible
         ToggleStatsBtn.BackgroundColor3 = StatsVisible and Color3.fromRGB(140, 80, 255) or Color3.fromRGB(50, 50, 60)
     end)
 
-    -- [[ LOG CONTAINER (RICHTEXT ENABLED) ]] --
+    -- Log Scroll
     local LogScroll = Instance.new("ScrollingFrame")
-    LogScroll.Parent = Main
+    LogScroll.Parent = ConsoleTab
     LogScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    LogScroll.Position = UDim2.new(0, 10, 0, 85)
-    LogScroll.Size = UDim2.new(1, -20, 1, -95)
+    LogScroll.Position = UDim2.new(0, 10, 0, 45)
+    LogScroll.Size = UDim2.new(1, -20, 1, -55)
     LogScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     LogScroll.ScrollBarThickness = 6
     Instance.new("UICorner", LogScroll).CornerRadius = UDim.new(0, 6)
@@ -170,13 +215,11 @@ function Debugger.Show()
     LogDisplay.ClearTextOnFocus = false
     LogDisplay.TextEditable = false 
     LogDisplay.AutomaticSize = Enum.AutomaticSize.Y
-    LogDisplay.RichText = true -- AKTIFKAN WARNA
+    LogDisplay.RichText = true
     LogDisplay.Text = "Waiting for logs..."
 
-    -- [[ DATA MANAGEMENT ]] --
+    -- Console Data Logic (Existing)
     local LogsCache = {}
-    
-    -- Fungsi Helper untuk Escape karakter XML agar tidak merusak RichText
     local function EscapeXml(str)
         return str:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub("\"", "&quot;"):gsub("'", "&apos;")
     end
@@ -184,35 +227,28 @@ function Debugger.Show()
     local function RefreshLogs()
         local query = SearchInput.Text:lower()
         local finalStr = ""
-        
         for _, log in ipairs(LogsCache) do
-            -- Filter Logic
             local typePass = false
             if log.type == "Info" and Filters.Info then typePass = true end
             if log.type == "Warn" and Filters.Warn then typePass = true end
             if log.type == "Error" and Filters.Error then typePass = true end
             
-            -- Search Logic (Cari di raw text, bukan yang sudah di-format)
             local searchPass = true
             if query ~= "" and not log.rawMsg:lower():find(query) then searchPass = false end
             
             if typePass and searchPass then
-                -- Format Warna menggunakan RichText
                 local colorTag = ""
                 local prefix = ""
-                
                 if log.type == "Info" then 
                     colorTag = '<font color="#FFFFFF">' 
                     prefix = "[INFO] "
                 elseif log.type == "Warn" then 
-                    colorTag = '<font color="#FFC832">' -- Kuning
+                    colorTag = '<font color="#FFC832">'
                     prefix = "[WARN] "
                 elseif log.type == "Error" then 
-                    colorTag = '<font color="#FF5050">' -- Merah
+                    colorTag = '<font color="#FF5050">'
                     prefix = "[ERR] "
                 end
-                
-                -- Gabungkan: Waktu + Warna(Prefix + Pesan) + Tutup Warna
                 finalStr = finalStr .. string.format('<font color="#AAAAAA">%s</font> %s%s%s</font>\n', 
                     log.time, colorTag, prefix, EscapeXml(log.rawMsg))
             end
@@ -227,17 +263,270 @@ function Debugger.Show()
         local typeStr = "Info"
         if type == Enum.MessageType.MessageWarning then typeStr = "Warn"
         elseif type == Enum.MessageType.MessageError then typeStr = "Error" end
-        
         table.insert(LogsCache, {time = t, rawMsg = msg, type = typeStr})
         if #LogsCache > 250 then table.remove(LogsCache, 1) end 
-        
         RefreshLogs()
     end
-
     SearchInput:GetPropertyChangedSignal("Text"):Connect(RefreshLogs)
     LogService.MessageOut:Connect(AddLog)
 
-    -- [[ MONITOR UPDATE LOOP ]] --
+    -- Copy Button (Console)
+    local CopyBtn = Instance.new("TextButton")
+    CopyBtn.Parent = ConsoleTab
+    CopyBtn.Text = "COPY ALL"
+    CopyBtn.Size = UDim2.new(0, 60, 0, 20)
+    CopyBtn.Position = UDim2.new(1, -75, 0, 45) -- Relative to ConsoleTab content area? No, original was Main.
+    -- Adjusting position to be inside ConsoleTab or Main?
+    -- Original layout had buttons at bottom. Let's keep them at bottom of Main, but show/hide based on tab if needed.
+    -- Actually, for cleanliness, let's put them inside the tab.
+    CopyBtn.Position = UDim2.new(1, -75, 1, -30) -- Bottom Right of ConsoleTab
+    CopyBtn.BackgroundColor3 = Color3.fromRGB(40,40,50)
+    CopyBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+    CopyBtn.Font = Enum.Font.Code
+    CopyBtn.TextSize = 10
+    Instance.new("UICorner", CopyBtn).CornerRadius = UDim.new(0, 4)
+    CopyBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            local cleanText = ""
+            for _, log in ipairs(LogsCache) do
+                cleanText = cleanText .. string.format("[%s] [%s] %s\n", log.time, log.type:upper(), log.rawMsg)
+            end
+            setclipboard(cleanText)
+            local oldText = LogDisplay.Text
+            LogDisplay.Text = ">> COPIED CLEAN LOGS TO CLIPBOARD <<"
+            task.wait(0.5)
+            LogDisplay.Text = oldText
+        end
+    end)
+
+    local NukeBtn = Instance.new("TextButton")
+    NukeBtn.Parent = ConsoleTab
+    NukeBtn.Text = "NUKE"
+    NukeBtn.Size = UDim2.new(0, 60, 0, 20)
+    NukeBtn.Position = UDim2.new(1, -145, 1, -30)
+    NukeBtn.BackgroundColor3 = Color3.fromRGB(40,40,50)
+    NukeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+    NukeBtn.Font = Enum.Font.Code
+    NukeBtn.TextSize = 10
+    Instance.new("UICorner", NukeBtn).CornerRadius = UDim.new(0, 4)
+    NukeBtn.MouseButton1Click:Connect(function()
+        if getgenv().FSS_Universal_Stop then getgenv().FSS_Universal_Stop() end
+        if getgenv().FSS_WaveZ_Stop then getgenv().FSS_WaveZ_Stop() end
+        AddLog("ALL SCRIPTS NUKED MANUALLY", Enum.MessageType.MessageError)
+    end)
+
+
+    -- ====================================================================
+    -- [[ TAB: SCANNER (NEW LOGIC) ]]
+    -- ====================================================================
+    local ScannerTab = Instance.new("Frame")
+    ScannerTab.Name = "ScannerTab"
+    ScannerTab.Parent = Main
+    ScannerTab.BackgroundTransparency = 1
+    ScannerTab.Size = UDim2.new(1, 0, 1, -40)
+    ScannerTab.Position = UDim2.new(0, 0, 0, 40)
+    ScannerTab.Visible = false
+    Tabs["Scanner"] = ScannerTab
+
+    -- Input Bar
+    local ScannerBar = Instance.new("Frame")
+    ScannerBar.Parent = ScannerTab
+    ScannerBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    ScannerBar.Size = UDim2.new(1, -20, 0, 35)
+    ScannerBar.Position = UDim2.new(0, 10, 0, 0)
+    Instance.new("UICorner", ScannerBar).CornerRadius = UDim.new(0, 6)
+
+    local PathInput = Instance.new("TextBox")
+    PathInput.Parent = ScannerBar
+    PathInput.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    PathInput.Size = UDim2.new(0, 150, 0, 25)
+    PathInput.Position = UDim2.new(0, 5, 0.5, -12.5)
+    PathInput.Font = Enum.Font.Code
+    PathInput.Text = "workspace.ServerZombies"
+    PathInput.PlaceholderText = "Target Path..."
+    PathInput.TextColor3 = Color3.fromRGB(220, 220, 220)
+    PathInput.TextSize = 11
+    Instance.new("UICorner", PathInput).CornerRadius = UDim.new(0, 4)
+
+    local ClassInput = Instance.new("TextBox")
+    ClassInput.Parent = ScannerBar
+    ClassInput.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    ClassInput.Size = UDim2.new(0, 100, 0, 25)
+    ClassInput.Position = UDim2.new(0, 160, 0.5, -12.5)
+    ClassInput.Font = Enum.Font.Code
+    ClassInput.Text = "Model"
+    ClassInput.PlaceholderText = "ClassName..."
+    ClassInput.TextColor3 = Color3.fromRGB(220, 220, 220)
+    ClassInput.TextSize = 11
+    Instance.new("UICorner", ClassInput).CornerRadius = UDim.new(0, 4)
+
+    local ScanBtn = Instance.new("TextButton")
+    ScanBtn.Parent = ScannerBar
+    ScanBtn.Text = "SCAN"
+    ScanBtn.Size = UDim2.new(0, 50, 0, 25)
+    ScanBtn.Position = UDim2.new(1, -55, 0.5, -12.5)
+    ScanBtn.BackgroundColor3 = Color3.fromRGB(140, 80, 255)
+    ScanBtn.TextColor3 = Color3.new(1,1,1)
+    ScanBtn.Font = Enum.Font.GothamBold
+    ScanBtn.TextSize = 10
+    Instance.new("UICorner", ScanBtn).CornerRadius = UDim.new(0, 4)
+
+    -- Results Container
+    local ScanScroll = Instance.new("ScrollingFrame")
+    ScanScroll.Parent = ScannerTab
+    ScanScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    ScanScroll.Position = UDim2.new(0, 10, 0, 45)
+    ScanScroll.Size = UDim2.new(1, -20, 1, -55)
+    ScanScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScanScroll.ScrollBarThickness = 6
+    Instance.new("UICorner", ScanScroll).CornerRadius = UDim.new(0, 6)
+
+    local ScanResultBox = Instance.new("TextBox")
+    ScanResultBox.Parent = ScanScroll
+    ScanResultBox.BackgroundTransparency = 1
+    ScanResultBox.Size = UDim2.new(1, -10, 1, 0)
+    ScanResultBox.Position = UDim2.new(0, 5, 0, 0)
+    ScanResultBox.Font = Enum.Font.Code
+    ScanResultBox.TextSize = 11
+    ScanResultBox.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ScanResultBox.TextXAlignment = Enum.TextXAlignment.Left
+    ScanResultBox.TextYAlignment = Enum.TextYAlignment.Top
+    ScanResultBox.TextWrapped = false -- Allow horizontal scrolling if lines are long
+    ScanResultBox.MultiLine = true
+    ScanResultBox.ClearTextOnFocus = false
+    ScanResultBox.TextEditable = false
+    ScanResultBox.AutomaticSize = Enum.AutomaticSize.XY
+    ScanResultBox.Text = "Ready to scan..."
+
+    -- Scan Copy Button
+    local ScanCopyBtn = Instance.new("TextButton")
+    ScanCopyBtn.Parent = ScannerTab
+    ScanCopyBtn.Text = "COPY RESULT"
+    ScanCopyBtn.Size = UDim2.new(0, 80, 0, 20)
+    ScanCopyBtn.Position = UDim2.new(1, -95, 1, -30)
+    ScanCopyBtn.BackgroundColor3 = Color3.fromRGB(40,40,50)
+    ScanCopyBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+    ScanCopyBtn.Font = Enum.Font.Code
+    ScanCopyBtn.TextSize = 10
+    Instance.new("UICorner", ScanCopyBtn).CornerRadius = UDim.new(0, 4)
+    ScanCopyBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(ScanResultBox.Text)
+            local old = ScanBtn.Text
+            ScanBtn.Text = "COPIED"
+            task.wait(1)
+            ScanBtn.Text = old
+        end
+    end)
+
+    -- [[ SCANNER ALGORITHM ]] --
+    local function ResolvePath(pathStr)
+        local segments = pathStr:split(".")
+        local current = game
+        if segments[1] == "game" then table.remove(segments, 1) end
+
+        for _, name in ipairs(segments) do
+            if current:FindFirstChild(name) then
+                current = current[name]
+            else
+                return nil
+            end
+        end
+        return current
+    end
+
+    local function GetOrigin()
+        local char = Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            return char.HumanoidRootPart.Position
+        elseif workspace.CurrentCamera then
+            return workspace.CurrentCamera.CFrame.Position
+        end
+        return nil
+    end
+
+    local function Scan()
+        local pathStr = PathInput.Text
+        local filterClass = ClassInput.Text
+        local target = ResolvePath(pathStr)
+
+        if not target then
+            ScanResultBox.Text = "[ERROR] Target path not found: " .. pathStr
+            return
+        end
+
+        local results = {}
+        table.insert(results, string.format("SCAN REPORT: %s | Filter: %s", pathStr, filterClass))
+        table.insert(results, string.rep("-", 50))
+
+        local origin = GetOrigin()
+
+        for _, child in ipairs(target:GetChildren()) do
+            -- Filter Logic
+            local match = false
+            if filterClass == "" or filterClass == "*" then match = true end
+            if child:IsA(filterClass) then match = true end
+
+            if match then
+                local info = ""
+                local distStr = "N/A"
+
+                -- Distance Calc
+                local pos = nil
+                if child:IsA("BasePart") then
+                    pos = child.Position
+                elseif child:IsA("Model") and child.PrimaryPart then
+                    pos = child.PrimaryPart.Position
+                elseif child:FindFirstChild("HumanoidRootPart") then
+                    pos = child.HumanoidRootPart.Position
+                elseif child:FindFirstChild("Handle") then -- Tool
+                    pos = child.Handle.Position
+                end
+
+                if pos and origin then
+                    local dist = math.floor((pos - origin).Magnitude)
+                    distStr = dist .. " studs"
+                end
+
+                -- Smart Peek (Expanded)
+                if child:IsA("Model") then
+                    local hum = child:FindFirstChild("Humanoid")
+                    if hum then
+                        info = string.format("HP: %d/%d", hum.Health, hum.MaxHealth)
+                    else
+                        -- Generic Model check
+                        info = string.format("Children: %d", #child:GetChildren())
+                    end
+                elseif child:IsA("BasePart") then
+                    info = string.format("Size: [%.1f, %.1f, %.1f]", child.Size.X, child.Size.Y, child.Size.Z)
+                elseif child:IsA("Tool") then
+                    info = child:FindFirstChild("Handle") and "Has Handle" or "No Handle"
+                elseif child:IsA("ValueBase") then -- StringValue, IntValue, etc.
+                    info = string.format("Value: %s", tostring(child.Value))
+                end
+
+                -- Extended Value Scan (Look for price/id inside)
+                for _, sub in ipairs(child:GetChildren()) do
+                    if sub:IsA("ValueBase") and (sub.Name:lower():find("price") or sub.Name:lower():find("id") or sub.Name:lower():find("val")) then
+                        info = info .. string.format(" | %s: %s", sub.Name, tostring(sub.Value))
+                    end
+                end
+
+                table.insert(results, string.format("[%s] %s | Dist: %s | %s", child.ClassName, child.Name, distStr, info))
+            end
+        end
+
+        if #results == 2 then
+            table.insert(results, "No objects found matching criteria.")
+        end
+
+        ScanResultBox.Text = table.concat(results, "\n")
+    end
+
+    ScanBtn.MouseButton1Click:Connect(Scan)
+
+
+    -- [[ GLOBAL UPDATE LOOP (MONITOR) ]] --
     task.spawn(function()
         while Main.Parent do
             if Main.Visible and StatsVisible then
@@ -288,43 +577,6 @@ Active: %s]],
     end)
 
     -- [[ WINDOW CONTROLS ]] --
-    local function CreateBtn(text, pos, func, color)
-        local B = Instance.new("TextButton")
-        B.Parent = Main
-        B.Text = text
-        B.Size = UDim2.new(0, 60, 0, 20)
-        B.Position = pos
-        B.BackgroundColor3 = Color3.fromRGB(40,40,50)
-        B.TextColor3 = color or Color3.new(1,1,1)
-        B.Font = Enum.Font.Code
-        B.TextSize = 10
-        Instance.new("UICorner", B).CornerRadius = UDim.new(0, 4)
-        B.MouseButton1Click:Connect(func)
-    end
-
-    -- Copy All (Hapus tag rich text sebelum copy agar bersih)
-    CreateBtn("COPY ALL", UDim2.new(1, -75, 0, 45), function()
-        if setclipboard then
-            local cleanText = ""
-            for _, log in ipairs(LogsCache) do
-                cleanText = cleanText .. string.format("[%s] [%s] %s\n", log.time, log.type:upper(), log.rawMsg)
-            end
-            setclipboard(cleanText)
-            
-            local oldText = LogDisplay.Text
-            LogDisplay.Text = ">> COPIED CLEAN LOGS TO CLIPBOARD <<"
-            task.wait(0.5)
-            LogDisplay.Text = oldText
-        end
-    end, Color3.fromRGB(100, 255, 100))
-
-    CreateBtn("NUKE", UDim2.new(1, -145, 0, 45), function()
-        if getgenv().FSS_Universal_Stop then getgenv().FSS_Universal_Stop() end
-        if getgenv().FSS_WaveZ_Stop then getgenv().FSS_WaveZ_Stop() end
-        AddLog("ALL SCRIPTS NUKED MANUALLY", Enum.MessageType.MessageError)
-    end, Color3.fromRGB(255, 80, 80))
-
-    -- Minimize & Close
     local MinBtn = Instance.new("TextButton")
     MinBtn.Parent = Main; MinBtn.Text = "-"; MinBtn.BackgroundTransparency = 1
     MinBtn.Size = UDim2.new(0, 25, 0, 25); MinBtn.Position = UDim2.new(1, -55, 0, 8)
@@ -347,7 +599,7 @@ Active: %s]],
         if not p and i.KeyCode == Enum.KeyCode.F10 then Main.Visible = not Main.Visible end
     end)
 
-    AddLog("Debugger V4.2 Loaded. RichText Enabled.", Enum.MessageType.MessageOutput)
+    AddLog("Debugger V4.3 Loaded. Scanner Module Active.", Enum.MessageType.MessageOutput)
 end
 
 return Debugger
