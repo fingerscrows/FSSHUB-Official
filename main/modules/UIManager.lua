@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V3.1 (POLISHED STATE) ]] --
--- Status: "Modern App" Experience. Keybinds Fixed. Reset Fixed.
+-- [[ FSSHUB: UI MANAGER V3.2 (STABILITY PATCH) ]] --
+-- Status: Crash Fixed. Auto-Save Robustness Increased.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager V3.1 Loading...")
+print("[FSSHUB DEBUG] UIManager V3.2 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -107,6 +107,7 @@ local function SaveState()
     pcall(function()
         writefile(AutoSaveFile, HttpService:JSONEncode(data))
     end)
+    -- print("[FSSHUB] Auto-Saved State")
 end
 
 -- [[ 3. MAIN BUILDER ]] --
@@ -185,7 +186,6 @@ function UIManager.Build(GameConfig, AuthData)
                     -- Handle Attached Keybind
                     local savedKey = SavedState[element.Title .. "_Keybind"]
                     if newItem.SetKeybind then
-                         -- Use defer to prevent init overrides
                          task.defer(function()
                              if savedKey then
                                  newItem.SetKeybind(SafeEnum(savedKey))
@@ -276,7 +276,7 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
 
-    -- Utilities (Restored)
+    -- Utilities
     local Utils_Group = SettingsTab:Group("Utilities")
     
     Utils_Group:Button("Reset All Features", function()
@@ -327,8 +327,23 @@ function UIManager.Build(GameConfig, AuthData)
         end
     end)
 
-    -- 2. Exit Save
-    game:BindToClose(SaveState)
+    -- 2. Exit Save (Crash Safe)
+    pcall(function()
+        if game.OnClose then
+             game.OnClose = function() SaveState() end
+        end
+
+        game:BindToClose(function()
+            SaveState()
+        end)
+    end)
+
+    -- 3. Teleport Save
+    if LocalPlayer.OnTeleport then
+        LocalPlayer.OnTeleport:Connect(function()
+            SaveState()
+        end)
+    end
 
     -- Welcome
     task.delay(1, function()
