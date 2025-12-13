@@ -260,8 +260,27 @@ end
 local function Cleanup()
     print("[FSSHUB] Universal Unload (Via Utils)...")
 
+    -- [[ Hawk Fix: Conflict Resolution ]] --
+    -- Utils:DeepClean resets Speed/Jump to 16/50.
+    -- We must capture original values locally to override DeepClean if needed.
+    local restoreSpeed = State.OriginalSpeed
+    local restoreJump = State.OriginalJump
+
     if Utils then
         Utils:DeepClean()
+    end
+
+    -- Manually restore values if they differ from default
+    if LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if hum then
+            if restoreSpeed and restoreSpeed ~= 16 then
+                hum.WalkSpeed = restoreSpeed
+            end
+            if restoreJump and restoreJump ~= 50 then
+                hum.JumpPower = restoreJump
+            end
+        end
     end
 
     State.SpeedEnabled = false
