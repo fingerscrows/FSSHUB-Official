@@ -267,10 +267,31 @@ function library:Init()
         local Btn = Create("TextButton", {Parent = ToggleFrame, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "FSS", Font = Enum.Font.GothamBlack})
         library:RegisterTheme(Btn, "TextColor3", "Accent")
         
-        Btn.MouseButton1Click:Connect(function() if gui:FindFirstChild("MainFrame") then gui.MainFrame.Visible = not gui.MainFrame.Visible end end)
+        Btn.MouseButton1Click:Connect(function() library:Toggle() end)
     end
     
     return gui
+end
+
+function library:Toggle()
+    if not self.base then return end
+    local MainFrame = self.base:FindFirstChild("MainFrame")
+    if not MainFrame then return end
+
+    self.open = not self.open
+
+    if self.open then
+        MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 550, 0, 350)}):Play()
+        -- Restore children transparency if needed, but Visible handles main visibility.
+    else
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not self.open then MainFrame.Visible = false end
+        end)
+    end
 end
 
 function library:Window(title)
@@ -281,7 +302,7 @@ function library:Window(title)
     
     local MainFrame = Create("Frame", {
         Name = "MainFrame", Parent = self.base, Size = UDim2.new(0, 550, 0, 350), 
-        Position = UDim2.new(0.5, -275, 0.5, -175), BorderSizePixel = 0
+        Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0
     })
     library:RegisterTheme(MainFrame, "BackgroundColor3", "Main")
     table.insert(library.transparencyFrames, MainFrame)
@@ -380,6 +401,10 @@ function library:Window(title)
                     t.label.TextColor3 = library.theme.Text
                     if t.icon then t.icon.ImageColor3 = library.theme.Text end
                     t.page.CanvasSize = UDim2.new(0, 0, 0, t.page.UIListLayout.AbsoluteContentSize.Y + 20)
+
+                    -- Slide Up Animation
+                    t.page.Position = UDim2.new(0, 0, 0, 20)
+                    TweenService:Create(t.page, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
                 else
                     t.page.Visible = false; t.indicator.Visible = false
                     t.label.TextColor3 = library.theme.TextDim

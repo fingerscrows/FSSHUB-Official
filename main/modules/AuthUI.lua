@@ -60,9 +60,12 @@ function AuthUI.Show(options)
     
     local Main = Instance.new("Frame", Screen)
     Main.BackgroundColor3 = Theme.Bg
-    Main.Size = UDim2.new(0, 380, 0, 240)
+    Main.Size = UDim2.new(0, 0, 0, 0) -- Start small for pop-in
     Main.Position = UDim2.new(0.5, 0, 0.5, 0)
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
+
+    -- Pop-in Animation
+    TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 380, 0, 240)}):Play()
     
     local Corner = Instance.new("UICorner", Main)
     Corner.CornerRadius = UDim.new(0, 12)
