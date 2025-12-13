@@ -122,8 +122,8 @@ function library:Notify(title, text, duration)
     if not Holder then
         Holder = Create("Frame", {
             Name = "FSS_Notifications", Parent = self.base,
-            -- Compact Size & Bottom Right Positioning (Roblox style)
-            Size = UDim2.new(0, 220, 0.8, 0), Position = UDim2.new(1, -10, 1, -20),
+            -- Native Roblox Style: Wider (280px) & 20px Margin
+            Size = UDim2.new(0, 280, 0.8, 0), Position = UDim2.new(1, -20, 1, -20),
             AnchorPoint = Vector2.new(1, 1), BackgroundTransparency = 1
         })
         Create("UIListLayout", {
