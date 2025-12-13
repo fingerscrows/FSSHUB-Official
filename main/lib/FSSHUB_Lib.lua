@@ -321,7 +321,8 @@ local function AddTooltip(targetObj, text)
             tooltipGui = Instance.new("ScreenGui")
             tooltipGui.Name = "FSS_Tooltip"
             tooltipGui.Parent = targetParent
-            tooltipGui.DisplayOrder = 100
+            -- [FIX] Ensure Tooltip is above Main GUI (9999)
+            tooltipGui.DisplayOrder = 10000
 
             local Container = Instance.new("Frame")
             Container.Parent = tooltipGui
