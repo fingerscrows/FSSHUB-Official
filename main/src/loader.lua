@@ -7,7 +7,10 @@ if not game:IsLoaded() then
 end
 
 -- Anti-Cache dengan os.time() untuk memastikan selalu mendapat update terbaru
-local BASE_URL = "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
+local BASE_URL = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/fsshub-official/main/"
+if getgenv().FSSHUB_DEV_BASE then
+    warn("[SENTINEL] Dev Mode Active: Loading Core from Custom URL")
+end
 local CORE_URL = BASE_URL .. "main/src/Core.lua?v=" .. tostring(os.time())
 
 local function Boot()
