@@ -1,5 +1,5 @@
--- [[ FSSHUB MODULE: DEV SUITE V4.3 (SCANNER EDITION) ]] --
--- Features: F10 Toggle, RichText Logs, Tab System, Smart Object Scanner
+-- [[ FSSHUB MODULE: DEV SUITE V4.4 (AUTO-DISCOVERY SCANNER) ]] --
+-- Features: Tab System, Smart Scanner, Auto-Discovery Dropdowns, Recent History
 -- Path: main/modules/Debugger.lua
 
 local Debugger = {}
@@ -34,7 +34,7 @@ function Debugger.Show()
     Main.Size = UDim2.new(0, 700, 0, 500)
     Main.Active = true
     Main.Draggable = true 
-    Main.ClipsDescendants = true 
+    Main.ClipsDescendants = false -- Changed to false for Dropdowns to overflow
 
     Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
     local Stroke = Instance.new("UIStroke", Main)
@@ -48,7 +48,7 @@ function Debugger.Show()
     Title.Position = UDim2.new(0, 15, 0, 10)
     Title.Size = UDim2.new(1, -100, 0, 20)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "FSSHUB DEBUGGER [F10] | V4.3"
+    Title.Text = "FSSHUB DEBUGGER [F10] | V4.4"
     Title.TextColor3 = Color3.fromRGB(140, 80, 255)
     Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -83,16 +83,14 @@ function Debugger.Show()
 
         Btn.MouseButton1Click:Connect(function()
             SwitchTab(tabName)
-            -- Visual update for active tab could be added here
         end)
     end
 
     CreateTabBtn("[CONSOLE]", 0, "Console")
     CreateTabBtn("[SCANNER]", 90, "Scanner")
 
-
     -- ====================================================================
-    -- [[ TAB: CONSOLE (EXISTING LOGIC) ]]
+    -- [[ TAB: CONSOLE ]]
     -- ====================================================================
     local ConsoleTab = Instance.new("Frame")
     ConsoleTab.Name = "ConsoleTab"
@@ -100,6 +98,7 @@ function Debugger.Show()
     ConsoleTab.BackgroundTransparency = 1
     ConsoleTab.Size = UDim2.new(1, 0, 1, -40)
     ConsoleTab.Position = UDim2.new(0, 0, 0, 40)
+    ConsoleTab.ClipsDescendants = true
     Tabs["Console"] = ConsoleTab
 
     -- Control Bar
@@ -151,7 +150,7 @@ function Debugger.Show()
     -- Stats Toggle
     local StatsVisible = false
     local MonitorFrame = Instance.new("Frame")
-    MonitorFrame.Parent = Main -- Keep Monitor on top level
+    MonitorFrame.Parent = Main
     MonitorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     MonitorFrame.Size = UDim2.new(0, 200, 1, -85)
     MonitorFrame.Position = UDim2.new(1, -210, 0, 80)
@@ -218,7 +217,6 @@ function Debugger.Show()
     LogDisplay.RichText = true
     LogDisplay.Text = "Waiting for logs..."
 
-    -- Console Data Logic (Existing)
     local LogsCache = {}
     local function EscapeXml(str)
         return str:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub("\"", "&quot;"):gsub("'", "&apos;")
@@ -270,16 +268,11 @@ function Debugger.Show()
     SearchInput:GetPropertyChangedSignal("Text"):Connect(RefreshLogs)
     LogService.MessageOut:Connect(AddLog)
 
-    -- Copy Button (Console)
     local CopyBtn = Instance.new("TextButton")
     CopyBtn.Parent = ConsoleTab
     CopyBtn.Text = "COPY ALL"
     CopyBtn.Size = UDim2.new(0, 60, 0, 20)
-    CopyBtn.Position = UDim2.new(1, -75, 0, 45) -- Relative to ConsoleTab content area? No, original was Main.
-    -- Adjusting position to be inside ConsoleTab or Main?
-    -- Original layout had buttons at bottom. Let's keep them at bottom of Main, but show/hide based on tab if needed.
-    -- Actually, for cleanliness, let's put them inside the tab.
-    CopyBtn.Position = UDim2.new(1, -75, 1, -30) -- Bottom Right of ConsoleTab
+    CopyBtn.Position = UDim2.new(1, -75, 1, -30)
     CopyBtn.BackgroundColor3 = Color3.fromRGB(40,40,50)
     CopyBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
     CopyBtn.Font = Enum.Font.Code
@@ -315,9 +308,8 @@ function Debugger.Show()
         AddLog("ALL SCRIPTS NUKED MANUALLY", Enum.MessageType.MessageError)
     end)
 
-
     -- ====================================================================
-    -- [[ TAB: SCANNER (NEW LOGIC) ]]
+    -- [[ TAB: SCANNER (AUTO-DISCOVERY) ]]
     -- ====================================================================
     local ScannerTab = Instance.new("Frame")
     ScannerTab.Name = "ScannerTab"
@@ -326,7 +318,129 @@ function Debugger.Show()
     ScannerTab.Size = UDim2.new(1, 0, 1, -40)
     ScannerTab.Position = UDim2.new(0, 0, 0, 40)
     ScannerTab.Visible = false
+    ScannerTab.ClipsDescendants = false -- Important for Dropdowns
     Tabs["Scanner"] = ScannerTab
+
+    -- Recent Paths History
+    local RecentPaths = {}
+
+    -- [[ COMBOBOX COMPONENT ]] --
+    local function CreateCombobox(parent, position, size, placeholder, getItemsFunc)
+        local Container = Instance.new("Frame")
+        Container.Parent = parent
+        Container.Position = position
+        Container.Size = size
+        Container.BackgroundTransparency = 1
+        Container.ZIndex = 5
+
+        local Input = Instance.new("TextBox")
+        Input.Parent = Container
+        Input.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        Input.Size = UDim2.new(1, -20, 1, 0)
+        Input.Font = Enum.Font.Code
+        Input.Text = ""
+        Input.PlaceholderText = placeholder
+        Input.TextColor3 = Color3.fromRGB(220, 220, 220)
+        Input.TextSize = 11
+        Instance.new("UICorner", Input).CornerRadius = UDim.new(0, 4)
+
+        local ArrowBtn = Instance.new("TextButton")
+        ArrowBtn.Parent = Container
+        ArrowBtn.Position = UDim2.new(1, -20, 0, 0)
+        ArrowBtn.Size = UDim2.new(0, 20, 1, 0)
+        ArrowBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+        ArrowBtn.Text = "v"
+        ArrowBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        ArrowBtn.Font = Enum.Font.Code
+        ArrowBtn.TextSize = 12
+        Instance.new("UICorner", ArrowBtn).CornerRadius = UDim.new(0, 4)
+
+        local DropList = Instance.new("ScrollingFrame")
+        DropList.Parent = Container
+        DropList.Position = UDim2.new(0, 0, 1, 2)
+        DropList.Size = UDim2.new(1, 0, 0, 150)
+        DropList.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        DropList.BorderSizePixel = 0
+        DropList.Visible = false
+        DropList.ZIndex = 10 -- Floating on top
+        DropList.CanvasSize = UDim2.new(0, 0, 0, 0)
+        DropList.ScrollBarThickness = 4
+        Instance.new("UICorner", DropList).CornerRadius = UDim.new(0, 4)
+        local DStroke = Instance.new("UIStroke", DropList)
+        DStroke.Color = Color3.fromRGB(60,60,70); DStroke.Thickness = 1
+
+        local Layout = Instance.new("UIListLayout", DropList)
+        Layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        local function Close()
+            DropList.Visible = false
+        end
+
+        local function Populate()
+            for _, c in ipairs(DropList:GetChildren()) do
+                if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+            end
+
+            local rawItems = getItemsFunc()
+            local filter = Input.Text:lower()
+            local count = 0
+
+            for _, item in ipairs(rawItems) do
+                local text = type(item) == "table" and item.text or item
+                local isHeader = type(item) == "table" and item.header
+
+                -- Header Logic (Recent)
+                if isHeader then
+                   local L = Instance.new("TextLabel")
+                   L.Parent = DropList
+                   L.Size = UDim2.new(1, 0, 0, 15)
+                   L.BackgroundTransparency = 1
+                   L.Text = "  " .. text
+                   L.Font = Enum.Font.GothamBold
+                   L.TextSize = 9
+                   L.TextColor3 = Color3.fromRGB(140, 80, 255)
+                   L.TextXAlignment = Enum.TextXAlignment.Left
+                else
+                    if filter == "" or text:lower():find(filter, 1, true) then
+                        count = count + 1
+                        if count > 100 then break end -- Performance Cap
+
+                        local B = Instance.new("TextButton")
+                        B.Parent = DropList
+                        B.Size = UDim2.new(1, -4, 0, 20)
+                        B.BackgroundTransparency = 1
+                        B.Text = "  " .. text
+                        B.Font = Enum.Font.Code
+                        B.TextSize = 11
+                        B.TextColor3 = Color3.fromRGB(200, 200, 200)
+                        B.TextXAlignment = Enum.TextXAlignment.Left
+
+                        B.MouseButton1Click:Connect(function()
+                            Input.Text = text
+                            Close()
+                        end)
+                    end
+                end
+            end
+
+            local totalHeight = 0
+            for _, c in ipairs(DropList:GetChildren()) do
+                if c:IsA("GuiObject") then totalHeight = totalHeight + c.Size.Y.Offset end
+            end
+            DropList.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+        end
+
+        Input:GetPropertyChangedSignal("Text"):Connect(function()
+            if DropList.Visible then Populate() end
+        end)
+
+        ArrowBtn.MouseButton1Click:Connect(function()
+            DropList.Visible = not DropList.Visible
+            if DropList.Visible then Populate() end
+        end)
+
+        return Input
+    end
 
     -- Input Bar
     local ScannerBar = Instance.new("Frame")
@@ -336,29 +450,77 @@ function Debugger.Show()
     ScannerBar.Position = UDim2.new(0, 10, 0, 0)
     Instance.new("UICorner", ScannerBar).CornerRadius = UDim.new(0, 6)
 
-    local PathInput = Instance.new("TextBox")
-    PathInput.Parent = ScannerBar
-    PathInput.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    PathInput.Size = UDim2.new(0, 150, 0, 25)
-    PathInput.Position = UDim2.new(0, 5, 0.5, -12.5)
-    PathInput.Font = Enum.Font.Code
-    PathInput.Text = "workspace.ServerZombies"
-    PathInput.PlaceholderText = "Target Path..."
-    PathInput.TextColor3 = Color3.fromRGB(220, 220, 220)
-    PathInput.TextSize = 11
-    Instance.new("UICorner", PathInput).CornerRadius = UDim.new(0, 4)
+    -- Resolve Path Helper
+    local function ResolvePath(pathStr)
+        if pathStr == "" then return nil end
+        local segments = pathStr:split(".")
+        local current = game
+        if segments[1] == "game" then table.remove(segments, 1) end
 
-    local ClassInput = Instance.new("TextBox")
-    ClassInput.Parent = ScannerBar
-    ClassInput.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    ClassInput.Size = UDim2.new(0, 100, 0, 25)
-    ClassInput.Position = UDim2.new(0, 160, 0.5, -12.5)
-    ClassInput.Font = Enum.Font.Code
+        for _, name in ipairs(segments) do
+            if current:FindFirstChild(name) then
+                current = current[name]
+            else
+                return nil
+            end
+        end
+        return current
+    end
+
+    -- [[ SUGGESTION LOGIC ]] --
+    local function GetPathSuggestions()
+        local list = {}
+
+        -- Recent
+        if #RecentPaths > 0 then
+            table.insert(list, {text = "RECENT", header = true})
+            for _, p in ipairs(RecentPaths) do table.insert(list, p) end
+        end
+
+        table.insert(list, {text = "SERVICES", header = true})
+        table.insert(list, "workspace")
+        table.insert(list, "game.ReplicatedStorage")
+        table.insert(list, "game.Players")
+
+        table.insert(list, {text = "WORKSPACE", header = true})
+        for _, child in ipairs(workspace:GetChildren()) do
+            if child:IsA("Folder") or child:IsA("Model") then
+                table.insert(list, "workspace." .. child.Name)
+            end
+        end
+        return list
+    end
+
+    local PathInput -- Defined later
+
+    local function GetClassSuggestions()
+        local list = {}
+        local path = PathInput.Text
+        local target = ResolvePath(path)
+
+        if target then
+            local classes = {}
+            for _, child in ipairs(target:GetChildren()) do
+                classes[child.ClassName] = true
+            end
+            for cName, _ in pairs(classes) do
+                table.insert(list, cName)
+            end
+            table.sort(list)
+        else
+            table.insert(list, "Model")
+            table.insert(list, "Part")
+            table.insert(list, "Folder")
+        end
+        return list
+    end
+
+    -- Create Dropdowns
+    PathInput = CreateCombobox(ScannerBar, UDim2.new(0, 5, 0.5, -12.5), UDim2.new(0, 180, 0, 25), "Target Path...", GetPathSuggestions)
+    local ClassInput = CreateCombobox(ScannerBar, UDim2.new(0, 190, 0.5, -12.5), UDim2.new(0, 120, 0, 25), "Class Filter", GetClassSuggestions)
+
+    PathInput.Text = "workspace.ServerZombies"
     ClassInput.Text = "Model"
-    ClassInput.PlaceholderText = "ClassName..."
-    ClassInput.TextColor3 = Color3.fromRGB(220, 220, 220)
-    ClassInput.TextSize = 11
-    Instance.new("UICorner", ClassInput).CornerRadius = UDim.new(0, 4)
 
     local ScanBtn = Instance.new("TextButton")
     ScanBtn.Parent = ScannerBar
@@ -391,7 +553,7 @@ function Debugger.Show()
     ScanResultBox.TextColor3 = Color3.fromRGB(200, 200, 200)
     ScanResultBox.TextXAlignment = Enum.TextXAlignment.Left
     ScanResultBox.TextYAlignment = Enum.TextYAlignment.Top
-    ScanResultBox.TextWrapped = false -- Allow horizontal scrolling if lines are long
+    ScanResultBox.TextWrapped = false -- Allow horizontal scrolling
     ScanResultBox.MultiLine = true
     ScanResultBox.ClearTextOnFocus = false
     ScanResultBox.TextEditable = false
@@ -419,22 +581,6 @@ function Debugger.Show()
         end
     end)
 
-    -- [[ SCANNER ALGORITHM ]] --
-    local function ResolvePath(pathStr)
-        local segments = pathStr:split(".")
-        local current = game
-        if segments[1] == "game" then table.remove(segments, 1) end
-
-        for _, name in ipairs(segments) do
-            if current:FindFirstChild(name) then
-                current = current[name]
-            else
-                return nil
-            end
-        end
-        return current
-    end
-
     local function GetOrigin()
         local char = Players.LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -453,6 +599,14 @@ function Debugger.Show()
         if not target then
             ScanResultBox.Text = "[ERROR] Target path not found: " .. pathStr
             return
+        end
+
+        -- Add to Recent (Deduplicate & Cap to 3)
+        local isNew = true
+        for _, p in ipairs(RecentPaths) do if p == pathStr then isNew = false break end end
+        if isNew then
+            table.insert(RecentPaths, 1, pathStr)
+            if #RecentPaths > 3 then table.remove(RecentPaths, #RecentPaths) end
         end
 
         local results = {}
@@ -488,24 +642,23 @@ function Debugger.Show()
                     distStr = dist .. " studs"
                 end
 
-                -- Smart Peek (Expanded)
+                -- Smart Peek
                 if child:IsA("Model") then
                     local hum = child:FindFirstChild("Humanoid")
                     if hum then
                         info = string.format("HP: %d/%d", hum.Health, hum.MaxHealth)
                     else
-                        -- Generic Model check
                         info = string.format("Children: %d", #child:GetChildren())
                     end
                 elseif child:IsA("BasePart") then
                     info = string.format("Size: [%.1f, %.1f, %.1f]", child.Size.X, child.Size.Y, child.Size.Z)
                 elseif child:IsA("Tool") then
                     info = child:FindFirstChild("Handle") and "Has Handle" or "No Handle"
-                elseif child:IsA("ValueBase") then -- StringValue, IntValue, etc.
+                elseif child:IsA("ValueBase") then
                     info = string.format("Value: %s", tostring(child.Value))
                 end
 
-                -- Extended Value Scan (Look for price/id inside)
+                -- Extended Value Scan
                 for _, sub in ipairs(child:GetChildren()) do
                     if sub:IsA("ValueBase") and (sub.Name:lower():find("price") or sub.Name:lower():find("id") or sub.Name:lower():find("val")) then
                         info = info .. string.format(" | %s: %s", sub.Name, tostring(sub.Value))
@@ -526,7 +679,7 @@ function Debugger.Show()
     ScanBtn.MouseButton1Click:Connect(Scan)
 
 
-    -- [[ GLOBAL UPDATE LOOP (MONITOR) ]] --
+    -- [[ GLOBAL UPDATE LOOP ]] --
     task.spawn(function()
         while Main.Parent do
             if Main.Visible and StatsVisible then
@@ -599,7 +752,7 @@ Active: %s]],
         if not p and i.KeyCode == Enum.KeyCode.F10 then Main.Visible = not Main.Visible end
     end)
 
-    AddLog("Debugger V4.3 Loaded. Scanner Module Active.", Enum.MessageType.MessageOutput)
+    AddLog("Debugger V4.4 Loaded. Auto-Discovery Active.", Enum.MessageType.MessageOutput)
 end
 
 return Debugger
