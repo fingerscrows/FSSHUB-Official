@@ -1,9 +1,9 @@
--- [[ FSSHUB: UI MANAGER V8.1 (FULL INTEGRITY) ]] --
--- Status: No logic compression. All features expanded.
+-- [[ FSSHUB: UI MANAGER V2.0 (ARCHITECT OVERHAUL) ]] --
+-- Status: Set and Forget System. Robust Serialization.
 -- Path: main/modules/UIManager.lua
 
 local UIManager = {}
-print("[FSSHUB DEBUG] UIManager Loaded")
+print("[FSSHUB DEBUG] UIManager V2.0 Loading...")
 
 local BaseUrl = getgenv().FSSHUB_DEV_BASE or "https://raw.githubusercontent.com/fingerscrows/FSSHUB-Official/main/"
 local LIB_URL = BaseUrl .. "main/lib/FSSHUB_Lib.lua"
@@ -16,25 +16,19 @@ local LocalPlayer = Players.LocalPlayer
 local StoredConfig = nil
 local StoredAuth = nil
 local LibraryInstance = nil
+local ConfigItems = {} -- Global registry for UI elements
+local ActiveConfig = "Default" -- Tracks currently loaded config
+
+-- [[ FILE SYSTEM SETUP ]] --
 local ConfigFolder = "FSSHUB_Settings"
+if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
--- Memastikan folder config utama ada
-if not isfolder(ConfigFolder) then 
-    makefolder(ConfigFolder) 
-end
-
--- [GAME SPECIFIC FOLDER]
--- Membuat folder khusus untuk game ID ini agar config tidak tercampur
 local GameFolder = ConfigFolder .. "/" .. tostring(game.GameId)
-if not isfolder(GameFolder) then
-    makefolder(GameFolder)
-end
+if not isfolder(GameFolder) then makefolder(GameFolder) end
 
--- Path untuk file Auto Load
-local AutoLoadFile = GameFolder .. "/_autoload.dat"
+local LastUsedFile = GameFolder .. "/_last_used.dat"
 
--- [DATABASE IKON TERPUSAT]
--- Ini memperbaiki masalah icon yang hilang di tab selain dashboard
+-- [[ DATABASE IKON TERPUSAT ]] --
 local IconLibrary = {
     ["Dashboard"] = "10888331510",
     ["Settings"]  = "10888336262",
@@ -47,13 +41,113 @@ local IconLibrary = {
     ["Teleport"]  = "10888337728"
 }
 
--- [AUTO-LOAD PURGE]
--- Menghapus file auto-load lama saat script dijalankan manual (bukan dari auto-exec)
--- Ini mencegah script menyala sendiri dan stuck saat baru login
-if isfile(AutoLoadFile) then
-    delfile(AutoLoadFile)
+-- [[ UNIVERSAL SERIALIZER ]] --
+local function Serialize(val)
+    local t = typeof(val)
+    if t == "Color3" then
+        return {R = val.R, G = val.G, B = val.B}
+    elseif t == "Vector3" then
+        return {X = val.X, Y = val.Y, Z = val.Z}
+    elseif t == "Vector2" then
+        return {X = val.X, Y = val.Y}
+    elseif t == "EnumItem" then
+        return val.Name -- Stores "Q"
+    end
+    return val
 end
 
+local function Deserialize(val)
+    if type(val) == "table" then
+        if val.R and val.G and val.B then
+            return Color3.new(val.R, val.G, val.B)
+        elseif val.X and val.Y and val.Z then
+            return Vector3.new(val.X, val.Y, val.Z)
+        elseif val.X and val.Y then
+            return Vector2.new(val.X, val.Y)
+        end
+    end
+    return val
+end
+
+-- [[ INTERNAL CONFIG SYSTEM ]] --
+local function SaveConfigInternal()
+    if not LibraryInstance then return end
+
+    local data = {}
+    for key, val in pairs(LibraryInstance.flags) do
+        data[key] = Serialize(val)
+    end
+
+    local success, err = pcall(function()
+        writefile(GameFolder .. "/" .. ActiveConfig .. ".json", HttpService:JSONEncode(data))
+        writefile(LastUsedFile, ActiveConfig) -- Update last used
+    end)
+
+    if success then
+        print("[FSSHUB Config] Auto-Saved: " .. ActiveConfig)
+    else
+        warn("[FSSHUB Config] Save Failed: " .. tostring(err))
+    end
+end
+
+local function LoadConfigInternal(configName)
+    if not LibraryInstance then return end
+
+    local path = GameFolder .. "/" .. configName .. ".json"
+    if not isfile(path) then
+        warn("[FSSHUB Config] File not found: " .. configName)
+        return
+    end
+
+    local success, decoded = pcall(function()
+        return HttpService:JSONDecode(readfile(path))
+    end)
+
+    if not success or not decoded then
+        warn("[FSSHUB Config] Decode Failed for: " .. configName)
+        return
+    end
+
+    ActiveConfig = configName
+    writefile(LastUsedFile, ActiveConfig) -- Update last used
+
+    for key, rawVal in pairs(decoded) do
+        local val = Deserialize(rawVal)
+        local item = ConfigItems[key]
+
+        -- Special Handling: Keybinds (String -> Enum)
+        if item and item.SetKeybind and type(val) == "string" then
+            if Enum.KeyCode[val] then
+                val = Enum.KeyCode[val]
+            end
+        end
+
+        -- Update Memory
+        LibraryInstance.flags[key] = val
+
+        -- Update UI Visuals
+        if item then
+            if item.SetKeybind then
+                item.SetKeybind(val)
+            elseif item.Set then
+                item.Set(val)
+            end
+        end
+    end
+
+    -- Refresh Theme if registry exists
+    if LibraryInstance.themeRegistry then
+        for _, item in ipairs(LibraryInstance.themeRegistry) do
+            if item.Type == "Func" then pcall(item.Func) end
+        end
+    end
+
+    if LibraryInstance.Notify then
+        LibraryInstance:Notify("Config System", "Loaded: " .. configName, 3)
+    end
+end
+
+-- [[ MAIN BUILDER ]] --
 local function LoadLibrary()
     if LibraryInstance then return LibraryInstance end
     local success, lib = pcall(function() return loadstring(game:HttpGet(LIB_URL .. "?t=" .. tostring(math.random(1, 10000))))() end)
@@ -71,14 +165,13 @@ end
 function UIManager.Build(GameConfig, AuthData)
     StoredConfig = GameConfig
     StoredAuth = AuthData
+    ConfigItems = {} -- Reset items
     
     local Library = LoadLibrary()
     if not Library then 
         game.StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Library failed to load.", Duration = 5})
         return 
     end
-
-    print("[FSSHUB DEBUG] Building Window...")
 
     local statusIcon = "👤"
     if AuthData then
@@ -90,44 +183,32 @@ function UIManager.Build(GameConfig, AuthData)
     
     local Window = Library:Window("FSSHUB | " .. string.upper(GameConfig.Name or "Script"))
     
-    -- [[ 1. DASHBOARD TAB ]] --
+    -- [[ 1. DASHBOARD ]] --
     local ProfileTab = Window:Section("Dashboard", IconLibrary["Dashboard"])
     
     if AuthData then
-        -- Announcement Section
         if AuthData.MOTD and AuthData.MOTD ~= "" then 
             ProfileTab:Paragraph("📢 ANNOUNCEMENT", AuthData.MOTD) 
         end
         
-        -- Game Info Group
         local GameGroup = ProfileTab:Group("Game Information")
         local modeText = AuthData.IsUniversal and "⚠️ Universal Mode" or "✅ Official Support"
-        
         GameGroup:Label("Game Name: " .. (AuthData.GameName or "Unknown"))
         GameGroup:Label("Script Type: " .. modeText)
         
-        -- User Info Group
         local UserGroup = ProfileTab:Group("User Information")
         UserGroup:Label("License Type: " .. statusIcon .. " " .. AuthData.Type)
         UserGroup:Label("Access Key: " .. (AuthData.Key and string.sub(AuthData.Key, 1, 12) .. "..." or "Hidden"))
         
-        -- Expiry Countdown
         local TimerLabel = UserGroup:Label("Expiry: Syncing...")
-        
         task.spawn(function()
-            -- Safety check untuk data expiry
             if not AuthData.Expiry or AuthData.Expiry == 0 then 
                 TimerLabel.Text = "Expiry: PERMANENT"
                 return 
             end
-            
-            while true do
-                if not TimerLabel.Parent then break end -- Stop loop if UI is destroyed
-
+            while TimerLabel.Parent do
                 local t = os.time()
                 local left = AuthData.Expiry - t
-                
-                -- Cek ambang batas permanent (Tahun 2255+)
                 if AuthData.Expiry > 9000000000 then 
                     TimerLabel.Text = "Expiry: PERMANENT"
                     break
@@ -146,15 +227,10 @@ function UIManager.Build(GameConfig, AuthData)
     end
     ProfileTab:Label("Credits: FingersCrows")
 
-    -- [[ 2. GAME FEATURES GENERATOR ]] --
-    -- Kita simpan referensi item agar bisa diakses oleh Config System
-    local ConfigItems = {} 
-    
+    -- [[ 2. GENERATOR LOOP ]] --
     if GameConfig.Tabs then
         for _, tabData in ipairs(GameConfig.Tabs) do
-            -- Icon Resolution: Check database or use raw input
             local finalIcon = IconLibrary[tabData.Icon] or tabData.Icon
-            
             local Tab = Window:Section(tabData.Name, finalIcon)
             
             for _, element in ipairs(tabData.Elements) do
@@ -167,79 +243,38 @@ function UIManager.Build(GameConfig, AuthData)
                 elseif element.Type == "Dropdown" then 
                     newItem = Tab:Dropdown(element.Title, element.Options, element.Default, element.Callback)
                 elseif element.Type == "Button" then 
-                    local b = Tab:Button(element.Title, element.Callback)
+                    Tab:Button(element.Title, element.Callback)
                 elseif element.Type == "Keybind" then 
-                    Tab:Keybind(element.Title, element.Default, element.Callback)
+                    newItem = Tab:Keybind(element.Title, element.Default, element.Callback)
+                elseif element.Type == "TextBox" then
+                    newItem = Tab:TextBox(element.Title, element.Default, element.Callback)
                 elseif element.Type == "Label" then 
                     Tab:Label(element.Title)
                 end
                 
-                -- Apply Keybind jika ada di config table
-                if newItem and element.Keybind and newItem.SetKeybind then 
-                    newItem.SetKeybind(element.Keybind) 
-                end
-                
-                -- Simpan ke ConfigItems jika elemen ini bisa di-set valuenya (Toggle/Slider/Dropdown)
-                if newItem and newItem.Set then
+                -- Capture Item for System
+                if newItem then
                     ConfigItems[element.Title] = newItem
+
+                    -- Initial Keybind Setup
+                    if element.Type == "Keybind" and element.Keybind and newItem.SetKeybind then
+                        newItem.SetKeybind(element.Keybind)
+                    end
                 end
             end
         end
     end
     
-    -- [[ 3. SETTINGS TAB ]] --
+    -- [[ 3. SETTINGS & CONFIG ]] --
     local SettingsTab = Window:Section("Settings", IconLibrary["Settings"])
     
-    -- Interface Group
-    local UI_Group = SettingsTab:Group("Interface Settings")
+    local Config_Group = SettingsTab:Group("Configuration System V2.0")
     
-    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
-    local themeNames = {}
-    for name, _ in pairs(safePresets) do 
-        table.insert(themeNames, name) 
-    end
-    
-    UI_Group:Dropdown("Theme", themeNames, "Select Theme", function(selected) 
-        Library:SetTheme(selected) 
-    end)
-    
-    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v) 
-        Library:SetTransparency(v/100) 
-    end)
-    
-    UI_Group:Toggle("Show Watermark", true, function(s) 
-        Library:ToggleWatermark(s) 
-    end)
-    
-    UI_Group:Dropdown("Watermark Pos", {"Top Right", "Top Left", "Bottom Right", "Bottom Left"}, "Top Right", function(p) 
-        if Library.SetWatermarkAlign then 
-            Library:SetWatermarkAlign(p) 
-        end 
-    end)
-
-    UI_Group:Toggle("Show Notifications", true, function(state)
-        Library.flags["Show Notifications"] = state
-    end)
-    
-    UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
-        if Library.base then 
-            local main = Library.base:FindFirstChild("MainFrame")
-            if main then main.Visible = not main.Visible end
-        end
-    end)
-
-    -- Config Group (Sistem Baru)
-    local Config_Group = SettingsTab:Group("Configuration System (Game Specific)")
-    local selectedConfig = "Default"
-    local newConfigName = ""
-    local ConfigDropdown -- Referensi ke objek dropdown untuk refresh
-    
-    local function GetConfigs()
+    local function GetConfigList()
         local list = {}
         if isfolder(GameFolder) then
             for _, path in ipairs(listfiles(GameFolder)) do 
                 if path:sub(-5) == ".json" then 
-                    -- Ambil nama file saja
                     local name = path:match("^.+\\(.+)$") or path:match("^.+/(.+)$")
                     name = name:gsub(".json", "")
                     table.insert(list, name) 
@@ -249,137 +284,110 @@ function UIManager.Build(GameConfig, AuthData)
         if #list == 0 then table.insert(list, "Default") end
         return list
     end
-    
-    -- Dropdown Config
-    ConfigDropdown = Config_Group:Dropdown("Select Config", GetConfigs(), "Default", function(v) 
-        selectedConfig = v 
+
+    local ConfigDropdown
+    ConfigDropdown = Config_Group:Dropdown("Select Config", GetConfigList(), ActiveConfig, function(val)
+        ActiveConfig = val
     end)
     
-    Config_Group:Button("Refresh List", function()
-        -- Fitur Refresh: Update isi dropdown secara manual
+    Config_Group:Button("Load Selected", function()
+        LoadConfigInternal(ActiveConfig)
+    end)
+    
+    Config_Group:Button("Save Selected", function()
+        SaveConfigInternal()
+        Library:Notify("Config", "Saved: " .. ActiveConfig, 2)
+    end)
+    
+    Config_Group:Label("Create New:")
+    local newConfigName = ""
+    Config_Group:TextBox("Config Name", "", function(val) newConfigName = val end)
+    
+    Config_Group:Button("Create & Save", function()
+        if newConfigName == "" then return end
+        ActiveConfig = newConfigName
+        SaveConfigInternal() -- Save immediately
+
+        -- Refresh UI
         if ConfigDropdown and ConfigDropdown.Refresh then
-            local newList = GetConfigs()
-            ConfigDropdown.Refresh(newList, selectedConfig)
-            Library:Notify("System", "Config list refreshed.", 2)
+            ConfigDropdown.Refresh(GetConfigList(), ActiveConfig)
         end
+        Library:Notify("Config", "Created: " .. ActiveConfig, 2)
     end)
     
-    Config_Group:Button("Load Config", function()
-        local path = GameFolder .. "/" .. selectedConfig .. ".json"
-        if isfile(path) then
-            local data = HttpService:JSONDecode(readfile(path))
-            
-            -- Load ke Library Flags (Memory)
-            for title, value in pairs(data) do 
-                Library.flags[title] = value 
-                -- Load ke UI Visual (Slider/Toggle bergerak)
-                if ConfigItems[title] then 
-                    ConfigItems[title].Set(value) 
-                end
-            end
-            
-            -- Refresh visual element jika menggunakan registry (Update warna tema jika ikut tersimpan)
-            if Library.themeRegistry then 
-                for _, item in ipairs(Library.themeRegistry) do 
-                    if item.Type == "Func" then pcall(item.Func) end 
-                end 
-            end
-            
-            Library:Notify("Config", "Loaded: " .. selectedConfig, 3)
-        else
-            Library:Notify("Error", "Config file not found!", 3)
-        end
-    end)
-    
-    Config_Group:Button("Save / Overwrite Config", function()
-        -- Menyimpan seluruh flags library ke file
-        writefile(GameFolder .. "/" .. selectedConfig .. ".json", HttpService:JSONEncode(Library.flags))
-        Library:Notify("Config", "Saved: " .. selectedConfig, 3)
-    end)
-    
-    -- Create New Config Section
-    Config_Group:Label("Create New Config:")
-    Config_Group:TextBox("New Config Name", "", function(val) 
-        newConfigName = val 
-    end)
-    
-    Config_Group:Button("Create Config", function()
-        if newConfigName == "" then 
-            Library:Notify("Error", "Please enter a name first!", 3) 
+    Config_Group:Button("Delete Selected", function()
+        if ActiveConfig == "Default" then
+            Library:Notify("Error", "Cannot delete Default", 2)
             return 
         end
         
-        writefile(GameFolder .. "/" .. newConfigName .. ".json", HttpService:JSONEncode(Library.flags))
-        Library:Notify("Config", "Created: " .. newConfigName, 3)
+        local path = GameFolder .. "/" .. ActiveConfig .. ".json"
+        if isfile(path) then delfile(path) end
         
-        -- Auto Refresh Dropdown dan pilih config baru
+        ActiveConfig = "Default"
         if ConfigDropdown and ConfigDropdown.Refresh then
-            selectedConfig = newConfigName
-            local list = GetConfigs()
-            ConfigDropdown.Refresh(list, newConfigName)
+            ConfigDropdown.Refresh(GetConfigList(), ActiveConfig)
         end
+        Library:Notify("Config", "Deleted", 2)
     end)
 
-    Config_Group:Button("Delete Selected Config", function()
-        local path = GameFolder .. "/" .. selectedConfig .. ".json"
-        if isfile(path) and selectedConfig ~= "Default" then
-            delfile(path)
-            Library:Notify("Config", "Deleted: " .. selectedConfig, 3)
-            
-            -- Reset ke Default setelah delete
-            selectedConfig = "Default"
-            if ConfigDropdown and ConfigDropdown.Refresh then
-                local list = GetConfigs()
-                ConfigDropdown.Refresh(list, "Default")
-            end
-        else
-            Library:Notify("Error", "Cannot delete Default/Missing", 3)
+    -- Interface Settings
+    local UI_Group = SettingsTab:Group("Interface Settings")
+
+    local safePresets = Library.presets or { ["FSS Purple"] = {Accent = Color3.fromRGB(140, 80, 255)} }
+    local themeNames = {}
+    for name, _ in pairs(safePresets) do table.insert(themeNames, name) end
+
+    UI_Group:Dropdown("Theme", themeNames, "FSS Purple", function(selected)
+        Library:SetTheme(selected)
+    end)
+    
+    UI_Group:Slider("Menu Transparency", 0, 90, 0, function(v)
+        Library:SetTransparency(v/100)
+    end)
+    
+    UI_Group:Toggle("Show Watermark", true, function(s) Library:ToggleWatermark(s) end)
+    
+    UI_Group:Keybind("Hide/Show Menu", Enum.KeyCode.RightControl, function()
+        if Library.base then
+            local main = Library.base:FindFirstChild("MainFrame")
+            if main then main.Visible = not main.Visible end
         end
     end)
     
-    -- Auto Load Feature
-    local isAutoLoad = isfile(AutoLoadFile) and (readfile(AutoLoadFile) == selectedConfig)
-    Config_Group:Toggle("Auto Load This Config", isAutoLoad, function(state)
-        if state then
-            writefile(AutoLoadFile, selectedConfig)
-            Library:Notify("Auto Load", "Enabled for: " .. selectedConfig, 3)
-        else
-            if isfile(AutoLoadFile) then delfile(AutoLoadFile) end
-            Library:Notify("Auto Load", "Disabled", 3)
-        end
-    end)
-    
-    -- 3. Utilities Group
+    -- Utilities
     local Utils_Group = SettingsTab:Group("Utilities")
     
-    Utils_Group:Button("Reset All Features", function()
-        for title, item in pairs(ConfigItems) do
-            -- Matikan semua toggle / reset slider ke min
-            if item.Set then item.Set(false) end 
-        end
-        Library:Notify("System", "All settings reset to default", 3)
-    end)
-    
-    Utils_Group:Button("Rejoin Server", function() 
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) 
-    end)
-    
-    if AuthData and AuthData.IsDev then
-         Utils_Group:Button("Open Debug Console", function()
-            local dbgUrl = BaseUrl .. "main/modules/Debugger.lua"
-            local s, m = pcall(function() return loadstring(game:HttpGet(dbgUrl .. "?t=" .. tostring(math.random(1,10000))))() end)
-            if s and m then m.Show() end
-        end)
-    end
-    
     Utils_Group:Button("Unload Script", function()
+        SaveConfigInternal() -- Auto Save on exit
         if GameConfig.OnUnload then pcall(GameConfig.OnUnload) end
         if Library.base then Library.base:Destroy() end
     end)
 
-    -- Welcome Notification
+    -- [[ AUTO-PILOT LOGIC ]] --
+
+    -- 1. Auto Load on Startup
+    if isfile(LastUsedFile) then
+        local last = readfile(LastUsedFile)
+        if isfile(GameFolder .. "/" .. last .. ".json") then
+            ActiveConfig = last
+            task.delay(0.5, function() LoadConfigInternal(ActiveConfig) end)
+        end
+    else
+        -- If no last used, try Default if exists, otherwise it stays Default
+        if isfile(GameFolder .. "/Default.json") then
+            task.delay(0.5, function() LoadConfigInternal("Default") end)
+        end
+    end
+
+    -- 2. Auto Save on Game Close
+    game:BindToClose(function()
+        SaveConfigInternal()
+    end)
+
+    -- Welcome
     task.delay(1, function()
-        Library:Notify("Welcome", "Script loaded successfully!", 5)
+        Library:Notify("Welcome", "Script loaded. Config: " .. ActiveConfig, 5)
     end)
 end
 
